@@ -12,7 +12,7 @@ A VS Code extension that scans your workspace, maps every file relationship, and
 [![VS Code](https://img.shields.io/badge/VS%20Code-%5E1.116.0-blue)](https://marketplace.visualstudio.com/items?itemName=mapmycode.mapmycode)
 [![Open Source](https://img.shields.io/badge/Open%20Source-yes-brightgreen)](https://github.com/your-username/mapmycode)
 
-[Install from Marketplace](https://marketplace.visualstudio.com/items?itemName=AyushmanTiwari.mapmycode-ai) · [Report a Bug](https://github.com/your-username/mapmycode/issues) · [Request a Feature](https://github.com/your-username/mapmycode/issues)
+[Install from Marketplace](https://marketplace.visualstudio.com/items?itemName=AyushmanTiwari.mapmycode-ai) · [Report a Bug](https://github.com/bitHead22/MapMyCode/issues) · [Request a Feature](https://github.com/bitHead22/MapMyCode/issues)
 
 </div>
 
