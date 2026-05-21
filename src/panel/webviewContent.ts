@@ -5,7 +5,7 @@ export function getWebviewContent(params: { cspSource: string; iconUris: Record<
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>RepoGraph AI</title>
+<title>MapMyCode</title>
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${cspSource} https: data:; style-src ${cspSource} 'unsafe-inline'; script-src ${cspSource} 'unsafe-inline'; font-src ${cspSource} data:;">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}

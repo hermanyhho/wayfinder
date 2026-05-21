@@ -1,4 +1,4 @@
-# Contributing to RepoGraph AI
+# Contributing to MapMyCode
 
 Thank you for taking the time to contribute. This document explains how to get set up, what the code structure looks like, and what good contributions look like.
 
@@ -9,8 +9,8 @@ Thank you for taking the time to contribute. This document explains how to get s
 **Fork and clone:**
 
 ```bash
-git clone https://github.com/your-username/repograph-ai
-cd repograph-ai
+git clone https://github.com/your-username/mapmycode
+cd mapmycode
 npm install
 npm run compile
 ```
@@ -30,13 +30,13 @@ src/
 │   └── GraphBuilder.ts       # Extracts imports and builds the dependency graph
 ├── agents/index.ts           # summarizeRepo, summarizeFiles, QAAgent
 └── panel/
-    ├── RepoGraphPanel.ts     # VS Code WebviewViewProvider, message handling
+    ├── MapMyCodePanel.ts     # VS Code WebviewViewProvider, message handling
     └── webviewContent.ts     # Entire sidebar UI as an HTML string
 ```
 
 **Data flow:**
 
-`WorkspaceScanner` reads files → `GraphBuilder` extracts imports and builds nodes/edges → `agents/index.ts` calls the AI provider to generate summaries → `RepoGraphPanel` sends results to the webview → `webviewContent.ts` renders everything.
+`WorkspaceScanner` reads files → `GraphBuilder` extracts imports and builds nodes/edges → `agents/index.ts` calls the AI provider to generate summaries → `MapMyCodePanel` sends results to the webview → `webviewContent.ts` renders everything.
 
 ---
 

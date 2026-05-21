@@ -1,16 +1,15 @@
 {
-  "name": "repograph-ai",
-  "displayName": "RepoGraph AI",
+  "name": "mapmycode",
+  "displayName": "MapMyCode",
   "description": "Visualize and understand any codebase instantly with AI-powered dependency graphs, file summaries, and codebase Q&A.",
   "version": "1.0.0",
-  "publisher": "kaushalendra",
   "license": "MIT",
 
-  "icon": "public/repograph-ai.png",
+  "icon": "public/mapmycode.png",
 
   "repository": {
     "type": "git",
-    "url": "https://github.com/Kaushalendra-Marcus/CodeGraph-AI"
+    "url": "https://github.com/bitHead22/MapMyCode"
   },
 
   "engines": {
@@ -33,29 +32,31 @@
 
   "main": "./out/extension.js",
 
+  "activationEvents": [],
+
   "contributes": {
     "commands": [
       {
-        "command": "repograph.open",
-        "title": "RepoGraph AI: Open Panel",
+        "command": "mapmycode.open",
+        "title": "MapMyCode: Open Panel",
         "icon": "$(graph)"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "repograph",
-          "title": "RepoGraph AI",
+          "id": "mapmycode",
+          "title": "MapMyCode",
           "icon": "public/assets/icon.svg"
         }
       ]
     },
     "views": {
-      "repograph": [
+      "mapmycode": [
         {
           "type": "webview",
-          "id": "repograph.mainView",
-          "name": "RepoGraph AI"
+          "id": "mapmycode.mainView",
+          "name": "MapMyCode"
         }
       ]
     }

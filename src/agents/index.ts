@@ -271,7 +271,7 @@ export class QAAgent {
   async ask(question: string): Promise<string> {
     // Build rich context from repo
     const context = this.buildContext(question);
-    const systemPrompt = `You are RepoGraph AI, an expert code analyst helping developers understand the workspace "${this.info.name}".
+    const systemPrompt = `You are MapMyCode, an expert code analyst helping developers understand the workspace "${this.info.name}".
 
 Repository Summary:
 ${this.summary.overview}

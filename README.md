@@ -1,18 +1,18 @@
 <div align="center">
 
-<img src="./public/repograph-ai.png" alt="RepoGraph AI" width="100" height="100">
+<img src="./public/mapmycode.png" alt="MapMyCode" width="100" height="100">
 
-# RepoGraph AI
+# MapMyCode
 
 **Understand any codebase in minutes, not days.**
 
 A VS Code extension that scans your workspace, maps every file relationship, and gives you AI-powered summaries and a live Q&A — all running on your own API key.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![VS Code](https://img.shields.io/badge/VS%20Code-%5E1.116.0-blue)](https://marketplace.visualstudio.com/items?itemName=repograph.repograph-ai)
-[![Open Source](https://img.shields.io/badge/Open%20Source-yes-brightgreen)](https://github.com/your-username/repograph-ai)
+[![VS Code](https://img.shields.io/badge/VS%20Code-%5E1.116.0-blue)](https://marketplace.visualstudio.com/items?itemName=mapmycode.mapmycode)
+[![Open Source](https://img.shields.io/badge/Open%20Source-yes-brightgreen)](https://github.com/your-username/mapmycode)
 
-[Install from Marketplace](#installation) · [Report a Bug](https://github.com/your-username/repograph-ai/issues) · [Request a Feature](https://github.com/your-username/repograph-ai/issues)
+[Install from Marketplace](#installation) · [Report a Bug](https://github.com/your-username/mapmycode/issues) · [Request a Feature](https://github.com/your-username/mapmycode/issues)
 
 </div>
 
@@ -20,7 +20,7 @@ A VS Code extension that scans your workspace, maps every file relationship, and
 
 ## What it does
 
-When you join a new project or explore open source code, the hardest part is not reading individual files — it is understanding how everything connects. RepoGraph AI solves that.
+When you join a new project or explore open source code, the hardest part is not reading individual files — it is understanding how everything connects. MapMyCode solves that.
 
 It scans your open workspace, extracts every import relationship across all files, builds a visual dependency graph, generates plain-English summaries for each file, and gives you an AI assistant that already knows the entire codebase. You can ask it anything.
 
@@ -72,12 +72,12 @@ TypeScript · JavaScript · Python · Go · Rust · Java · Kotlin · C · C++ �
 
 **From the VS Code Marketplace:**
 
-Search `RepoGraph AI` in the Extensions panel (`Ctrl+Shift+X`) and click Install.
+Search `MapMyCode` in the Extensions panel (`Ctrl+Shift+X`) and click Install.
 
 **From a .vsix file:**
 
 ```bash
-code --install-extension repograph-ai-1.0.0.vsix
+code --install-extension mapmycode-1.0.0.vsix
 ```
 
 ---
@@ -86,11 +86,11 @@ code --install-extension repograph-ai-1.0.0.vsix
 
 **Step 1 — Open a project**
 
-Open any folder in VS Code. RepoGraph AI works with your current workspace.
+Open any folder in VS Code. MapMyCode works with your current workspace.
 
 **Step 2 — Configure your AI provider**
 
-Click the RepoGraph icon in the activity bar on the left. Go to the **Settings** tab, pick a provider, and paste your API key. Your key is saved encrypted and never leaves your machine.
+Click the MapMyCode icon in the activity bar on the left. Go to the **Settings** tab, pick a provider, and paste your API key. Your key is saved encrypted and never leaves your machine.
 
 Get a free Groq key: https://console.groq.com/keys
 
@@ -118,7 +118,7 @@ Go to the **Analyze** tab and click **Analyze Workspace**. The extension will sc
 ## Project Structure
 
 ```
-repograph-ai/
+mapmycode/
 ├── src/
 │   ├── extension.ts              # Extension entry point
 │   ├── providers/
@@ -129,7 +129,7 @@ repograph-ai/
 │   ├── agents/
 │   │   └── index.ts              # Repo summary and Q&A agents
 │   └── panel/
-│       ├── RepoGraphPanel.ts     # VS Code WebviewViewProvider
+│       ├── MapMyCodePanel.ts     # VS Code WebviewViewProvider
 │       └── webviewContent.ts     # Full sidebar UI
 ├── assets/                       # Icons and screenshots
 ├── package.json                  # Extension manifest
@@ -143,8 +143,8 @@ repograph-ai/
 **Prerequisites:** Node.js 18+, VS Code 1.85+
 
 ```bash
-git clone https://github.com/your-username/repograph-ai
-cd repograph-ai
+git clone https://github.com/your-username/mapmycode
+cd mapmycode
 npm install
 npm run compile
 ```

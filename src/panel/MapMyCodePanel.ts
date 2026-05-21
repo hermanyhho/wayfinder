@@ -23,7 +23,7 @@ export interface AnalysisRecord {
   // We do not persist full file contents — workspace can be re-read
 }
 
-export class RepoGraphPanel implements vscode.WebviewViewProvider {
+export class MapMyCodePanel implements vscode.WebviewViewProvider {
   private view?: vscode.WebviewView;
   private provider?: AIProvider;
   private qaAgent?: QAAgent;
@@ -33,7 +33,7 @@ export class RepoGraphPanel implements vscode.WebviewViewProvider {
   private readonly output: vscode.OutputChannel;
 
   constructor(private readonly context: vscode.ExtensionContext) {
-    this.output = vscode.window.createOutputChannel("RepoGraph AI Debug");
+    this.output = vscode.window.createOutputChannel("MapMyCode Debug");
   }
 
   resolveWebviewView(
@@ -99,13 +99,13 @@ export class RepoGraphPanel implements vscode.WebviewViewProvider {
 
   private async handleSaveProvider(payload: ProviderSettings) {
     const { name, apiKey, model, baseUrl } = payload;
-    if (apiKey) await this.context.secrets.store(`repograph.${name}.apiKey`, apiKey);
-    await this.context.globalState.update("repograph.activeProvider", name);
-    await this.context.globalState.update(`repograph.${name}.model`, model);
-    if (baseUrl) await this.context.globalState.update(`repograph.${name}.baseUrl`, baseUrl);
+    if (apiKey) await this.context.secrets.store(`mapmycode.${name}.apiKey`, apiKey);
+    await this.context.globalState.update("mapmycode.activeProvider", name);
+    await this.context.globalState.update(`mapmycode.${name}.model`, model);
+    if (baseUrl) await this.context.globalState.update(`mapmycode.${name}.baseUrl`, baseUrl);
 
     try {
-      const key = apiKey || (await this.context.secrets.get(`repograph.${name}.apiKey`));
+      const key = apiKey || (await this.context.secrets.get(`mapmycode.${name}.apiKey`));
       this.provider = createProvider(name, { name, apiKey: key, model, baseUrl });
       // Re-init QA agent with new provider if analysis exists
       if (this.workspaceInfo && this.currentGraph && this.currentSummary) {
@@ -124,7 +124,7 @@ export class RepoGraphPanel implements vscode.WebviewViewProvider {
   }
 
   private async loadSavedSettings() {
-    const name = this.context.globalState.get<string>("repograph.activeProvider");
+    const name = this.context.globalState.get<string>("mapmycode.activeProvider");
     const hasWorkspace = !!(vscode.workspace.workspaceFolders?.length);
     const wsName = vscode.workspace.workspaceFolders?.[0]?.name;
 
@@ -132,9 +132,9 @@ export class RepoGraphPanel implements vscode.WebviewViewProvider {
 
     if (!name) return;
 
-    const apiKey = await this.context.secrets.get(`repograph.${name}.apiKey`);
-    const model = this.context.globalState.get<string>(`repograph.${name}.model`);
-    const baseUrl = this.context.globalState.get<string>(`repograph.${name}.baseUrl`);
+    const apiKey = await this.context.secrets.get(`mapmycode.${name}.apiKey`);
+    const model = this.context.globalState.get<string>(`mapmycode.${name}.model`);
+    const baseUrl = this.context.globalState.get<string>(`mapmycode.${name}.baseUrl`);
 
     try {
       this.provider = createProvider(name, { name, apiKey, model, baseUrl });
@@ -151,13 +151,13 @@ export class RepoGraphPanel implements vscode.WebviewViewProvider {
   // ── History management ─────────────────────────────────────────────────
 
   private getHistory(): AnalysisRecord[] {
-    return this.context.workspaceState.get<AnalysisRecord[]>("repograph.history", []);
+    return this.context.workspaceState.get<AnalysisRecord[]>("mapmycode.history", []);
   }
 
   private async saveHistory(records: AnalysisRecord[]) {
     // Keep latest 20 analyses, sorted by timestamp descending
     const trimmed = records.slice(0, 20);
-    await this.context.workspaceState.update("repograph.history", trimmed);
+    await this.context.workspaceState.update("mapmycode.history", trimmed);
   }
 
   private async restoreHistory() {
