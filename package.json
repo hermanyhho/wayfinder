@@ -1,78 +1,51 @@
 {
-  "name": "mapmycode-ai",
-  "displayName": "MapMyCode",
-  "description": "Visualize and understand any codebase instantly with AI-powered dependency graphs, file summaries, and codebase Q&A.",
-  "version": "1.0.0",
-  "publisher": "AyushmanTiwari",
+  "name": "wayfinder",
+  "displayName": "Wayfinder",
+  "description": "Shows where the open file sits in the codebase: what imports it, what it imports, its tests and what is missing.",
+  "version": "0.1.0",
+  "publisher": "hermanho",
+  "private": true,
   "license": "MIT",
-
-  "icon": "public/mapmycode.png",
-
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/bitHead22/MapMyCode"
-  },
-
   "engines": {
     "vscode": "^1.116.0"
   },
-
   "categories": [
-    "AI",
     "Visualization"
   ],
-
-  "keywords": [
-    "ai",
-    "code graph",
-    "dependency graph",
-    "code visualization",
-    "codebase analysis",
-    "developer tools"
-  ],
-
   "main": "./out/extension.js",
-
   "activationEvents": [],
-
   "contributes": {
     "commands": [
       {
-        "command": "mapmycode.open",
-        "title": "MapMyCode: Open Panel",
-        "icon": "$(graph)"
+        "command": "wayfinder.showMap",
+        "title": "Wayfinder: Show map for this file",
+        "icon": "$(type-hierarchy)"
       }
     ],
-    "viewsContainers": {
-      "activitybar": [
+    "menus": {
+      "editor/title": [
         {
-          "id": "mapmycode",
-          "title": "MapMyCode",
-          "icon": "public/assets/icon.svg"
-        }
-      ]
-    },
-    "views": {
-      "mapmycode": [
-        {
-          "type": "webview",
-          "id": "mapmycode.mainView",
-          "name": "MapMyCode"
+          "command": "wayfinder.showMap",
+          "group": "navigation"
         }
       ]
     }
   },
-
   "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
-    "package": "vsce package"
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "vscode:prepublish": "npm run typecheck && node esbuild.mjs --production",
+    "package": "vsce package --no-dependencies"
   },
-
+  "dependencies": {
+    "typescript": "^5.9.3"
+  },
   "devDependencies": {
     "@types/node": "^20.19.39",
     "@types/vscode": "^1.116.0",
-    "typescript": "^5.9.3"
+    "esbuild": "^0.28.2",
+    "vitest": "^4.1.11"
   }
 }
