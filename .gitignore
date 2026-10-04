@@ -57,3 +57,6 @@ public/build/
 # VS Code test runtime
 .vscode-test/
 test-results/
+# Autopilot session reports and local worktrees
+.wayfinder-autopilot-sessions/
+.claude/worktrees/

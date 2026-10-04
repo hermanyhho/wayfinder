@@ -1,0 +1,1320 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Wayfinder floors</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Overpass:wght@400;600;700&amp;family=Overpass+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:var(--bg)}
+.app{width:1600px;height:960px;display:grid;grid-template-columns:380px 800px 420px;grid-template-rows:56px 904px;background:var(--bg);color:var(--text);font-family:'Overpass',system-ui,sans-serif;overflow:hidden}
+.mono{font-family:'Overpass Mono',ui-monospace,Menlo,monospace}
+.amber{--c:#E8A33D}.blue{--c:#4C93EA}.teal{--c:#46CDB0}.violet{--c:#A68BF5}.white{--c:#F2F4F7}.grey{--c:#98A2AE}.pink{--c:#EE7FB0}
+
+.top{grid-column:1 / 4;display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 20px;border-bottom:1px solid var(--l1);background:var(--bg2)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;letter-spacing:.01em}
+.brand svg{width:20px;height:20px;stroke:var(--strong);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tag{font-size:11px;font-weight:600;color:var(--muted);border:1px solid var(--l2);border-radius:999px;padding:3px 9px 2px}
+.crumb{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+.crumb .k{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--strong);background:var(--l1);border-radius:4px;padding:3px 7px 2px}
+.crumb b{color:var(--strong);font-weight:600}
+.zoom{display:flex;align-items:center;gap:8px}
+.seg{display:flex;background:var(--raise);border:1px solid var(--l2);border-radius:8px;padding:3px;gap:2px}
+.seg button{font:inherit;font-size:12px;font-weight:600;color:var(--muted);background:none;border:0;border-radius:6px;padding:7px 12px 6px;cursor:pointer}
+.seg button.on{background:var(--strong);color:var(--bg)}
+.ib{width:32px;height:32px;display:grid;place-items:center;background:var(--raise);border:1px solid var(--l2);border-radius:8px;cursor:pointer;color:var(--text2)}
+.ib svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+
+.editor{background:var(--bg2);border-right:1px solid var(--l1);position:relative;overflow:hidden}
+.tabs{height:40px;display:flex;border-bottom:1px solid var(--l1)}
+.tab{display:flex;align-items:baseline;gap:8px;padding:12px 16px 0;border-top:2px solid var(--strong);background:var(--bg);font-size:13px}
+.tab .tp{font-size:11px;color:var(--muted)}
+.code{padding:10px 0;font-family:'Overpass Mono',ui-monospace,Menlo,monospace;font-size:11.5px}
+.ln{display:flex;align-items:center;height:20px;white-space:pre;transition:background .2s}
+.ln.hot{background:color-mix(in oklab,var(--c) 16%,transparent)}
+.num{width:34px;text-align:right;color:var(--faint);flex:none}
+.mk{width:6px;height:6px;border-radius:50%;margin:0 9px;flex:none}
+.mk.on{background:var(--c)}
+.cx{overflow:hidden;color:var(--text2)}
+.tK{color:var(--strong);font-weight:600}.tT{color:var(--text)}.tS{color:var(--tS)}.tP{color:var(--faint)}
+.more-lines{padding:6px 0 0 49px;font-size:11px;color:var(--faint)}
+.enote{position:absolute;left:16px;right:16px;bottom:16px;font-size:12.5px;line-height:18px;color:var(--text2);background:var(--raise);border:1px solid var(--l2);border-radius:10px;padding:12px 14px 10px}
+
+.view{position:relative;overflow:hidden;background:var(--bg)}
+.vtop{position:absolute;left:16px;right:16px;top:12px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.scen{display:flex;gap:2px;background:var(--raise);border:1px solid var(--l2);border-radius:8px;padding:3px}
+.scen button{font:inherit;font-size:11.5px;font-weight:600;color:var(--muted);background:none;border:0;border-radius:6px;padding:6px 9px 5px;cursor:pointer;white-space:nowrap}
+.scen button.on{background:var(--strong);color:var(--bg)}
+.count{font-size:12px;color:var(--text2);white-space:nowrap}
+.ne{position:absolute;left:0;right:0;top:56px;bottom:52px;overflow-y:auto;overflow-x:hidden}
+.cv{position:relative;width:800px}
+.legend{position:absolute;left:20px;bottom:18px;display:flex;gap:14px;align-items:center;font-size:11.5px;color:var(--text2)}
+.legend span{display:flex;align-items:center;gap:6px}
+.lsw{width:10px;height:10px;border-radius:3px;background:var(--c);display:block}
+.lsw.dash{background:transparent;border:1.5px dashed var(--c);box-sizing:border-box;width:12px;height:12px}
+
+.fl{position:absolute;left:16px;width:768px;box-sizing:border-box;border:1px solid var(--l1);border-radius:14px;background:var(--floor);transition:top .35s,height .35s}
+.fl.mine{border-color:var(--l3);background:var(--floormine)}
+.fl.annex{border-style:dashed}
+.fl.ph{border-style:dashed;background:transparent}
+.fl.empty{border-style:dashed;background:transparent}
+.phtext{position:absolute;left:0;right:0;bottom:12px;text-align:center;color:var(--muted);font-size:12.5px}
+.flh{position:absolute;left:30px;display:flex;align-items:baseline;gap:8px;white-space:nowrap;padding:0 8px 2px 0;background:var(--floor);border-radius:6px;transition:top .35s}
+.flh.mine{background:var(--floormine)}
+.flh.ph{background:var(--bg)}
+.flh .no{font-size:13px;font-weight:700;color:var(--faint)}
+.flh.mine .no{color:var(--strong)}
+.flh .nm{font-size:12px;font-weight:600;color:var(--text2)}
+.flh .fp{font-family:'Overpass Mono',ui-monospace,monospace;font-size:10.5px;color:var(--muted)}
+.flh .al{font-size:11px;color:var(--muted);margin-left:8px}
+.wires{position:absolute;left:0;top:0;width:800px;height:100%;overflow:visible;fill:none;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+.w{stroke:var(--c);stroke-width:2.4;transition:opacity .25s,stroke-width .25s}
+.w.two{stroke-width:2;opacity:.55}
+.w.dashed{stroke-dasharray:5 6}
+.w.thick{stroke-width:5;opacity:.75}
+.w.lo{opacity:.3}
+.w.hi{opacity:1;stroke-width:3.4;stroke-dasharray:7 7;animation:flow .9s linear infinite;filter:drop-shadow(0 0 3px var(--c))}
+@keyframes flow{to{stroke-dashoffset:-14}}
+.wl{position:absolute;transform:translate(-50%,-50%);font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;color:var(--c);background:var(--bg);border:1px dashed var(--c);border-radius:999px;padding:3px 8px 2px}
+.port{position:absolute;width:10px;height:10px;margin:-5px 0 0 -5px;box-sizing:border-box;border-radius:50%;background:var(--c);border:2px solid var(--bg);pointer-events:none}
+.port.in{background:var(--bg);border-color:var(--c)}
+
+.nd{position:absolute;height:56px;box-sizing:border-box;display:flex;flex-direction:column;align-items:stretch;background:var(--node);border:1px solid var(--l3);border-radius:7px;padding:0;overflow:hidden;cursor:pointer;font:inherit;color:inherit;text-align:left;box-shadow:0 6px 16px rgba(0,0,0,.35);transition:border-color .2s,box-shadow .2s,left .35s,top .35s;animation:pop .35s ease-out both}
+@keyframes pop{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.nd .nh{display:flex;align-items:center;gap:6px;height:18px;flex:none;padding:0 8px;background:var(--nodehead);border-bottom:1px solid var(--l2);font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--c);white-space:nowrap}
+.nd .nh .sw{width:7px;height:7px;border-radius:50%;background:var(--c);flex:none}
+.nd .nn{padding:6px 8px 0;font-size:12px;font-weight:600;line-height:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nd .np{padding:1px 8px 0;font-family:'Overpass Mono',ui-monospace,monospace;font-size:10px;line-height:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nd:hover{border-color:var(--l4)}
+.nd:focus-visible{outline:2px solid var(--strong);outline-offset:2px}
+.nd.sel{border-color:var(--c);box-shadow:0 0 0 3px color-mix(in oklab,var(--c) 30%,transparent),0 6px 16px rgba(0,0,0,.35)}
+.nd.sel .nn{color:var(--c)}
+.nd.two{border-style:dashed}
+.nd.two .nn{font-weight:400;color:var(--text2)}
+.nd.ghost{background:var(--bg);border:1.5px dashed var(--c);box-shadow:none}
+.nd.ghost .nh{background:transparent;border-bottom:1px dashed var(--l3)}
+.nd.ghost .nn{color:var(--ghosttext)}
+.nd.here{height:64px;border:2px solid var(--strong)}
+.nd.here .nh{color:#0E1116;background:var(--strong);height:20px;letter-spacing:.14em}
+.nd.here .nn{font-size:15px;line-height:18px;padding-top:7px;color:var(--strong)}
+.nd.here.sel{box-shadow:0 0 0 5px rgba(242,244,247,.16),0 6px 16px rgba(0,0,0,.35)}
+.nd.agg{background:var(--nodehead);border:1px dashed var(--l4);box-shadow:none}
+.nd.agg .nh{background:transparent;border-bottom:1px dashed var(--l3)}
+.nd.agg .nn{font-size:14px;color:var(--strong)}
+.nd.agg:hover{background:var(--node)}
+.nd.skel{cursor:default;border-color:var(--l2)}
+.nd.skel .nn,.nd.skel .np{color:transparent;margin:6px 8px 0;padding:0;height:10px;border-radius:4px;background:linear-gradient(90deg,var(--l1) 0%,var(--l2) 50%,var(--l1) 100%);background-size:200% 100%;animation:shimmer 1.4s linear infinite}
+.nd.skel .np{width:60%;height:8px}
+@keyframes shimmer{from{background-position:200% 0}to{background-position:-200% 0}}
+
+.banner{position:absolute;left:16px;width:768px;box-sizing:border-box;border:1px dashed var(--l3);border-radius:14px;background:var(--bg);padding:16px 18px 14px}
+.banner h4{margin:0 0 8px;font-size:14px;font-weight:700;color:var(--strong)}
+.banner ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+.banner li{display:flex;gap:10px;font-size:12.5px;line-height:17px;color:var(--text2)}
+.banner li .ck{flex:none;font-family:'Overpass Mono',ui-monospace,monospace;font-size:10.5px;color:#0E1116;background:var(--muted);border-radius:4px;padding:1px 6px 0;height:16px}
+.bar{height:6px;border-radius:999px;background:var(--l1);overflow:hidden;margin:4px 0 10px}
+.bar span{display:block;height:100%;background:#4C93EA;border-radius:999px}
+
+.seglabel{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-left:6px}
+.flh .ti{font-size:12px;font-weight:700;color:var(--text)}
+.flh.mine .ti{color:var(--strong)}
+.flh .rc{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--text2);border:1px dashed var(--l4);border-radius:999px;padding:2px 8px 1px 3px;margin-left:2px}
+.src-tag{flex:none;font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;border-radius:4px;padding:2px 5px 1px;white-space:nowrap}
+.src-tag.code{color:var(--text2);border:1px solid var(--l3)}
+.src-tag.ai{color:#0E1116;background:var(--strong)}
+.src-tag.wait{color:#0E1116;background:var(--muted)}
+.sechead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.sechead .label{margin:0}
+.facts{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:7px}
+.facts li{display:grid;grid-template-columns:104px minmax(0,1fr);gap:10px;font-size:13px;line-height:18px}
+.facts .fk{font-size:11.5px;color:var(--muted)}
+.facts .fv{color:var(--text2)}
+.answer .facts{margin-top:4px}
+.based{margin-top:8px;font-size:11.5px;line-height:16px;color:var(--muted)}
+.asks{grid-template-columns:repeat(4,minmax(0,1fr)) !important}
+.panel{background:var(--panel);border-left:1px solid var(--l1);padding:24px;display:flex;flex-direction:column;gap:22px;overflow-y:auto}
+.kickrow{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.chip{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--c);background:color-mix(in oklab,var(--c) 15%,transparent);border-radius:4px;padding:4px 8px 3px}
+.role{font-size:12px;color:var(--muted)}
+.title{margin:0;font-size:22px;line-height:28px;font-weight:700;overflow-wrap:anywhere}
+.path{font-family:'Overpass Mono',ui-monospace,monospace;font-size:11.5px;color:var(--muted);margin-top:4px}
+.what{margin:12px 0 0;font-size:14px;line-height:21px;color:var(--text2);text-wrap:pretty}
+.label{margin:0 0 10px;font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.links{display:flex;flex-direction:column;gap:6px}
+.lk{display:flex;gap:10px;align-items:baseline;font-size:13px;line-height:18px}
+.ref{font-family:'Overpass Mono',ui-monospace,monospace;font-size:11.5px;color:var(--strong);background:var(--l1);border-radius:4px;padding:2px 6px 1px;white-space:nowrap}
+.lt{color:var(--text2)}
+.asks{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.ask{display:flex;flex-direction:column;align-items:center;gap:6px;min-height:58px;justify-content:center;background:var(--raise);border:1px solid var(--l2);border-radius:10px;color:var(--text2);font:inherit;font-size:11.5px;font-weight:600;line-height:13px;cursor:pointer;padding:8px 4px 6px;text-align:center}
+.ask svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ask:hover{border-color:var(--l3);color:var(--strong)}
+.ask.on{background:var(--strong);border-color:var(--strong);color:var(--bg)}
+.answer{margin-top:10px;background:var(--bg);border:1px solid var(--l2);border-radius:10px;padding:14px 16px 12px}
+.ah{display:flex;justify-content:space-between;gap:8px;font-size:12px;font-weight:600;color:var(--strong);margin-bottom:6px}
+.ah .src{font-weight:400;color:var(--muted)}
+.answer p{margin:0;font-size:13.5px;line-height:20px;color:var(--text2);text-wrap:pretty}
+.direct{border-top:1px solid var(--l2);padding-top:20px}
+.modes{display:flex;gap:2px;background:var(--bg);border:1px solid var(--l2);border-radius:8px;padding:3px;margin-bottom:10px}
+.modes button{flex:1;font:inherit;font-size:12px;font-weight:600;color:var(--muted);background:none;border:0;border-radius:6px;padding:8px 0 7px;cursor:pointer}
+.modes button.on{background:var(--l2);color:var(--strong)}
+.plabel{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+textarea{width:100%;box-sizing:border-box;resize:none;font:inherit;font-size:13.5px;line-height:20px;color:var(--text);background:var(--bg);border:1px solid var(--l3);border-radius:10px;padding:10px 12px}
+textarea:focus{outline:2px solid #4C93EA;outline-offset:1px}
+.row{display:flex;align-items:center;gap:12px;margin-top:10px}
+.primary{font:inherit;font-size:13px;font-weight:700;color:#0E1116;background:var(--strong);border:0;border-radius:8px;padding:10px 16px 9px;cursor:pointer;white-space:nowrap}
+.ghostbtn{font:inherit;font-size:13px;font-weight:600;color:var(--text);background:none;border:1px solid var(--l3);border-radius:8px;padding:9px 14px 8px;cursor:pointer}
+.note{font-size:12px;line-height:16px;color:var(--muted)}
+.plan{margin-top:14px;display:flex;flex-direction:column;gap:8px}
+.step{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 10px;align-items:baseline;background:var(--bg);border:1px solid var(--l2);border-radius:10px;padding:10px 12px 8px}
+.kind{font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;border-radius:4px;padding:3px 6px 2px;color:var(--c);background:color-mix(in oklab,var(--c) 15%,transparent)}
+.kind.none{--c:#98A2AE}.kind.edit{--c:#E8A33D}.kind.new{--c:#46CDB0}.kind.del{--c:#EE7FB0}
+.sf{font-family:'Overpass Mono',ui-monospace,monospace;font-size:12px;color:var(--strong)}
+.sc{grid-column:2;font-size:12.5px;line-height:18px;color:var(--text2)}
+.done{margin-top:12px;font-size:12.5px;line-height:18px;color:#46CDB0}
+.green{--c:#5DD68A}.gold{--c:#F2B33D}.red{--c:#F26D6D}.pink{--c:#EE7FB0}
+.aistate{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;border-radius:999px;padding:5px 12px 4px;border:1px solid var(--l2);color:var(--muted)}
+.aistate .dotx{width:8px;height:8px;border-radius:50%;background:var(--l4)}
+.aistate.ready{color:var(--goldtext);border-color:rgba(242,179,61,.45)}
+.aistate.ready .dotx{background:#F2B33D;box-shadow:0 0 0 3px rgba(242,179,61,.2)}
+.aib{display:inline-flex;align-items:center;font-size:9.5px;font-weight:800;letter-spacing:.08em;color:#0E1116;background:#F2B33D;border-radius:4px;padding:2px 5px 1px;line-height:12px}
+.aibar{display:flex;align-items:center;gap:12px;margin-top:14px}
+.aibtn{display:inline-flex;align-items:center;gap:7px;flex:none;font:inherit;font-size:12.5px;font-weight:700;color:#0E1116;background:#F2B33D;border:0;border-radius:8px;padding:8px 12px 7px;cursor:pointer}
+.aibtn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.aibtn:hover{background:#F6C565}
+.aibtn.busy{background:rgba(242,179,61,.25);color:var(--goldtext);cursor:progress}
+.aibtn.busy svg{animation:spin 1.2s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.aibtn.off{background:var(--l1);color:var(--faint);cursor:not-allowed}
+.aistatus{font-size:11.5px;line-height:15px;color:var(--muted)}
+.aiblock{margin-top:12px;border:1px solid rgba(242,179,61,.45);background:rgba(242,179,61,.06);border-radius:10px;padding:10px 12px 10px;animation:pop .35s ease-out both}
+.aiblock.inset{margin-top:12px}
+.aiblock p{margin:6px 0 0;font-size:13.5px;line-height:20px;color:var(--text);text-wrap:pretty}
+.aih{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--goldtext)}
+.findings{margin:8px 0 0;padding:0 0 0 16px;display:flex;flex-direction:column;gap:6px;font-size:13px;line-height:19px;color:var(--text)}
+.skl{display:block;height:9px;margin-top:9px;border-radius:5px;background:linear-gradient(90deg,rgba(242,179,61,.10) 0%,rgba(242,179,61,.28) 50%,rgba(242,179,61,.10) 100%);background-size:200% 100%;animation:shimmer 1.4s linear infinite}
+.skl.short{width:60%}
+.hintline{margin-top:10px;font-size:12px;color:var(--goldtext)}
+.flh .rc{border-color:rgba(242,179,61,.5)}
+.flh .ti{font-size:12px;font-weight:700;color:var(--text)}
+.nd .aidot{display:none;margin-left:auto;font-size:8.5px;font-weight:800;color:#0E1116;background:#F2B33D;border-radius:3px;padding:1px 4px 0;letter-spacing:.06em}
+.nd.scanned .aidot{display:inline-block}
+.nd.here{border-color:var(--green)}
+.nd.here .nh{background:var(--green);color:#0E1116}
+.nd.here .nn{color:var(--strong)}
+.nd.here.sel{box-shadow:0 0 0 5px rgba(93,214,138,.22),0 6px 16px rgba(0,0,0,.35)}
+.nd.here .aidot{background:var(--bg);color:var(--goldtext)}
+.crumb .k{background:var(--green);color:#0E1116}
+.cluster{position:absolute;left:0;top:0;width:800px;transform-origin:0 0;transition:transform .6s cubic-bezier(.2,.7,.2,1)}
+.layer2{animation:fade .45s ease-out .25s both}
+.layer2.late{animation-delay:.45s}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.frame{position:absolute;border:1.5px solid var(--green);border-radius:18px;box-shadow:0 0 0 6px rgba(93,214,138,.08);pointer-events:none}
+.framelabel{position:absolute;left:16px;width:136px;display:flex;flex-direction:column;gap:3px;text-align:left;background:none;border:0;padding:0;cursor:pointer;font:inherit;color:inherit}
+.framelabel .fk1{font-size:12.5px;font-weight:700;color:var(--green);overflow-wrap:anywhere}
+.framelabel .fk2{font-size:11.5px;line-height:15px;color:var(--text2)}
+.framelabel .fk3{margin-top:6px;font-size:11.5px;font-weight:600;color:var(--strong);text-decoration:underline;text-underline-offset:3px}
+.framelabel:focus-visible{outline:2px solid var(--strong);outline-offset:4px;border-radius:6px}
+.nolayer{position:absolute;left:16px;right:16px;bottom:16px;text-align:center;font-size:12.5px;color:var(--muted);border:1px dashed var(--l3);border-radius:12px;padding:12px}
+
+.app{--bg:#0E1116;--bg2:#0B0E12;--panel:#151A21;--raise:#1A2029;--node:#232A35;--nodehead:#1B212A;--floor:#181E27;--floormine:#1C2430;
+ --l1:#232A34;--l2:#2C343F;--l3:#3A4452;--l4:#4D5866;--text:#E7EAEE;--strong:#F2F4F7;--text2:#C3CAD3;--muted:#98A2AE;--faint:#7F8996;
+ --ghosttext:#C9BCF9;--tS:#8FC6A8;--green:#5DD68A;--goldtext:#F2B33D}
+.app.light{--bg:#F5F6F8;--bg2:#ECEFF3;--panel:#FFFFFF;--raise:#F0F2F5;--node:#FFFFFF;--nodehead:#F5F7F9;--floor:#E6EAF0;--floormine:#DDE6E0;
+ --l1:#E2E6EB;--l2:#D3D9E0;--l3:#BFC7D1;--l4:#9AA4B1;--text:#1B2230;--strong:#0E1116;--text2:#3D4654;--muted:#5B6573;--faint:#6F7986;
+ --ghosttext:#5B3FC4;--tS:#2E7D53;--green:#17924B;--goldtext:#9A6408}
+.app.light .blue{--c:#2F6FD0}.app.light .violet{--c:#6E52DB}.app.light .pink{--c:#C93F78}.app.light .green{--c:#17924B}.app.light .red{--c:#D23A3A}.app.light .grey{--c:#6B7584}.app.light .white{--c:#1B2230}
+.app.light .nd{box-shadow:0 2px 8px rgba(20,30,50,.10)}
+.app.light .aiblock{background:rgba(242,179,61,.12);border-color:rgba(190,130,20,.55)}
+.app.light .aistate.ready{color:#9A6408;border-color:rgba(190,130,20,.55)}
+.app.light .skl{background:linear-gradient(90deg,rgba(190,130,20,.12) 0%,rgba(190,130,20,.30) 50%,rgba(190,130,20,.12) 100%);background-size:200% 100%}
+.app.light .nd.skel .nn,.app.light .nd.skel .np{background:linear-gradient(90deg,#E2E6EB 0%,#CDD3DB 50%,#E2E6EB 100%);background-size:200% 100%}
+.ftog{position:absolute;left:30px;display:inline-flex;align-items:center;gap:7px;height:22px;padding:0 10px 0 4px;font:inherit;font-size:11.5px;font-weight:600;color:var(--text2);background:var(--raise);border:1px solid var(--l3);border-radius:999px;cursor:pointer}
+.ftog:hover{color:var(--strong);border-color:var(--l4)}
+.ftog:focus-visible{outline:2px solid var(--strong);outline-offset:2px}
+.ftic{position:relative;width:16px;height:16px;border-radius:50%;background:var(--l2)}
+.ftic::before,.ftic::after{content:"";position:absolute;left:4px;top:7.25px;width:8px;height:1.5px;border-radius:1px;background:var(--strong)}
+.ftic.plus::after{transform:rotate(90deg)}
+.ftic.minus::after{display:none}
+.fnote{position:absolute;left:34px;height:22px;display:inline-flex;align-items:center;font-size:11.5px;color:var(--muted)}
+.themeseg svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;vertical-align:-2px;margin-right:5px}
+</style>
+</helmet>
+<div class="app {{ themeCls }}">
+
+<header class="top">
+<div class="brand">
+<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18"></path><path d="M5 5.5h11l3 2.5-3 2.5H5z"></path><path d="M19 13.5H8l-3 2.5 3 2.5h11z"></path></svg>
+<span>Wayfinder</span>
+<span class="tag">Sample project</span>
+</div>
+<div class="crumb">
+<span class="k">Open file</span>
+<span class="mono">{{ crumbDir }}</span><span>/</span><b class="mono">{{ crumbFile }}</b>
+</div>
+<div class="zoom">
+<span class="seglabel">Show</span>
+<div class="seg">
+<button class="{{ seg.d1 }}" onClick="{{ setD.d1 }}">Immediate layer</button>
+<button class="{{ seg.d2 }}" onClick="{{ setD.d2 }}">Second layer</button>
+</div>
+<span class="aistate {{ aiTop.cls }}"><span class="dotx"></span>{{ aiTop.text }}</span>
+<div class="seg themeseg" aria-label="Colour theme">
+<button class="{{ themeSeg.dark }}" onClick="{{ setTheme.dark }}"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13 9.5A5.5 5.5 0 0 1 6.5 3a5.5 5.5 0 1 0 6.5 6.5z"></path></svg>Dark</button>
+<button class="{{ themeSeg.light }}" onClick="{{ setTheme.light }}"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3"></circle><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1"></path></svg>Light</button>
+</div>
+</div>
+</header>
+
+<section class="editor">
+<div class="tabs"><div class="tab"><span>{{ crumbFile }}</span><span class="tp mono">{{ crumbDir }}</span></div></div>
+<div class="code">
+<sc-for list="{{ lines }}" as="ln" hint-placeholder-count="20">
+<div class="ln {{ ln.cls }}"><span class="num">{{ ln.num }}</span><span class="mk {{ ln.mk }}"></span><span class="cx"><sc-for list="{{ ln.tokens }}" as="tk"><span class="{{ tk.cls }}">{{ tk.t }}</span></sc-for></span></div>
+</sc-for>
+<sc-if value="{{ hasMoreLines }}" hint-placeholder-val="{{ false }}"><div class="more-lines">{{ moreLines }}</div></sc-if>
+</div>
+<div class="enote">{{ editorNote }}</div>
+</section>
+
+<section class="view" aria-label="Map of files connected to the open file">
+<div class="vtop">
+<div class="scen">
+<sc-for list="{{ scenarioTabs }}" as="sb" hint-placeholder-count="6">
+<button class="{{ sb.cls }}" onClick="{{ sb.pick }}">{{ sb.label }}</button>
+</sc-for>
+</div>
+<div class="count">{{ countLabel }}</div>
+</div>
+
+<div class="ne">
+<div class="cv" style="height: {{ canvasH }}px">
+
+<sc-if value="{{ showOuter }}" hint-placeholder-val="{{ false }}">
+<div class="layer2">
+<sc-for list="{{ outer.floors }}" as="f" hint-placeholder-count="2">
+<div class="fl" style="top: {{ f.y }}px; height: {{ f.h }}px"></div>
+<div class="flh" style="top: {{ f.hy }}px"><span class="ti">{{ f.title }}</span><span class="fp">{{ f.path }}</span><sc-if value="{{ f.showRole }}" hint-placeholder-val="{{ false }}"><span class="rc"><span class="aib">AI</span>{{ f.role }}</span></sc-if></div>
+</sc-for>
+<div class="frame" style="left: {{ outer.frame.x }}px; top: {{ outer.frame.y }}px; width: {{ outer.frame.w }}px; height: {{ outer.frame.h }}px"></div>
+<button class="framelabel" style="top: {{ outer.frame.y }}px" onClick="{{ backToImmediate }}"><span class="fk1">{{ frameLabel.title }}</span><span class="fk2">{{ frameLabel.sub }}</span><span class="fk3">Show immediate layer only</span></button>
+<sc-for list="{{ outer.wires }}" as="w" hint-placeholder-count="0">
+<svg class="wires" aria-hidden="true"><path class="w {{ w.cls }}" d="{{ w.d }}"></path></svg>
+</sc-for>
+</div>
+</sc-if>
+
+<div class="cluster {{ clusterCls }}" style="height: {{ clusterH }}px; transform: {{ clusterTransform }}">
+<sc-for list="{{ floors }}" as="f" hint-placeholder-count="4">
+<div class="fl {{ f.cls }}" style="top: {{ f.y }}px; height: {{ f.h }}px"><sc-if value="{{ f.hasText }}" hint-placeholder-val="{{ false }}"><span class="phtext">{{ f.text }}</span></sc-if></div>
+</sc-for>
+
+<sc-if value="{{ hasBanner }}" hint-placeholder-val="{{ false }}">
+<div class="banner" style="top: {{ banner.y }}px">
+<h4>{{ banner.title }}</h4>
+<sc-if value="{{ banner.hasProgress }}" hint-placeholder-val="{{ false }}"><div class="bar"><span style="width: {{ banner.pct }}%"></span></div></sc-if>
+<ul>
+<sc-for list="{{ banner.items }}" as="bi" hint-placeholder-count="3">
+<li><span class="ck">{{ bi.tag }}</span><span>{{ bi.text }}</span></li>
+</sc-for>
+</ul>
+</div>
+</sc-if>
+
+<sc-for list="{{ wires }}" as="w" hint-placeholder-count="0">
+<svg class="wires" aria-hidden="true"><path class="w {{ w.cls }}" d="{{ w.d }}"></path></svg>
+</sc-for>
+
+<sc-for list="{{ floors }}" as="f" hint-placeholder-count="4">
+<div class="flh {{ f.cls }}" style="top: {{ f.hy }}px"><span class="ti">{{ f.title }}</span><span class="fp">{{ f.path }}</span><sc-if value="{{ f.showRole }}" hint-placeholder-val="{{ false }}"><span class="rc"><span class="aib">AI</span>{{ f.role }}</span></sc-if></div>
+</sc-for>
+
+<sc-for list="{{ nodes }}" as="n" hint-placeholder-count="6">
+<button class="nd {{ n.cls }}" style="left: {{ n.x }}px; top: {{ n.y }}px; width: {{ n.w }}px" onClick="{{ n.pick }}"><span class="nh"><span class="sw"></span>{{ n.tag }}<span class="aidot">AI</span></span><span class="nn">{{ n.name }}</span><span class="np">{{ n.path }}</span></button>
+</sc-for>
+
+<sc-for list="{{ ports }}" as="p" hint-placeholder-count="0">
+<span class="port {{ p.cls }}" style="left: {{ p.x }}px; top: {{ p.y }}px"></span>
+</sc-for>
+
+<sc-for list="{{ wireLabels }}" as="wl" hint-placeholder-count="0">
+<span class="wl {{ wl.cls }}" style="left: {{ wl.x }}px; top: {{ wl.y }}px">{{ wl.text }}</span>
+</sc-for>
+<sc-for list="{{ floors }}" as="f" hint-placeholder-count="0">
+<sc-if value="{{ f.hasToggle }}" hint-placeholder-val="{{ false }}"><button class="ftog" style="top: {{ f.ty }}px" onClick="{{ f.toggle }}"><span class="ftic {{ f.toggleIcon }}"></span>{{ f.toggleText }}</button></sc-if>
+<sc-if value="{{ f.hasNote }}" hint-placeholder-val="{{ false }}"><span class="fnote" style="top: {{ f.ty }}px">{{ f.noteText }}</span></sc-if>
+</sc-for>
+</div>
+
+<sc-if value="{{ showOuter }}" hint-placeholder-val="{{ false }}">
+<div class="layer2 late">
+<sc-for list="{{ outer.nodes }}" as="n" hint-placeholder-count="4">
+<button class="nd {{ n.cls }}" style="left: {{ n.x }}px; top: {{ n.y }}px; width: {{ n.w }}px" onClick="{{ n.pick }}"><span class="nh"><span class="sw"></span>{{ n.tag }}<span class="aidot">AI</span></span><span class="nn">{{ n.name }}</span><span class="np">{{ n.path }}</span></button>
+</sc-for>
+<sc-for list="{{ outer.ports }}" as="p" hint-placeholder-count="0">
+<span class="port {{ p.cls }}" style="left: {{ p.x }}px; top: {{ p.y }}px"></span>
+</sc-for>
+<sc-for list="{{ outer.floors }}" as="f" hint-placeholder-count="0">
+<sc-if value="{{ f.hasToggle }}" hint-placeholder-val="{{ false }}"><button class="ftog" style="top: {{ f.ty }}px" onClick="{{ f.toggle }}"><span class="ftic {{ f.toggleIcon }}"></span>{{ f.toggleText }}</button></sc-if>
+<sc-if value="{{ f.hasNote }}" hint-placeholder-val="{{ false }}"><span class="fnote" style="top: {{ f.ty }}px">{{ f.noteText }}</span></sc-if>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ noSecondLayer }}" hint-placeholder-val="{{ false }}">
+<div class="nolayer">No second layer. Nothing is connected beyond the immediate layer.</div>
+</sc-if>
+
+</div>
+</div>
+
+<div class="legend">
+<span class="green"><span class="lsw"></span>Open file</span>
+<span class="blue"><span class="lsw"></span>Imports this file</span>
+<span class="violet"><span class="lsw"></span>Imported by this file</span>
+<span class="pink"><span class="lsw"></span>Tests</span>
+<span class="violet"><span class="lsw dash"></span>Expected, not found</span>
+<span class="red"><span class="lsw dash"></span>Circular import</span>
+<span class="grey"><span class="lsw"></span>Package or config</span>
+</div>
+</section>
+
+<aside class="panel">
+<div>
+<div class="kickrow"><span class="chip {{ node.color }}">{{ node.rel }}</span><span class="role">{{ node.role }}</span></div>
+<h2 class="title">{{ node.name }}</h2>
+<div class="path">{{ node.path }}</div>
+<div class="aibar">
+<button class="aibtn {{ aiBtn.cls }}" disabled="{{ aiBtn.disabled }}" onClick="{{ runAi }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v4M12 17v4M3 12h4M17 12h4"></path><path d="M12 8.5 13.6 12 12 15.5 10.4 12z"></path></svg>{{ aiBtn.label }}</button>
+<span class="aistatus">{{ aiStatus }}</span>
+</div>
+</div>
+
+<div>
+<div class="sechead"><h3 class="label">What it does</h3><span class="src-tag code">From code</span></div>
+<ul class="facts">
+<sc-for list="{{ node.facts }}" as="fa" hint-placeholder-count="4">
+<li><span class="fk">{{ fa.k }}</span><span class="fv">{{ fa.v }}</span></li>
+</sc-for>
+</ul>
+<sc-if value="{{ aiLoadingHere }}" hint-placeholder-val="{{ false }}">
+<div class="aiblock loading"><div class="aih"><span class="aib">AI</span>Writing a summary</div><span class="skl"></span><span class="skl short"></span></div>
+</sc-if>
+<sc-if value="{{ aiScanned }}" hint-placeholder-val="{{ false }}">
+<div class="aiblock"><div class="aih"><span class="aib">AI</span>Summary</div><p>{{ node.summary }}</p></div>
+</sc-if>
+</div>
+
+<div>
+<div class="sechead"><h3 class="label">{{ node.linksTitle }}</h3><span class="src-tag code">From code</span></div>
+<div class="links">
+<sc-for list="{{ node.links }}" as="lk" hint-placeholder-count="3">
+<div class="lk"><span class="ref">{{ lk.ref }}</span><span class="lt">{{ lk.text }}</span></div>
+</sc-for>
+</div>
+<sc-if value="{{ aiLoadingHere }}" hint-placeholder-val="{{ false }}">
+<div class="aiblock loading"><div class="aih"><span class="aib">AI</span>Looking for things worth checking</div><span class="skl"></span><span class="skl"></span><span class="skl short"></span></div>
+</sc-if>
+<sc-if value="{{ hasFindings }}" hint-placeholder-val="{{ false }}">
+<div class="aiblock"><div class="aih"><span class="aib">AI</span>Worth checking</div>
+<ul class="findings">
+<sc-for list="{{ findings }}" as="fd" hint-placeholder-count="2"><li>{{ fd.text }}</li></sc-for>
+</ul>
+<div class="based">Every file and line named here exists in the import map.</div>
+</div>
+</sc-if>
+</div>
+
+<div>
+<h3 class="label">More about this file</h3>
+<div class="asks">
+<button class="ask {{ act.context }}" onClick="{{ ask.context }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 3 8l9 5 9-5-9-5z"></path><path d="m3 13 9 5 9-5"></path></svg>Context</button>
+<button class="ask {{ act.why }}" onClick="{{ ask.why }}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14"></path><path d="M12 17h.01"></path></svg>Why</button>
+<button class="ask {{ act.where }}" onClick="{{ ask.where }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"></path><circle cx="12" cy="10" r="2.5"></circle></svg>Where</button>
+<button class="ask {{ act.practice }}" onClick="{{ ask.practice }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Best practices</button>
+</div>
+<sc-if value="{{ hasAnswer }}" hint-placeholder-val="{{ false }}">
+<div class="answer">
+<div class="ah"><span>{{ answer.title }}</span><span class="src-tag code">From code</span></div>
+<sc-if value="{{ answer.locked }}" hint-placeholder-val="{{ false }}"><p>{{ answer.lockText }}</p></sc-if>
+<ul class="facts">
+<sc-for list="{{ answer.items }}" as="fa" hint-placeholder-count="3">
+<li><span class="fk">{{ fa.k }}</span><span class="fv">{{ fa.v }}</span></li>
+</sc-for>
+</ul>
+<sc-if value="{{ answer.hasAi }}" hint-placeholder-val="{{ false }}">
+<div class="aiblock inset"><div class="aih"><span class="aib">AI</span>Written answer</div><p>{{ answer.aiText }}</p><div class="based">{{ answer.aiBased }}</div></div>
+</sc-if>
+<sc-if value="{{ answer.aiLoading }}" hint-placeholder-val="{{ false }}">
+<div class="aiblock inset loading"><div class="aih"><span class="aib">AI</span>Writing an answer</div><span class="skl"></span><span class="skl short"></span></div>
+</sc-if>
+<sc-if value="{{ answer.hint }}" hint-placeholder-val="{{ false }}"><div class="hintline">{{ answer.hintText }}</div></sc-if>
+</div>
+</sc-if>
+</div>
+</aside>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"scenario":{"editor":"enum","options":["orphan","utility","service","hub","testfile","scanning"],"default":"service"},"ai":{"editor":"boolean","default":true},"theme":{"editor":"enum","options":["dark","light"],"default":"dark"},"$preview":{"width":1600,"height":960}}'>
+var DEFAULT_SCENARIO = "service";
+var DEFAULT_AI = true;
+
+var KINDS = {
+  here: {color: "green", tag: "Open file", rel: "Open file", role: "Open file"},
+  uses: {color: "violet", tag: "Dependency", rel: "Imported by the open file", role: ""},
+  usedby: {color: "blue", tag: "Caller", rel: "Imports the open file", role: ""},
+  tests: {color: "pink", tag: "Test", rel: "Tests the open file", role: "Test file"},
+  subject: {color: "pink", tag: "Under test", rel: "Tested by the open file", role: ""},
+  types: {color: "violet", tag: "Types", rel: "Types imported by the open file", role: "Type definitions"},
+  ghost: {color: "violet", tag: "Expected, not found", rel: "Expected, not found", role: "Missing file"},
+  pattern: {color: "violet", tag: "Used by similar files", rel: "Used by similar files", role: ""},
+  cycle: {color: "red", tag: "Circular import", rel: "Circular import", role: ""},
+  pkg: {color: "grey", tag: "Package", rel: "External package", role: "npm package"},
+  config: {color: "grey", tag: "Config", rel: "Config that names the open file", role: "Config file"},
+  skel: {color: "grey", tag: "Scanning", rel: "Scanning", role: ""}
+};
+var KEYWORDS = ["import","from","type","export","class","constructor","private","readonly","async","await","return","const","for","of","string","number","function","if","throw","new","describe","it","expect","let","interface","implements","extends","typeof","undefined","Record"];
+var ACTION_LABELS = {context: "Context", why: "Why", where: "Where", practice: "Best practices"};
+var AI_MODEL = "qwen2.5-coder 7B, local";
+
+function node(floor, kind, name, path, extra) {
+  return Object.assign({floor: floor, kind: kind, name: name, path: path}, extra || {});
+}
+
+var SCENARIOS = {};
+
+SCENARIOS.orphan = {
+  label: "Unused file", dir: "src/utils", file: "currency.ts",
+  code: [
+    "const RATES: Record<string, number> = {",
+    "  NOK: 1,",
+    "  SEK: 0.98,",
+    "  EUR: 11.6,",
+    "}",
+    "",
+    "export function toNok(amount: number, currency: string): number {",
+    "  const rate = RATES[currency]",
+    "  if (rate === undefined) throw new Error(\"Unknown currency \" + currency)",
+    "  return amount * rate",
+    "}"
+  ],
+  lineLinks: {},
+  count: "No connections found",
+  floors: [
+    {id: "callers", title: "Imports this file", role: "", path: "", empty: "No file imports currency.ts."},
+    {id: "mine", title: "Same folder", role: "Utilities", path: "src/utils", mine: true, also: "Also here: date.ts, money.ts, strings.ts. All three are imported elsewhere."},
+    {id: "deps", title: "Imported by this file", role: "", path: "", empty: "currency.ts imports no project files."},
+    {id: "tests", title: "Tests", role: "", path: "test", annex: true, empty: "No test. 3 of the 4 files in src/utils have one."}
+  ],
+  banner: {title: "Nothing connects to this file", items: [
+    {tag: "imports", text: "No file imports currency.ts, directly or through an index file."},
+    {tag: "dynamic", text: "No dynamic import() or require() mentions it."},
+    {tag: "config", text: "Not named in package.json scripts, tsconfig or any config file."},
+    {tag: "text", text: "The name toNok appears only in docs/old-pricing.md."},
+    {tag: "git", text: "Last changed 14 months ago. money.ts has had convert() since then."}
+  ]},
+  nodes: {
+    center: node("mine", "here", "currency.ts", "src/utils", {
+      role: "Utility",
+      what: "Converts an amount in SEK or EUR to NOK with fixed rates. Nothing in the project uses it.", aiFindings: ["RATES uses upper-case keys and toNok does not normalise the input, so toNok(100, \"eur\") throws.", "money.convert() covers the same conversion with live rates. currency.ts looks replaced rather than forgotten."],
+      facts: [{k: "Exports", v: "toNok(amount, currency)"}, {k: "Size", v: "11 lines"}, {k: "Doc comment", v: "none"}, {k: "Imports", v: "no project files"}, {k: "Imported by", v: "no files"}, {k: "Last changed", v: "14 months ago"}], commits: [{k: "14 months ago", v: "add EUR rate"}, {k: "2 years ago", v: "create currency.ts"}], checks: [{k: "Tests", v: "3 of 4 files in src/utils have a test. This one does not."}, {k: "Usage", v: "No file imports it."}],
+      links: [{ref: "imports", text: "none"}, {ref: "imported by", text: "none"}, {ref: "tests", text: "none"}],
+      why: "No caller explains why it exists. money.ts has a convert() function with live rates, so currency.ts is likely the older version.",
+      where: "src/utils/ holds small helpers. 3 of the 4 are imported by other files. This is the exception.",
+      practice: "If nothing uses it, delete it. If it should be used, add a test, like the other files in src/utils have.",
+      clone: ""
+    })
+  },
+  edges: [],
+};
+
+SCENARIOS.utility = {
+  label: "Used by many", dir: "src/utils", file: "formatDate.ts",
+  code: [
+    "import { format } from \"date-fns\"",
+    "import { nb } from \"date-fns/locale\"",
+    "",
+    "export function formatDate(date: Date | string): string {",
+    "  const value = typeof date === \"string\" ? new Date(date) : date",
+    "  return format(value, \"d. MMM yyyy\", { locale: nb })",
+    "}",
+    "",
+    "export function formatDateTime(date: Date): string {",
+    "  return format(date, \"d. MMM yyyy HH:mm\", { locale: nb })",
+    "}"
+  ],
+  lineLinks: {1: "datefns", 2: "datefns"},
+  floors: [
+    {id: "wiring", title: "2 steps up", role: "App setup, routes, jobs and email sending", path: "", two: true, extra: 27, hint: "31 files call your callers. Zoom out to load them."},
+    {id: "callers", title: "Imports this file", role: "Code that shows dates to users", path: "src/api, src/services, src/jobs, src/emails", also: "Also here, not connected: 41 more files"},
+    {id: "mine", title: "Same folder", role: "Utilities", path: "src/utils", mine: true, also: "Also here: currency.ts, money.ts, strings.ts"},
+    {id: "deps", title: "Imported by this file", role: "External packages", path: "node_modules"},
+    {id: "tests", title: "Tests", role: "", path: "test", annex: true}
+  ],
+  nodes: {
+    routes: node("wiring", "usedby", "routes.ts", "src/api", {two: true}),
+    scheduler: node("wiring", "usedby", "scheduler.ts", "src/jobs", {two: true}),
+    mailer: node("wiring", "usedby", "mailer.ts", "src/emails", {two: true}),
+    app: node("wiring", "usedby", "app.ts", "src", {two: true}),
+    c1: node("callers", "usedby", "DocumentService.ts", "src/services", {calls: "formatDate() in 3 places"}),
+    c2: node("callers", "usedby", "PayslipController.ts", "src/api/controllers", {calls: "formatDate() in 2 places"}),
+    c3: node("callers", "usedby", "welcomeEmail.ts", "src/emails", {calls: "formatDateTime() once"}),
+    c4: node("callers", "usedby", "LeaveService.ts", "src/services", {calls: "formatDate() in 4 places"}),
+    c5: node("callers", "usedby", "ContractService.ts", "src/services", {calls: "formatDate() twice"}),
+    c6: node("callers", "usedby", "PayrollService.ts", "src/services", {calls: "formatDate() once"}),
+    c7: node("callers", "usedby", "EmployeeService.ts", "src/services", {calls: "formatDate() once"}),
+    c8: node("callers", "usedby", "AbsenceService.ts", "src/services", {calls: "formatDate() twice"}),
+    c9: node("callers", "usedby", "DocumentController.ts", "src/api/controllers", {calls: "formatDate() once"}),
+    c10: node("callers", "usedby", "LeaveController.ts", "src/api/controllers", {calls: "formatDate() once"}),
+    c11: node("callers", "usedby", "SendReminderJob.ts", "src/jobs", {calls: "formatDate() once"}),
+    c12: node("callers", "usedby", "PayslipJob.ts", "src/jobs", {calls: "formatDateTime() once"}),
+    c13: node("callers", "usedby", "reminderEmail.ts", "src/emails", {calls: "formatDate() once"}),
+    c14: node("callers", "usedby", "payslipEmail.ts", "src/emails", {calls: "formatDate() twice"}),
+    center: node("mine", "here", "formatDate.ts", "src/utils", {
+      role: "Utility",
+      what: "Formats dates the Norwegian way, for example 3. okt 2026. Used by 14 files across the API, services, jobs and emails.", aiFindings: ["formatDate accepts any string. An empty string becomes Invalid Date, and format() throws on it.", "The nb locale is fixed. If the product adds English, every caller shows Norwegian month names."],
+      facts: [{k: "Exports", v: "formatDate(date), formatDateTime(date)"}, {k: "Size", v: "11 lines"}, {k: "Imports", v: "date-fns (package)"}, {k: "Imported by", v: "14 files in 4 folders"}, {k: "Last changed", v: "5 months ago"}], commits: [{k: "5 months ago", v: "accept a string as input"}, {k: "1 year ago", v: "switch to date-fns 3"}], checks: [{k: "Tests", v: "Has a test, like 3 of 4 files in src/utils."}, {k: "Direct use", v: "6 files import date-fns directly instead of this file."}],
+      links: [{ref: "used by", text: "14 files in 4 folders"}, {ref: "uses", text: "date-fns (npm package)"}, {ref: "tested by", text: "formatDate.spec.ts"}],
+      why: "Dates shown to users must look the same everywhere. One function means one place to change the format.",
+      where: "src/utils/ holds small helpers with no project imports.",
+      practice: "A change here reaches 14 files and 31 more behind them. Change the output format only with a test that covers both functions.",
+      clone: "formatNumber.ts"
+    }),
+    datefns: node("deps", "pkg", "date-fns", "node_modules, v3.6.0", {
+      what: "npm package for formatting and parsing dates. formatDate.ts uses format() and the nb locale.", checks: [{k: "Direct use", v: "6 other files import date-fns directly."}],
+      links: [{ref: ":1", text: "import { format }"}, {ref: ":2", text: "import { nb } from date-fns/locale"}],
+      why: "JavaScript's own date formatting differs between Node versions. The package gives the same output everywhere.",
+      where: "Listed in package.json dependencies. 6 other files import it directly.",
+      practice: "6 files import date-fns directly instead of using formatDate.ts. Those may show dates in a different format."
+    }),
+    spec: node("tests", "tests", "formatDate.spec.ts", "test/utils", {
+      what: "4 tests. Covers formatDate with a Date and a string. formatDateTime has 1 test.",
+      links: [{ref: ":5", text: "describe(\"formatDate\")"}, {ref: ":31", text: "describe(\"formatDateTime\")"}]
+    })
+  },
+  edges: [["c1","center"],["c2","center"],["c3","center"],["c4","center"],["c5","center"],["c6","center"],["c7","center"],["c8","center"],["c9","center"],["c10","center"],["c11","center"],["c12","center"],["c13","center"],["c14","center"],
+    ["center","datefns"],["spec","center"],
+    ["routes","c2"],["scheduler","c11"],["mailer","c3"],["app","c1"]],
+};
+
+SCENARIOS.service = {
+  label: "Typical service", dir: "src/services", file: "DocumentService.ts",
+  code: [
+    "import { DocumentRepository } from \"../db/repositories/DocumentRepository\"",
+    "import { StorageClient } from \"../integrations/storage/StorageClient\"",
+    "import { PermissionPolicy } from \"../auth/PermissionPolicy\"",
+    "import type { Document, NewDocument } from \"../types/document.types\"",
+    "",
+    "export class DocumentService {",
+    "  constructor(",
+    "    private readonly documents: DocumentRepository,",
+    "    private readonly storage: StorageClient,",
+    "    private readonly permissions: PermissionPolicy,",
+    "  ) {}",
+    "",
+    "  async listForEmployee(actorId: string, employeeId: string): Promise<Document[]> {",
+    "    await this.permissions.assertCanRead(actorId, employeeId)",
+    "    return this.documents.findByEmployee(employeeId)",
+    "  }",
+    "",
+    "  async upload(actorId: string, input: NewDocument, file: Buffer): Promise<Document> {",
+    "    await this.permissions.assertCanWrite(actorId, input.employeeId)",
+    "    const fileKey = await this.storage.put(file)",
+    "    return this.documents.save({ ...input, fileKey })",
+    "  }",
+    "",
+    "  async remindUnsigned(): Promise<number> {",
+    "    const unsigned = await this.documents.findUnsigned()",
+    "    for (const document of unsigned) {",
+    "      await this.documents.markReminded(document.id)",
+    "    }",
+    "    return unsigned.length",
+    "  }",
+    "}"
+  ],
+  lineLinks: {1: "repo", 2: "storage", 3: "perm", 4: "types", 8: "repo", 9: "storage", 10: "perm", 13: "types", 14: "perm", 15: "repo", 18: "types", 19: "perm", 20: "storage", 21: "repo", 25: "repo", 27: "repo"},
+  floors: [
+    {id: "wiring", title: "2 steps up", role: "Routing and scheduling", path: "src/api, src/jobs", hint: "2 files call your callers. Zoom out to load them."},
+    {id: "callers", title: "Imports this file", role: "API controllers and jobs", path: "src/api/controllers, src/jobs", also: "Also here, not connected: EmployeeController.ts, PayslipJob.ts"},
+    {id: "mine", title: "Same folder", role: "Services", path: "src/services", mine: true, also: "Also here: EmployeeService.ts, ContractService.ts, both with an interface"},
+    {id: "deps", title: "Imported by this file", role: "Data access, auth and storage", path: "src/auth, src/types, src/db, src/integrations", also: "Also here: EmployeeRepository.ts, BaseRepository.ts"},
+    {id: "found", title: "2 steps down", role: "Schema, roles and config", path: "src/auth, src/db, src/config", hint: "3 files your dependencies use. Zoom out to load them."},
+    {id: "tests", title: "Tests", role: "", path: "test", annex: true}
+  ],
+  nodes: {
+    routes: node("wiring", "usedby", "routes.ts", "src/api", {two: true, what: "Maps URLs to controller methods.", links: [{ref: "via DocumentController", text: "/employees/:id/documents"}]}),
+    scheduler: node("wiring", "usedby", "scheduler.ts", "src/jobs", {two: true, what: "Registers each job and when it runs.", links: [{ref: "via SendReminderJob", text: "every day at 07:00"}]}),
+    controller: node("callers", "usedby", "DocumentController.ts", "src/api/controllers", {
+      what: "HTTP endpoints for documents. Reads the request, calls the service, returns JSON.", aiFindings: ["upload() takes employeeId from the request body, not the URL. The permission check in the service is the only thing stopping an upload to another employee."],
+      links: [{ref: "DocumentController.ts:27", text: "service.listForEmployee(...)"}, {ref: "DocumentController.ts:41", text: "service.upload(...)"}],
+      why: "This is how users reach DocumentService: GET and POST /employees/:id/documents.",
+      practice: "Keep it thin. It only turns HTTP requests into service calls, like the other controllers."}),
+    job: node("callers", "usedby", "SendReminderJob.ts", "src/jobs", {
+      what: "Runs every morning and reminds employees about documents they have not signed.",
+      links: [{ref: "SendReminderJob.ts:12", text: "service.remindUnsigned()"}],
+      why: "The only caller of remindUnsigned(). It runs without a user, so no permission check happens.",
+      practice: "The other jobs log how many items they handled. This one does not.", lines: [24]}),
+    ghost: node("mine", "ghost", "IDocumentService.ts", "src/services", {
+      what: "This file does not exist. The other 4 services in src/services/ each have an interface file.", checks: [{k: "Rule", v: "4 of 5 files in src/services have a matching I*.ts file."}],
+      linksTitle: "Where the pattern comes from",
+      links: [{ref: "EmployeeService.ts", text: "implements IEmployeeService"}, {ref: "ContractService.ts", text: "implements IContractService"}, {ref: "+2 more", text: "LeaveService, PayrollService"}],
+      why: "Controllers in this project depend on the interface, not the class. DocumentController is the only one that imports a class.",
+      practice: "Add it if the team still follows this pattern.", lines: [6], note: "Line 6 would read: export class DocumentService implements IDocumentService"}),
+    center: node("mine", "here", "DocumentService.ts", "src/services", {
+      role: "Service",
+      what: "Business logic for employee documents. Lists, uploads and sends reminders for unsigned documents. Checks permissions before every read and write.", aiFindings: ["remindUnsigned() is public and has no permission check. The job needs that, but a controller could call it later by mistake.", "upload() stores the file before it saves the row. If save() fails, the file stays in storage with no row pointing to it."],
+      facts: [{k: "Exports", v: "class DocumentService"}, {k: "Public methods", v: "listForEmployee, upload, remindUnsigned"}, {k: "Size", v: "31 lines"}, {k: "Doc comment", v: "none"}, {k: "Imports", v: "4 project files"}, {k: "Imported by", v: "2 files"}, {k: "Last changed", v: "3 weeks ago"}], commits: [{k: "3 weeks ago", v: "add remindUnsigned for the reminder job"}, {k: "4 months ago", v: "check permissions on upload"}, {k: "8 months ago", v: "create DocumentService"}], checks: [{k: "Interface", v: "4 of 5 services have an interface file. This one does not."}, {k: "Tests", v: "remindUnsigned is not named in the spec."}],
+      links: [{ref: "uses", text: "DocumentRepository, StorageClient, PermissionPolicy"}, {ref: "used by", text: "DocumentController, SendReminderJob"}, {ref: "tested by", text: "DocumentService.spec.ts"}, {ref: "missing", text: "IDocumentService.ts"}],
+      why: "Controllers and jobs need the same document rules. Keeping them here means the permission check is written once.",
+      where: "src/services/ holds one service per area: documents, employees, contracts, leave and payroll.",
+      practice: "Matches the other services, except that 4 of 5 also have an interface file. This one does not.",
+      clone: "ContractService.ts"}),
+    types: node("deps", "types", "document.types.ts", "src/types", {what: "The shapes of Document and NewDocument. No runtime code."}),
+    perm: node("deps", "uses", "PermissionPolicy.ts", "src/auth", {
+      what: "Decides who may read or write an employee's data. Throws when access is denied.",
+      links: [{ref: ":14", text: "assertCanRead(actorId, employeeId)"}, {ref: ":19", text: "assertCanWrite(actorId, employeeId)"}],
+      practice: "Call it first in every public method. remindUnsigned() does not, because a job runs it."}),
+    repo: node("deps", "uses", "DocumentRepository.ts", "src/db/repositories", {
+      what: "Reads and writes the documents table. Queries only, no business rules.", aiFindings: ["markReminded() runs once per document inside a loop in remindUnsigned(). 500 unsigned documents means 500 queries. A bulk update would be 1."],
+      links: [{ref: ":15", text: "findByEmployee()"}, {ref: ":21", text: "save()"}, {ref: ":25", text: "findUnsigned()"}, {ref: ":27", text: "markReminded()"}],
+      clone: "ContractRepository.ts"}),
+    storage: node("deps", "uses", "StorageClient.ts", "src/integrations/storage", {
+      what: "Uploads and fetches files from object storage.",
+      links: [{ref: ":20", text: "put(file) returns a fileKey"}]}),
+    roles: node("found", "uses", "roles.ts", "src/auth", {two: true, what: "Lists the roles and what each may do.", links: [{ref: "via PermissionPolicy", text: "role checks"}]}),
+    schema: node("found", "uses", "schema.ts", "src/db", {two: true, what: "Table definitions, including documents.", links: [{ref: "via DocumentRepository", text: "documents table"}]}),
+    storageCfg: node("found", "uses", "storage.config.ts", "src/config", {two: true, what: "Bucket name and region from environment variables.", links: [{ref: "via StorageClient", text: "bucket and region"}]}),
+    fixtures: node("tests", "tests", "documents.fixture.ts", "test/fixtures", {two: true, what: "Sample documents used by the tests.", links: [{ref: "via the spec", text: "buildDocument()"}]}),
+    spec: node("tests", "tests", "DocumentService.spec.ts", "test/services", {
+      what: "6 tests. Covers listForEmployee() and upload(). remindUnsigned() has no test.", checks: [{k: "Coverage", v: "remindUnsigned is not named in this spec."}],
+      links: [{ref: ":18", text: "describe(\"listForEmployee\")"}, {ref: ":54", text: "describe(\"upload\")"}],
+      practice: "Add a test for remindUnsigned(). It is the only public method without one.", lines: [24],
+      note: "Highlighted: remindUnsigned() is the only public method with no test."})
+  },
+  edges: [["controller","center"],["job","center"],["center","types"],["center","perm"],["center","repo"],["center","storage"],["center","ghost",{dashed: true}],["spec","center"],
+    ["routes","controller"],["scheduler","job"],["perm","roles"],["repo","schema"],["storage","storageCfg"],["spec","fixtures"]],
+};
+
+SCENARIOS.hub = {
+  label: "Many connections", dir: "src/services", file: "EmployeeService.ts",
+  code: [
+    "import { EmployeeRepository } from \"../db/repositories/EmployeeRepository\"",
+    "import { MembershipRepository } from \"../db/repositories/MembershipRepository\"",
+    "import { PermissionPolicy } from \"../auth/PermissionPolicy\"",
+    "import { AuditLog } from \"../audit/AuditLog\"",
+    "import { EventBus } from \"../events/EventBus\"",
+    "import { HrisClient } from \"../integrations/hris/HrisClient\"",
+    "import { StorageClient } from \"../integrations/storage/StorageClient\"",
+    "import { NotificationService } from \"./NotificationService\"",
+    "import { ContractService } from \"./ContractService\"",
+    "import type { Employee, EmployeeUpdate } from \"../types/employee.types\"",
+    "import type { IEmployeeService } from \"./IEmployeeService\"",
+    "",
+    "export class EmployeeService implements IEmployeeService {",
+    "  constructor(",
+    "    private readonly employees: EmployeeRepository,",
+    "    private readonly memberships: MembershipRepository,",
+    "    private readonly permissions: PermissionPolicy,",
+    "    private readonly audit: AuditLog,",
+    "    private readonly events: EventBus,",
+    "    private readonly hris: HrisClient,",
+    "    private readonly storage: StorageClient,",
+    "    private readonly notifications: NotificationService,",
+    "    private readonly contracts: ContractService,",
+    "  ) {}",
+    "",
+    "  async update(actorId: string, id: string, input: EmployeeUpdate): Promise<Employee> {",
+    "    await this.permissions.assertCanWrite(actorId, id)",
+    "    const employee = await this.employees.update(id, input)",
+    "    await this.audit.record(actorId, \"employee.updated\", id)",
+    "    this.events.emit(\"employee.updated\", employee)",
+    "    return employee",
+    "  }",
+    "",
+    "  async offboard(actorId: string, id: string, endDate: Date): Promise<void> {",
+    "    await this.permissions.assertCanWrite(actorId, id)",
+    "    await this.contracts.endAll(id, endDate)"
+  ],
+  moreLines: "1,204 more lines, 36 more methods",
+  lineLinks: {1: "erepo", 2: "mrepo", 3: "perm", 4: "audit", 5: "bus", 6: "hris", 7: "storage", 8: "notify", 9: "contract", 10: "etypes",
+    15: "erepo", 16: "mrepo", 17: "perm", 18: "audit", 19: "bus", 20: "hris", 21: "storage", 22: "notify", 23: "contract", 26: "etypes", 27: "perm", 28: "erepo", 29: "audit", 30: "bus", 35: "perm", 36: "contract"},
+  floors: [
+    {id: "wiring", title: "2 steps up", role: "Routing, flows and scripts", path: "", hint: "34 files call your callers. Zoom out to load them.", extra: 28},
+    {id: "callers", title: "Imports this file", role: "API, jobs, other services and scripts", path: "src/api, src/jobs, src/services, scripts", also: "Also here, not connected: 6 files"},
+    {id: "mine", title: "Same folder", role: "Services", path: "src/services", mine: true, also: "Also here: LeaveService.ts, PayrollService.ts"},
+    {id: "deps", title: "Imported by this file", role: "Data, auth, audit, events and integrations", path: "src/db, src/auth, src/audit, src/events, src/integrations, src/types", also: "Also here: 11 files"},
+    {id: "found", title: "2 steps down", role: "Schema, roles and config", path: "src/db, src/auth, src/events, src/config", hint: "5 files your dependencies use. Zoom out to load them."},
+    {id: "tests", title: "Tests", role: "", path: "test", annex: true}
+  ],
+  nodes: {
+    w1: node("wiring", "usedby", "routes.ts", "src/api", {two: true}),
+    w2: node("wiring", "usedby", "OnboardingFlow.ts", "src/flows", {two: true}),
+    w3: node("wiring", "usedby", "scheduler.ts", "src/jobs", {two: true}),
+    w4: node("wiring", "usedby", "cli.ts", "scripts", {two: true}),
+    h1: node("callers", "usedby", "EmployeeController.ts", "src/api/controllers", {calls: "11 methods"}),
+    h2: node("callers", "usedby", "OnboardingController.ts", "src/api/controllers", {calls: "create(), invite()"}),
+    h3: node("callers", "usedby", "OffboardingJob.ts", "src/jobs", {calls: "offboard()"}),
+    h4: node("callers", "usedby", "ManagerController.ts", "src/api/controllers", {calls: "listTeam()"}),
+    h5: node("callers", "usedby", "SyncHrisJob.ts", "src/jobs", {calls: "syncFromHris()"}),
+    h6: node("callers", "usedby", "PayrollService.ts", "src/services", {calls: "findActive()"}),
+    h7: node("callers", "usedby", "LeaveService.ts", "src/services", {calls: "getManager()"}),
+    h8: node("callers", "usedby", "AbsenceService.ts", "src/services", {calls: "getManager()"}),
+    h9: node("callers", "usedby", "DocumentService.ts", "src/services", {calls: "exists()"}),
+    h10: node("callers", "usedby", "importEmployees.ts", "scripts", {calls: "create() in a loop"}),
+    contract: node("mine", "cycle", "ContractService.ts", "src/services", {
+      what: "Contracts for an employee. It imports EmployeeService, and EmployeeService imports it back.", checks: [{k: "Cycle", v: "EmployeeService.ts:9 imports it. ContractService.ts:4 imports EmployeeService."}],
+      linksTitle: "The circular import",
+      links: [{ref: "EmployeeService.ts:9", text: "imports ContractService"}, {ref: "ContractService.ts:4", text: "imports EmployeeService"}],
+      why: "offboard() ends contracts, and ContractService looks up the employee. Each needs one method from the other.",
+      practice: "A circular import can load one class as undefined at startup. Move the shared lookup into a third file, or pass the employee in instead of looking it up.",
+      lines: [9, 23, 36]}),
+    center: node("mine", "here", "EmployeeService.ts", "src/services", {
+      role: "Service",
+      what: "Everything about an employee record: create, update, offboard and sync with the HR system. 1,240 lines and 38 public methods, the largest file in src/services.", aiFindings: ["offboard() calls ContractService.endAll() and then emits employee.offboarded, which ContractService also handles. Contracts may be ended twice.", "The 38 methods fall into 3 groups by the data they change: profile, lifecycle and HR sync."],
+      facts: [{k: "Exports", v: "class EmployeeService, implements IEmployeeService"}, {k: "Public methods", v: "38"}, {k: "Size", v: "1,240 lines. Other services average 290."}, {k: "Imports", v: "11 project files"}, {k: "Imported by", v: "11 files"}, {k: "Changes", v: "46 commits in 6 months"}], commits: [{k: "2 days ago", v: "sync manager from HR system"}, {k: "1 week ago", v: "end contracts on offboard"}, {k: "2 weeks ago", v: "add listTeam for managers"}], checks: [{k: "Tests", v: "4 of 5 services have a .spec.ts. This one does not."}, {k: "Imports", v: "Circular import with ContractService.ts."}, {k: "Size", v: "4 times the average service."}],
+      links: [{ref: "uses", text: "10 files"}, {ref: "used by", text: "10 files"}, {ref: "circular", text: "ContractService.ts"}, {ref: "tests", text: "no unit test, 2 integration tests"}],
+      why: "It grew as the place every employee change goes through. Most features that touch an employee call it.",
+      where: "src/services/. It is imported by more files than any other service.",
+      practice: "Larger than any sibling by 4 times. Common split for this pattern: EmployeeProfileService, EmployeeLifecycleService and EmployeeSyncService.",
+      clone: ""}),
+    etypes: node("deps", "types", "employee.types.ts", "src/types"),
+    erepo: node("deps", "uses", "EmployeeRepository.ts", "src/db/repositories"),
+    perm: node("deps", "uses", "PermissionPolicy.ts", "src/auth"),
+    mrepo: node("deps", "uses", "MembershipRepository.ts", "src/db/repositories"),
+    audit: node("deps", "uses", "AuditLog.ts", "src/audit"),
+    bus: node("deps", "uses", "EventBus.ts", "src/events"),
+    hris: node("deps", "uses", "HrisClient.ts", "src/integrations/hris"),
+    storage: node("deps", "uses", "StorageClient.ts", "src/integrations/storage"),
+    notify: node("deps", "uses", "NotificationService.ts", "src/services"),
+    f1: node("found", "uses", "schema.ts", "src/db", {two: true}),
+    f2: node("found", "uses", "roles.ts", "src/auth", {two: true}),
+    f3: node("found", "uses", "eventTypes.ts", "src/events", {two: true}),
+    f4: node("found", "uses", "hris.config.ts", "src/config", {two: true}),
+    f5: node("found", "uses", "storage.config.ts", "src/config", {two: true}),
+    intTest: node("tests", "tests", "employees.int.test.ts", "test/integration", {what: "2 integration tests. They start the app and call /employees end to end. Covers update() and create()."}),
+    specGhost: node("tests", "ghost", "EmployeeService.spec.ts", "test/services", { color: "pink",
+      what: "This file does not exist. Every other service in src/services/ has a unit test in test/services/.", checks: [{k: "Rule", v: "4 of 5 services have a .spec.ts in test/services."}],
+      linksTitle: "Where the pattern comes from",
+      links: [{ref: "test/services/", text: "4 of 5 services have a .spec.ts"}],
+      why: "Only the 2 integration tests reach this file, and they cover 2 of its 38 methods.",
+      practice: "Start with offboard() and syncFromHris(). They change the most data."})
+  },
+  edges: [["h1","center"],["h2","center"],["h3","center"],["h4","center"],["h5","center"],["h6","center"],["h7","center"],["h8","center"],["h9","center"],["h10","center"],
+    ["center","etypes"],["center","erepo"],["center","perm"],["center","mrepo"],["center","audit"],["center","bus"],["center","hris"],["center","storage"],["center","notify"],
+    ["center","contract",{dy: -8, kind: "cycle", label: "circular import"}],["contract","center",{dy: 8, kind: "cycle"}],
+    ["intTest","center"],["specGhost","center",{dashed: true}],
+    ["w1","h1"],["w2","h2"],["w3","h3"],["w4","h10"],["erepo","f1"],["perm","f2"],["bus","f3"],["hris","f4"],["storage","f5"]],
+};
+
+SCENARIOS.testfile = {
+  label: "Test file", dir: "test/services", file: "DocumentService.spec.ts",
+  code: [
+    "import { describe, it, expect } from \"vitest\"",
+    "import { DocumentService } from \"../../src/services/DocumentService\"",
+    "import { PermissionPolicy } from \"../../src/auth/PermissionPolicy\"",
+    "import { buildDocument } from \"../fixtures/documents.fixture\"",
+    "import { FakeStorageClient } from \"../helpers/FakeStorageClient\"",
+    "",
+    "const repository = {",
+    "  findByEmployee: async () => [buildDocument()],",
+    "  save: async (input: any) => input,",
+    "}",
+    "",
+    "describe(\"listForEmployee\", () => {",
+    "  it(\"returns the employee's documents\", async () => {",
+    "    const service = new DocumentService(repository as any, new FakeStorageClient(), new PermissionPolicy())",
+    "    const result = await service.listForEmployee(\"hr-1\", \"emp-1\")",
+    "    expect(result).toHaveLength(1)",
+    "  })",
+    "})"
+  ],
+  moreLines: "64 more lines, 5 more tests",
+  lineLinks: {1: "vitest", 2: "subject", 3: "perm", 4: "fixture", 5: "fake", 14: "subject", 7: "pattern"},
+  floors: [
+    {id: "runner", title: "Config that runs it", role: "Test runner", path: "config"},
+    {id: "mine", title: "Same folder", role: "Unit tests", path: "test/services", mine: true, also: "Also here: EmployeeService.int.test.ts, ContractService.spec.ts"},
+    {id: "deps", title: "Imported by this file", role: "Code under test and test helpers", path: "src/services, src/auth, test/fixtures, test/helpers"},
+    {id: "found", title: "2 steps down", role: "", path: "", hint: "2 files behind the code under test. Zoom out to load them."}
+  ],
+  nodes: {
+    config: node("runner", "config", "vitest.config.ts", "repo root", {
+      what: "Test runner settings. Runs every file that matches test/**/*.spec.ts.",
+      links: [{ref: "vitest.config.ts:6", text: "include: [\"test/**/*.spec.ts\"]"}],
+      why: "No file imports a test. The runner finds it by its name, so this config is the only link."}),
+    vitest: node("runner", "pkg", "vitest", "node_modules, v2.1.0", {what: "The test framework: describe, it, expect."}),
+    center: node("mine", "here", "DocumentService.spec.ts", "test/services", {
+      role: "Unit tests",
+      what: "6 tests for DocumentService. Covers listForEmployee() and upload(). remindUnsigned() has no test.", aiFindings: ["The hand-written repository returns the same document for every employee, so no test can catch a wrong employeeId filter.", "No test checks what upload() does when storage fails."],
+      facts: [{k: "Tests", v: "DocumentService.ts"}, {k: "Test cases", v: "6, in describe blocks listForEmployee and upload"}, {k: "Size", v: "82 lines"}, {k: "Run by", v: "vitest.config.ts"}, {k: "Last changed", v: "4 months ago"}], commits: [{k: "4 months ago", v: "test denied upload"}, {k: "8 months ago", v: "create spec"}], checks: [{k: "Helpers", v: "5 other specs use fakeRepository(). This one writes the repository by hand."}, {k: "Coverage", v: "remindUnsigned is not named in any test."}],
+      links: [{ref: "tests", text: "DocumentService.ts"}, {ref: "uses", text: "PermissionPolicy (real), FakeStorageClient, a hand-written repository"}, {ref: "run by", text: "vitest.config.ts"}],
+      why: "Protects the permission checks: 2 tests assert that denied access throws.",
+      where: "test/ mirrors src/, so tests for src/services/ live in test/services/.",
+      practice: "5 other specs use fakeRepository() from test/helpers. This one writes the repository by hand on line 7.",
+      clone: "ContractService.spec.ts"}),
+    subject: node("deps", "subject", "DocumentService.ts", "src/services", {
+      what: "The file under test. 3 public methods, 2 of them tested here.",
+      links: [{ref: ":2", text: "import { DocumentService }"}, {ref: ":14", text: "new DocumentService(...)"}]}),
+    perm: node("deps", "uses", "PermissionPolicy.ts", "src/auth", {what: "The real policy, not a fake. The tests check real permission rules."}),
+    fixture: node("deps", "uses", "documents.fixture.ts", "test/fixtures", {what: "Sample documents. buildDocument() returns one with default values."}),
+    fake: node("deps", "uses", "FakeStorageClient.ts", "test/helpers", {what: "A storage client that keeps files in memory."}),
+    pattern: node("deps", "pattern", "fakeRepository.ts", "test/helpers", {
+      what: "Exists, but this spec does not use it. 5 other specs in test/services/ build their repository with fakeRepository().", checks: [{k: "Rule", v: "5 of 6 specs in test/services import fakeRepository()."}],
+      linksTitle: "Where the pattern comes from",
+      links: [{ref: "EmployeeService.int.test.ts", text: "fakeRepository()"}, {ref: "+4 more", text: "ContractService, LeaveService, PayrollService, AbsenceService specs"}],
+      lines: [7, 8, 9, 10], note: "Lines 7 to 10 write the repository by hand. Other specs use fakeRepository()."}),
+    r2: node("found", "uses", "DocumentRepository.ts", "src/db/repositories", {two: true, what: "Replaced by the hand-written object in this test."}),
+    s2: node("found", "uses", "StorageClient.ts", "src/integrations/storage", {two: true, what: "Replaced by FakeStorageClient in this test."})
+  },
+  edges: [["config","center",{dashed: true, label: "runs *.spec.ts"}],["center","vitest"],["center","subject"],["center","perm"],["center","fixture"],["center","fake"],["center","pattern",{dashed: true}],["subject","r2"],["fake","s2"]],
+};
+
+SCENARIOS.scanning = {
+  label: "First scan", dir: "src/services", file: "DocumentService.ts",
+  code: SCENARIOS.service.code, lineLinks: {1: "repo", 8: "repo", 15: "repo", 21: "repo", 25: "repo", 27: "repo"},
+  count: "Scanning: 412 of 1,280 files",
+  lock: "Available when the scan finishes. 412 of 1,280 files read.",
+  bannerTop: true,
+  banner: {title: "Reading the workspace for the first time", progress: 32, items: [
+    {tag: "done", text: "Imports read for 412 files. The map fills in as files are read."},
+    {tag: "next", text: "868 files left. About 20 seconds on this laptop."},
+    {tag: "cache", text: "After this, only changed files are read again on save."}
+  ]},
+  floors: [
+    {id: "callers", title: "Imports this file", role: "", path: "found so far"},
+    {id: "mine", title: "Same folder", role: "Services", path: "src/services", mine: true},
+    {id: "deps", title: "Imported by this file", role: "", path: "found so far"},
+    {id: "tests", title: "Tests", role: "", path: "test", annex: true, empty: "Not scanned yet."}
+  ],
+  nodes: {
+    controller: node("callers", "usedby", "DocumentController.ts", "src/api/controllers", {what: "Found so far: calls this file. More callers may appear as the scan continues."}),
+    sk1: node("callers", "skel", "", ""),
+    center: node("mine", "here", "DocumentService.ts", "src/services", {
+      role: "Service",
+      what: "Wayfinder is still reading the workspace. Connections found so far are shown. The rest appear as files are read.",
+      facts: [{k: "Exports", v: "class DocumentService"}, {k: "Imports", v: "4 project files"}, {k: "Imported by", v: "1 found so far"}],
+      links: [{ref: "uses", text: "4 found, from this file's imports"}, {ref: "used by", text: "1 found so far"}],
+      clone: ""}),
+    repo: node("deps", "uses", "DocumentRepository.ts", "src/db/repositories", {what: "Found from this file's imports."}),
+    perm: node("deps", "uses", "PermissionPolicy.ts", "src/auth", {what: "Found from this file's imports."}),
+    sk2: node("deps", "skel", "", ""),
+    sk3: node("deps", "skel", "", "")
+  },
+  edges: [["controller","center"],["center","repo"],["center","perm"]],
+};
+
+var SCENARIO_ORDER = ["orphan", "utility", "service", "hub", "testfile", "scanning"];
+
+var NODE_W = 152, NODE_H = 56, HERE_W = 220, HERE_H = 64, COL_GAP = 16, ROW_H = 74, MAX_PER_ROW = 4;
+var AREA_LEFT = 28, AREA_W = 656, LANE_X = 756, CANVAS_W = 800, CLUSTER_SCALE = 0.56;
+
+function tokenize(text) {
+  var tokens = [];
+  var pattern = /("[^"]*")|([A-Za-z_]\w*)|(\s+)|([^\w\s"]+)/g;
+  var match;
+  while ((match = pattern.exec(text)) !== null) {
+    var word = match[0];
+    var cls = "tP";
+    if (match[1]) cls = "tS";
+    else if (match[2]) cls = KEYWORDS.indexOf(word) >= 0 ? "tK" : (/^[A-Z]/.test(word) ? "tT" : "");
+    else if (match[3]) cls = "";
+    tokens.push({t: word, cls: cls});
+  }
+  return tokens;
+}
+
+function colorOf(scn, id) {
+  var data = scn.nodes[id];
+  return data.color || KINDS[data.kind].color;
+}
+
+function layoutRow(ids, open, extra, top, floorKey, floorIndex) {
+  var total = ids.length + extra;
+  var collapsible = ids.length > MAX_PER_ROW;
+  var shown = collapsible && !open ? ids.slice(0, MAX_PER_ROW) : ids;
+  var rows = Math.max(1, Math.ceil(shown.length / MAX_PER_ROW));
+  var pos = {};
+  shown.forEach(function (id, index) {
+    var row = Math.floor(index / MAX_PER_ROW), col = index % MAX_PER_ROW;
+    var inRow = Math.min(MAX_PER_ROW, shown.length - row * MAX_PER_ROW);
+    var rowWidth = inRow * NODE_W + (inRow - 1) * COL_GAP;
+    var startX = AREA_LEFT + (AREA_W - rowWidth) / 2;
+    pos[id] = {x: startX + col * (NODE_W + COL_GAP), y: top + 34 + row * ROW_H, w: NODE_W, h: NODE_H, floor: floorIndex};
+  });
+  var h = 34 + rows * ROW_H + 4 + (collapsible || extra ? 30 : 0);
+  return {pos: pos, alias: {}, h: h, collapsible: collapsible, hidden: ids.length - shown.length, extra: extra, open: open};
+}
+
+function floorToggle(row, top, toggle) {
+  var off = {hasToggle: false, toggleText: "", toggleNote: "", toggleIcon: "", toggle: function () {}, ty: 0, hasNote: false, noteText: ""};
+  if (!row.collapsible && !row.extra) return off;
+  var note = row.extra ? "+" + row.extra + " more files in this layer, not drawn in this mockup" : "";
+  if (!row.collapsible) return Object.assign(off, {hasNote: true, noteText: note, ty: top + row.h - 30});
+  return {hasToggle: true, toggleText: row.open ? "Show fewer" : "Show " + row.hidden + " more", toggleNote: row.open ? "" : "", toggleIcon: row.open ? "minus" : "plus",
+    toggle: toggle, ty: top + row.h - 30, hasNote: false, noteText: ""};
+}
+
+function nodeView(scn, id, p, st, pickNode, toggleFloor, aggKind) {
+  if (p.agg) {
+    return {id: id, x: p.x, y: p.y, w: p.w, cls: "agg " + KINDS[aggKind].color, tag: p.count + " more", name: "+" + p.count + " files", path: "click to show all", pick: toggleFloor(p.floorKey), kind: aggKind};
+  }
+  if (p.less) {
+    return {id: id, x: p.x, y: p.y, w: p.w, cls: "agg grey", tag: "Collapse", name: "Show fewer", path: "back to 3 files", pick: toggleFloor(p.floorKey), kind: "skel"};
+  }
+  var data = scn.nodes[id];
+  var kind = KINDS[data.kind];
+  var cls = colorOf(scn, id) + (data.two ? " two" : "") + (data.kind === "ghost" || data.kind === "pattern" ? " ghost" : "") +
+    (data.kind === "here" ? " here" : "") + (data.kind === "skel" ? " skel" : "") + (st.aiDone[id] ? " scanned" : "") + (st.selected === id ? " sel" : "");
+  return {id: id, x: p.x, y: p.y, w: p.w, cls: cls, tag: data.two ? "Second layer" : kind.tag, name: data.name || "loading", path: data.path || "loading", pick: data.kind === "skel" ? function () {} : pickNode(id), kind: data.kind};
+}
+
+function wireState(st, from, to, innerIds) {
+  if (st.selected === "center") return "";
+  var ends = [from, to].concat(innerIds || []);
+  return ends.indexOf(st.selected) >= 0 ? " hi" : " lo";
+}
+
+function buildImmediateLayer(scn, st, pickNode, toggleFloor) {
+  var ids = Object.keys(scn.nodes);
+  var floors = [], pos = {}, alias = {}, aggKinds = {};
+  var y = 16, banner = null;
+  if (scn.banner && scn.bannerTop) { banner = {y: y}; y += 136; }
+
+  scn.floors.forEach(function (floor, floorIndex) {
+    var all = ids.filter(function (id) { return scn.nodes[id].floor === floor.id; });
+    var members = all.filter(function (id) { return !scn.nodes[id].two; });
+    var base = {title: floor.title, role: floor.role || "", showRole: !!st.aiDone.center && !!floor.role, path: floor.path};
+    if (!members.length) {
+      if (all.length || !floor.empty) return;
+      floors.push(Object.assign(base, {cls: "empty", y: y, h: 64, hy: y + 9, hasText: true, text: floor.empty}, floorToggle({collapsible: false})));
+      y += 64 + 14;
+      return;
+    }
+    if (floor.mine) {
+      floors.push(Object.assign(base, {cls: "mine", y: y, h: 112, hy: y + 9, hasText: false, text: ""}, floorToggle({collapsible: false})));
+      pos.center = {x: 380, y: y + 34, w: HERE_W, h: HERE_H, floor: floorIndex};
+      members.filter(function (id) { return id !== "center"; }).forEach(function (id, index) {
+        pos[id] = {x: AREA_LEFT + index * (NODE_W + COL_GAP), y: y + 38, w: NODE_W, h: NODE_H, floor: floorIndex};
+      });
+      y += 112 + 14;
+      return;
+    }
+    var row = layoutRow(members, !!st.open[floor.id], 0, y, floor.id, floorIndex);
+    Object.assign(pos, row.pos);
+    floors.push(Object.assign(base, {cls: floor.annex ? "annex" : "", y: y, h: row.h, hy: y + 9, hasText: false, text: ""}, floorToggle(row, y, toggleFloor(floor.id))));
+    y += row.h + 14;
+  });
+  if (scn.banner && !scn.bannerTop) { banner = {y: y + 4}; y += 210; }
+
+  var nodes = Object.keys(pos).map(function (id) { return nodeView(scn, id, pos[id], st, pickNode, toggleFloor, aggKinds[id]); });
+
+  var wires = [], ports = [], labels = [], seen = {}, laneIndex = 0;
+  scn.edges.forEach(function (edge) {
+    var from = alias[edge[0]] || edge[0], to = alias[edge[1]] || edge[1], opt = edge[2] || {};
+    if (!pos[from] || !pos[to] || from === to) return;
+    var key = from + ">" + to + (opt.dy || "");
+    if (seen[key]) return;
+    seen[key] = true;
+    var a = pos[from], b = pos[to], dy = opt.dy || 0, d, x1, y1, x2, y2;
+    if (a.floor === b.floor) {
+      if (a.x < b.x) { x1 = a.x + a.w; x2 = b.x; } else { x1 = a.x; x2 = b.x + b.w; }
+      y1 = a.y + a.h / 2 + dy; y2 = b.y + b.h / 2 + dy;
+      var mx = (x1 + x2) / 2;
+      d = "M" + x1 + " " + y1 + " C" + mx + " " + y1 + ", " + mx + " " + y2 + ", " + x2 + " " + y2;
+    } else if (Math.abs(a.floor - b.floor) === 1) {
+      x1 = a.x + a.w / 2; x2 = b.x + b.w / 2;
+      if (a.floor < b.floor) { y1 = a.y + a.h; y2 = b.y; } else { y1 = a.y; y2 = b.y + b.h; }
+      var k = (y2 - y1) / 2;
+      d = "M" + x1 + " " + y1 + " C" + x1 + " " + (y1 + k) + ", " + x2 + " " + (y2 - k) + ", " + x2 + " " + y2;
+    } else {
+      var lane = LANE_X + laneIndex * 12;
+      x2 = b.x + b.w; y2 = b.y + b.h / 2;
+      x1 = a.x + a.w / 2; y1 = a.y + a.h;
+      var under = y1 + 11 + laneIndex * 6;
+      d = "M" + x1 + " " + y1 + " V" + (under - 8) + " Q" + x1 + " " + under + " " + (x1 + 8) + " " + under + " H" + (lane - 14) + " Q" + lane + " " + under + " " + lane + " " + (under - 14) + " V" + (y2 + 14) + " Q" + lane + " " + y2 + " " + (lane - 14) + " " + y2 + " H" + x2;
+      laneIndex++;
+    }
+    var other = from === "center" ? to : from;
+    var color = opt.kind ? KINDS[opt.kind].color : (scn.nodes[other] ? colorOf(scn, other) : KINDS[aggKinds[other] || "uses"].color);
+    var isAgg = from.indexOf("more:") === 0 || to.indexOf("more:") === 0;
+    wires.push({cls: color + (opt.dashed ? " dashed" : "") + (isAgg ? " thick" : "") + wireState(st, from, to), d: d});
+    ports.push({cls: color, x: x1, y: y1});
+    ports.push({cls: color + " in", x: x2, y: y2});
+    if (opt.label) labels.push({cls: color, x: (x1 + x2) / 2, y: a.floor === b.floor ? Math.min(y1, y2) - 14 : (y1 + y2) / 2, text: opt.label});
+  });
+
+  return {floors: floors, nodes: nodes, wires: wires, ports: ports, labels: labels, banner: banner, height: Math.max(y + 8, 600), pos: pos, alias: alias};
+}
+
+function buildSecondLayer(scn, st, inner, pickNode, toggleFloor) {
+  var ids = Object.keys(scn.nodes);
+  var twoIds = ids.filter(function (id) { return scn.nodes[id].two; });
+  var upDef = scn.floors.filter(function (f) { return f.id === "wiring"; })[0] || {};
+  var downDef = scn.floors.filter(function (f) { return f.id === "found"; })[0] || {};
+  var up = twoIds.filter(function (id) { return scn.nodes[id].floor === "wiring"; });
+  var down = twoIds.filter(function (id) { return scn.nodes[id].floor !== "wiring"; });
+  var s = CLUSTER_SCALE, y = 16;
+  var floors = [], pos = {}, alias = {}, aggKinds = {}, side = {};
+  var showRole = !!st.aiDone.center;
+  if (up.length) {
+    var upRow = layoutRow(up, !!st.open.l2up, upDef.extra || 0, y, "l2up", 0);
+    Object.assign(pos, upRow.pos);
+    floors.push(Object.assign({title: "Second layer: imports the callers", path: upDef.path || "", role: upDef.role || "", showRole: showRole && !!upDef.role, cls: "", y: y, h: upRow.h, hy: y + 9, hasText: false, text: ""}, floorToggle(upRow, y, toggleFloor("l2up"))));
+    up.forEach(function (id) { side[id] = "up"; });
+    y += upRow.h + 44;
+  }
+  var ox = (CANVAS_W - CANVAS_W * s) / 2, oy = y + 10;
+  var frame = {x: ox - 10, y: oy - 10, w: CANVAS_W * s + 20, h: inner.height * s + 20};
+  y = frame.y + frame.h + 44;
+  if (down.length) {
+    var downRow = layoutRow(down, !!st.open.l2down, downDef.extra || 0, y, "l2down", 2);
+    Object.assign(pos, downRow.pos);
+    floors.push(Object.assign({title: "Second layer: imported by the immediate layer", path: downDef.path || "", role: downDef.role || "", showRole: showRole && !!downDef.role, cls: "", y: y, h: downRow.h, hy: y + 9, hasText: false, text: ""}, floorToggle(downRow, y, toggleFloor("l2down"))));
+    down.forEach(function (id) { side[id] = "down"; });
+    y += downRow.h + 16;
+  }
+  var nodes = Object.keys(pos).map(function (id) { return nodeView(scn, id, pos[id], st, pickNode, toggleFloor, aggKinds[id]); });
+
+  var wires = [], ports = [], seen = {};
+  scn.edges.forEach(function (edge) {
+    var twoEnd = scn.nodes[edge[0]] && scn.nodes[edge[0]].two ? edge[0] : (scn.nodes[edge[1]] && scn.nodes[edge[1]].two ? edge[1] : null);
+    if (!twoEnd) return;
+    var innerEnd = twoEnd === edge[0] ? edge[1] : edge[0];
+    var outerId = alias[twoEnd] || twoEnd, innerId = inner.alias[innerEnd] || innerEnd;
+    var p2 = pos[outerId], pi = inner.pos[innerId];
+    if (!p2 || !pi) return;
+    var key = outerId + ">" + innerId;
+    if (seen[key]) return;
+    seen[key] = true;
+    var xs = ox + (pi.x + pi.w / 2) * s, x1, y1, x2, y2;
+    if (side[twoEnd] === "up") { x1 = p2.x + p2.w / 2; y1 = p2.y + p2.h; x2 = xs; y2 = frame.y; }
+    else { x1 = xs; y1 = frame.y + frame.h; x2 = p2.x + p2.w / 2; y2 = p2.y; }
+    var k = (y2 - y1) / 2;
+    var color = colorOf(scn, twoEnd);
+    wires.push({cls: color + (outerId.indexOf("more:") === 0 ? " thick" : "") + wireState(st, outerId, innerId, [twoEnd, innerEnd]),
+      d: "M" + x1 + " " + y1 + " C" + x1 + " " + (y1 + k) + ", " + x2 + " " + (y2 - k) + ", " + x2 + " " + y2});
+    ports.push({cls: color, x: x1, y: y1});
+    ports.push({cls: color + " in", x: x2, y: y2});
+  });
+
+  return {floors: floors, nodes: nodes, wires: wires, ports: ports, frame: frame, ox: ox, oy: oy, scale: s, height: y + 8, count: twoIds.length + (upDef.extra || 0) + (downDef.extra || 0)};
+}
+
+function describe(scn, id) {
+  var data = scn.nodes[id];
+  var kind = KINDS[data.kind];
+  var centerName = scn.nodes.center.name;
+  var lines = [];
+  Object.keys(scn.lineLinks).forEach(function (line) { if (scn.lineLinks[line] === id) lines.push(Number(line)); });
+  (data.lines || []).forEach(function (line) { if (lines.indexOf(line) < 0) lines.push(line); });
+  var callers = [], callees = [];
+  scn.edges.forEach(function (edge) {
+    if (edge[1] === id && scn.nodes[edge[0]]) callers.push(scn.nodes[edge[0]].name);
+    if (edge[0] === id && scn.nodes[edge[1]]) callees.push(scn.nodes[edge[1]].name);
+  });
+  var defaultWhat = {
+    usedby: "Imports " + centerName + (data.calls ? " and calls " + data.calls + "." : "."),
+    uses: centerName + " imports it.",
+    types: "Type definitions imported by " + centerName + ".",
+    tests: "Tests for " + centerName + ".",
+    pkg: "External npm package.",
+    config: "Config file that refers to " + centerName + "."
+  }[data.kind] || "";
+  var facts = data.facts ? data.facts.slice() : [{k: "Folder", v: data.path}];
+  if (!data.facts) {
+    if (data.calls) facts.push({k: "Calls", v: data.calls});
+    if (lines.length && id !== "center") facts.push({k: "Open file", v: lines.length + (lines.length === 1 ? " line uses it" : " lines use it")});
+    if (data.two && callers.length) facts.push({k: "Reached via", v: callers.join(", ")});
+    if (data.two && callees.length) facts.push({k: "Reached via", v: callees.join(", ")});
+    if (data.kind === "ghost") facts.push({k: "Status", v: "File does not exist"});
+    (data.checks || []).forEach(function (check) { facts.push(check); });
+  }
+  var note = data.note;
+  if (!note) {
+    if (id === "center") note = "Lines with a coloured dot import or call a connected file. Click a node to highlight its lines.";
+    else if (lines.length) note = lines.length + (lines.length === 1 ? " line" : " lines") + " in this file connect to " + data.name + ".";
+    else if (data.kind === "usedby") note = data.name + " imports this file. Nothing in this file points back to it.";
+    else if (data.two) note = "Not used in this file. It is in the second layer, connected through a file in the immediate layer.";
+    else note = "Not referenced by a line in this file.";
+  }
+  var aiBlocked = data.kind === "ghost" ? "Nothing to scan: the file does not exist." :
+    data.kind === "pkg" || data.kind === "config" ? "AI scans project source files only." :
+    data.kind === "skel" ? "Still loading." : "";
+  return {
+    name: data.name, path: data.path + "/" + data.name,
+    rel: data.two ? "Second layer" : KINDS[data.kind].rel, color: colorOf(scn, id), role: data.role || kind.role,
+    summary: data.what || defaultWhat, facts: facts,
+    linksTitle: data.linksTitle || (id === "center" ? "Connections" : data.kind === "usedby" ? "Where it calls " + centerName : "Where " + centerName + " uses it"),
+    links: data.links || (data.calls ? [{ref: "calls", text: data.calls}] : [{ref: "folder", text: data.path}]),
+    why: data.why || (data.kind === "usedby" ? data.name + " needs what " + centerName + " provides." : centerName + " depends on it for part of its work."),
+    where: data.where || data.path + "/, next to files with the same role.",
+    practice: data.practice || "Follows the pattern of the files around it. Nothing stands out.",
+    findings: data.aiFindings || [],
+    commits: data.commits || [], checks: data.checks || [],
+    callers: callers, callees: callees, aiBlocked: aiBlocked,
+    lines: lines, note: note
+  };
+}
+
+function codeAnswer(info, action) {
+  var items = [];
+  if (action === "context") {
+    items = info.facts.slice(0, 4);
+    items.push({k: "Imports", v: info.callees.length ? info.callees.join(", ") : "none in the map"});
+  }
+  if (action === "why") {
+    items.push({k: "Imported by", v: info.callers.length ? info.callers.join(", ") : "no files"});
+    info.commits.forEach(function (commit) { items.push(commit); });
+  }
+  if (action === "where") {
+    items.push({k: "Defined in", v: info.path});
+    info.links.forEach(function (link) { items.push({k: link.ref, v: link.text}); });
+  }
+  if (action === "practice") {
+    items = info.checks.length ? info.checks.slice() : [{k: "Result", v: "No differences found against the files in the same folder."}];
+  }
+  return items;
+}
+
+function aiAnswer(info, action) {
+  return {
+    context: {text: info.summary + " " + info.where, based: "Based on: exports, imports, folder."},
+    why: {text: info.why, based: "Based on: callers" + (info.commits.length ? ", last " + info.commits.length + " commits" : "") + ". Treat as a guess."},
+    where: {text: "Defined in " + info.path + ". Connection points: " + info.links.map(function (l) { return l.ref; }).join(", ") + ".", based: "Based on: import map."},
+    practice: {text: info.practice, based: "Based on: comparison with files in the same folder" + (info.checks.length ? " (" + info.checks.length + " findings above)" : "") + "."}
+  }[action];
+}
+
+class Component extends DCLogic {
+  componentWillUnmount() { if (this.aiTimer) clearTimeout(this.aiTimer); }
+  renderVals() {
+    var self = this;
+    var aiAvailable = this.props.ai === undefined ? DEFAULT_AI : this.props.ai;
+    var st = Object.assign({scenario: null, depth: 1, selected: "center", open: {}, action: null, aiDone: {}, aiLoading: null, theme: null}, this.state || {});
+    var theme = st.theme || this.props.theme || "dark";
+    var scenarioId = st.scenario || this.props.scenario || DEFAULT_SCENARIO;
+    var scn = SCENARIOS[scenarioId];
+    if (!scn.nodes[st.selected]) st.selected = "center";
+
+    function pickNode(id) { return function () { self.setState({selected: id}); }; }
+    function toggleFloor(floorId) {
+      return function () {
+        var open = Object.assign({}, st.open);
+        open[floorId] = !open[floorId];
+        self.setState({open: open});
+      };
+    }
+    var inner = buildImmediateLayer(scn, st, pickNode, toggleFloor);
+    var outer = st.depth === 2 ? buildSecondLayer(scn, st, inner, pickNode, toggleFloor) : null;
+    var twoCount = Object.keys(scn.nodes).filter(function (id) { return scn.nodes[id].two; }).length;
+    var showOuter = !!outer && twoCount > 0;
+    var info = describe(scn, st.selected);
+
+    var hot = {};
+    info.lines.forEach(function (line) { hot[line] = true; });
+    var lines = scn.code.map(function (text, index) {
+      var num = index + 1;
+      var linked = scn.lineLinks[num];
+      var linkColor = linked && scn.nodes[linked] ? colorOf(scn, linked) : "";
+      return {num: String(num), cls: hot[num] ? "hot " + info.color : "", mk: linkColor ? "on " + linkColor : "", tokens: tokenize(text)};
+    });
+
+    var act = {}, ask = {};
+    Object.keys(ACTION_LABELS).forEach(function (key) {
+      act[key] = st.action === key ? "on" : "";
+      ask[key] = function () { self.setState({action: st.action === key ? null : key}); };
+    });
+
+    var scanned = !!st.aiDone[st.selected];
+    var loading = st.aiLoading === st.selected;
+    var blockedReason = scn.lock ? "Available after the workspace scan finishes." : info.aiBlocked;
+    var aiDisabled = !aiAvailable || !!blockedReason || loading;
+    var connectedCount = info.callers.length + info.callees.length;
+    var aiStatus = !aiAvailable ? "No AI provider set up. Everything on this panel comes from the code." :
+      blockedReason ? blockedReason :
+      loading ? "Reading " + info.name + " and " + connectedCount + " connected files." :
+      scanned ? "Added just now. " + AI_MODEL + ". Checked against the import map." :
+      "Adds a written summary and findings to this panel. Runs on " + AI_MODEL + ".";
+    function runAi() {
+      var target = st.selected;
+      self.setState({aiLoading: target});
+      if (self.aiTimer) clearTimeout(self.aiTimer);
+      self.aiTimer = setTimeout(function () {
+        var done = Object.assign({}, (self.state || {}).aiDone || {});
+        done[target] = true;
+        self.setState({aiLoading: null, aiDone: done});
+      }, 1600);
+    }
+
+    var answer = {title: "", items: [], aiLoading: false, hasAi: false, aiText: "", aiBased: "", hint: false, hintText: "", locked: false, lockText: ""};
+    if (st.action) {
+      answer.title = ACTION_LABELS[st.action] + ": " + info.name;
+      if (scn.lock) { answer.locked = true; answer.lockText = scn.lock; }
+      else {
+        answer.items = codeAnswer(info, st.action);
+        if (loading) { answer.aiLoading = true; }
+        else if (scanned) { var written = aiAnswer(info, st.action); answer.hasAi = true; answer.aiText = written.text; answer.aiBased = written.based; }
+        else if (aiAvailable && !blockedReason) { answer.hint = true; answer.hintText = "Scan with AI to add a written answer below these facts."; }
+      }
+    }
+
+    function setDepth(depth) { return function () { self.setState({depth: depth}); }; }
+    var immediateCount = Object.keys(scn.nodes).filter(function (id) {
+      var kind = scn.nodes[id].kind;
+      return id !== "center" && !scn.nodes[id].two && kind !== "ghost" && kind !== "pattern" && kind !== "skel";
+    }).length;
+    var secondTotal = twoCount + scn.floors.reduce(function (sum, f) { return sum + (f.extra || 0); }, 0);
+    var countLabel = scn.count || ("Immediate layer: " + immediateCount + " files. " + (secondTotal ? "Second layer: " + secondTotal + " files." : "No second layer."));
+
+    var transform = showOuter ? "translate(" + outer.ox + "px, " + outer.oy + "px) scale(" + outer.scale + ")" : "translate(0px, 0px) scale(1)";
+    var emptyFrame = {x: 0, y: 0, w: 0, h: 0};
+
+    return {
+      themeCls: theme === "light" ? "light" : "",
+      themeSeg: {dark: theme === "dark" ? "on" : "", light: theme === "light" ? "on" : ""},
+      setTheme: {dark: function () { self.setState({theme: "dark"}); }, light: function () { self.setState({theme: "light"}); }},
+      crumbDir: scn.dir, crumbFile: scn.file,
+      aiTop: aiAvailable ? {cls: "ready", text: "AI ready: " + AI_MODEL} : {cls: "off", text: "AI not set up"},
+      scenarioTabs: SCENARIO_ORDER.map(function (id) {
+        return {label: SCENARIOS[id].label, cls: id === scenarioId ? "on" : "", pick: function () {
+          self.setState({scenario: id, selected: "center", depth: 1, open: {}, action: null});
+        }};
+      }),
+      countLabel: countLabel,
+      canvasH: showOuter ? outer.height : inner.height,
+      clusterH: inner.height,
+      clusterTransform: transform,
+      clusterCls: showOuter ? "shrunk" : "",
+      floors: inner.floors, nodes: inner.nodes, wires: inner.wires, ports: inner.ports, wireLabels: inner.labels,
+      showOuter: showOuter,
+      outer: showOuter ? {floors: outer.floors, nodes: outer.nodes, wires: outer.wires, ports: outer.ports, frame: outer.frame} : {floors: [], nodes: [], wires: [], ports: [], frame: emptyFrame},
+      frameLabel: {title: scn.file, sub: "and its immediate layer: " + immediateCount + " files"},
+      backToImmediate: setDepth(1),
+      noSecondLayer: st.depth === 2 && !twoCount,
+      hasBanner: !!inner.banner,
+      banner: inner.banner ? {y: inner.banner.y, title: scn.banner.title, items: scn.banner.items, hasProgress: !!scn.banner.progress, pct: scn.banner.progress || 0} : {y: 0, title: "", items: [], hasProgress: false, pct: 0},
+      seg: {d1: st.depth === 1 ? "on" : "", d2: st.depth === 2 ? "on" : ""},
+      setD: {d1: setDepth(1), d2: setDepth(2)},
+      node: info,
+      lines: lines,
+      hasMoreLines: !!scn.moreLines, moreLines: scn.moreLines || "",
+      editorNote: info.note,
+      act: act, ask: ask,
+      hasAnswer: !!st.action, answer: answer,
+      aiBtn: {label: loading ? "Scanning" : scanned ? "Scan again" : "Scan with AI", disabled: aiDisabled, cls: aiDisabled ? "off" : (loading ? "busy" : "")},
+      runAi: runAi,
+      aiStatus: aiStatus,
+      aiLoadingHere: loading,
+      aiScanned: scanned && !loading,
+      hasFindings: scanned && !loading && info.findings.length > 0,
+      findings: info.findings.map(function (text) { return {text: text}; })
+    };
+  }
+}
+</script>
+</body>
+</html>
