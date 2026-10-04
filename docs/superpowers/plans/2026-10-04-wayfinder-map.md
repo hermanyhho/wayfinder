@@ -2394,7 +2394,7 @@ export class WorkspaceIndex implements vscode.Disposable {
 
   constructor(readonly root: vscode.Uri) {
     const { options, problems } = loadCompilerOptions(root.fsPath);
-    for (const problem of problems) void vscode.window.showWarningMessage(`Wayfinder: ${problem}`);
+    if (problems.length > 0) void vscode.window.showWarningMessage(`Wayfinder: ${problems.join(" ")}`);
     const resolveAbsolute = createResolver(root.fsPath, options, ts.sys);
     this.resolve = (specifier, fromPath) => {
       const result = resolveAbsolute(specifier, path.join(root.fsPath, fromPath));
