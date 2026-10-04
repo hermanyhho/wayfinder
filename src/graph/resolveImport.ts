@@ -13,7 +13,7 @@ const UNSCOPED_PACKAGE_NAME = /^[a-z0-9-][a-z0-9._-]*$/i;
 
 export function createResolver(root: string, options: ts.CompilerOptions, host: ResolveHost) {
   const cache = ts.createModuleResolutionCache(root, (fileName) => fileName, options);
-  return (specifier: string, fromAbsolutePath: string): Resolution => {
+  const resolve = (specifier: string, fromAbsolutePath: string): Resolution => {
     const resolved = ts.resolveModuleName(specifier, fromAbsolutePath, options, host, cache).resolvedModule;
     if (resolved && !resolved.isExternalLibraryImport && !resolved.resolvedFileName.includes("/node_modules/")) {
       return { kind: "file", path: resolved.resolvedFileName };
@@ -22,6 +22,7 @@ export function createResolver(root: string, options: ts.CompilerOptions, host: 
     const name = packageName(specifier);
     return name ? { kind: "package", name } : { kind: "unresolved" };
   };
+  return Object.assign(resolve, { clearCache: () => cache.clear() });
 }
 
 function packageName(specifier: string): string | undefined {

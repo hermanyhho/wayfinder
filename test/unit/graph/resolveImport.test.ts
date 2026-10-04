@@ -55,3 +55,24 @@ describe("createResolver edge cases", () => {
     expect(resolve("#internal", from)).toEqual({ kind: "unresolved" });
   });
 });
+
+describe("createResolver cache", () => {
+  it("keeps an earlier result for a file created later until the cache is cleared", () => {
+    const changingFiles = new Map(files);
+    const resolveChanging = createResolver("/repo", options, hostFor(changingFiles));
+    expect(resolveChanging("./c", from)).toEqual({ kind: "unresolved" });
+    changingFiles.set("/repo/src/c.ts", "");
+    expect(resolveChanging("./c", from)).toEqual({ kind: "unresolved" });
+    resolveChanging.clearCache();
+    expect(resolveChanging("./c", from)).toEqual({ kind: "file", path: "/repo/src/c.ts" });
+  });
+
+  it("stops resolving to a deleted file once the cache is cleared", () => {
+    const changingFiles = new Map(files);
+    const resolveChanging = createResolver("/repo", options, hostFor(changingFiles));
+    expect(resolveChanging("./b", from)).toEqual({ kind: "file", path: "/repo/src/b.ts" });
+    changingFiles.delete("/repo/src/b.ts");
+    resolveChanging.clearCache();
+    expect(resolveChanging("./b", from)).toEqual({ kind: "unresolved" });
+  });
+});
