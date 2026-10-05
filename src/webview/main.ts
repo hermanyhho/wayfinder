@@ -1,6 +1,6 @@
 import type { HostMessage, WebviewMessage } from "../shared/messages";
 import type { Fact, ViewData } from "../shared/viewData";
-import { CANVAS_W, layout, type UiState } from "./layout";
+import { MAX_CANVAS_W, MIN_CANVAS_W, layout, type UiState } from "./layout";
 import { answerFor, panelFor, type Action } from "./panelModel";
 import { renderMap, renderPanel } from "./render";
 
@@ -14,6 +14,7 @@ let action: Action | null = null;
 let lastTransform = IDENTITY;
 let renderedView: ViewData | null = null;
 let renderedLayer: UiState["layer"] = 1;
+let renderedWidth = MIN_CANVAS_W;
 const gitFactsById = new Map<string, Fact[]>();
 
 window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
@@ -57,9 +58,10 @@ document.addEventListener("dblclick", (event) => {
   if (view && id && panelFor(view, id).canOpen) vscode.postMessage({ type: "open", id });
 });
 
-function render(): void {
+function render(remeasured = false): void {
   if (!view) return;
-  const result = layout(view, ui);
+  renderedWidth = canvasWidth();
+  const result = layout(view, ui, renderedWidth);
   const map = document.getElementById("map")!;
   // every render replaces the html, so without these classes all nodes pop in again on each click
   map.classList.toggle("keep-nodes", view === renderedView);
@@ -78,17 +80,31 @@ function render(): void {
   const gitFacts = gitFactsById.get(ui.selected) ?? [];
   const answer = action ? answerFor(view, ui.selected, action, gitFacts) : null;
   document.getElementById("panel")!.innerHTML = renderPanel(panelFor(view, ui.selected), action, answer);
-  fitMap();
+  // the first render measures #map, which is wider than .fit by the scrollbar gutter
+  if (!remeasured && canvasWidth() !== renderedWidth) render(true);
+  else fitMap();
+}
+
+function canvasWidth(): number {
+  const available = (document.querySelector<HTMLElement>(".fit") ?? document.getElementById("map")!).clientWidth;
+  return Math.min(MAX_CANVAS_W, Math.max(MIN_CANVAS_W, available));
 }
 
 function fitMap(): void {
   const box = document.querySelector<HTMLElement>(".fit");
   const canvas = document.querySelector<HTMLElement>(".cv");
   if (!box || !canvas) return;
-  const scale = Math.min(1, box.clientWidth / CANVAS_W);
+  const scale = Math.min(1, box.clientWidth / renderedWidth);
   canvas.style.transform = `scale(${scale})`;
   box.style.height = `${canvas.offsetHeight * scale}px`;
 }
 
-new ResizeObserver(fitMap).observe(document.body);
+let resizeFrame = 0;
+new ResizeObserver(() => {
+  cancelAnimationFrame(resizeFrame);
+  resizeFrame = requestAnimationFrame(() => {
+    if (view && canvasWidth() !== renderedWidth) render();
+    else fitMap();
+  });
+}).observe(document.body);
 vscode.postMessage({ type: "ready" });
