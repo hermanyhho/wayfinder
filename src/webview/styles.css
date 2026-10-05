@@ -26,9 +26,9 @@ body.vscode-light .green { --c: #17924B; } body.vscode-light .red { --c: #D23A3A
 .seg button { font: inherit; font-size: 12px; font-weight: 600; color: var(--muted); background: none; border: 0; border-radius: 6px; padding: 7px 12px 6px; cursor: pointer; }
 .seg button.on { background: var(--strong); color: var(--bg); }
 .count { margin-left: auto; font-size: 12px; color: var(--text2); }
-.ne { flex: 1; overflow: auto; padding-bottom: 44px; }
+.ne { flex: 1; overflow: auto; scrollbar-gutter: stable; padding-bottom: 44px; }
 .fit { position: relative; overflow: hidden; }
-.cv { position: relative; width: 800px; transform-origin: 0 0; }
+.cv { position: relative; margin: 0 auto; transform-origin: 0 0; }
 .legend { position: absolute; left: 20px; bottom: 18px; display: flex; flex-wrap: wrap; gap: 14px; font-size: 11.5px; color: var(--text2); background: var(--bg); }
 .legend span { display: flex; align-items: center; gap: 6px; }
 .lsw { width: 10px; height: 10px; border-radius: 3px; background: var(--c); display: block; }
@@ -44,7 +44,7 @@ body.vscode-light .green { --c: #17924B; } body.vscode-light .red { --c: #D23A3A
 .flh .ti { flex: none; font-size: 12px; font-weight: 700; color: var(--text); }
 .flh.mine .ti { color: var(--strong); }
 .flh .fp { overflow: hidden; text-overflow: ellipsis; font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
-.wires { position: absolute; left: 0; top: 0; width: 800px; height: 100%; overflow: visible; fill: none; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+.wires { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; fill: none; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
 .w { stroke: var(--c); stroke-width: 2.4; transition: opacity .25s, stroke-width .25s; }
 .w.lo { opacity: .3; }
 .w.hi { opacity: 1; stroke-width: 3.4; stroke-dasharray: 7 7; animation: flow .9s linear infinite; filter: drop-shadow(0 0 3px var(--c)); }
@@ -84,7 +84,7 @@ body.vscode-light .nd { box-shadow: 0 2px 8px rgba(20, 30, 50, .10); }
 .ftic.plus::after { transform: rotate(90deg); }
 .ftic.minus::after { display: none; }
 
-.banner { position: absolute; left: 16px; width: 768px; box-sizing: border-box; border: 1px dashed var(--l3); border-radius: 14px; background: var(--bg); padding: 16px 18px 14px; }
+.banner { position: absolute; left: 16px; right: 16px; box-sizing: border-box; border: 1px dashed var(--l3); border-radius: 14px; background: var(--bg); padding: 16px 18px 14px; }
 .banner h4 { margin: 0 0 8px; font-size: 14px; font-weight: 700; color: var(--strong); }
 .banner ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
 .banner li { display: flex; gap: 10px; font-size: 12.5px; line-height: 17px; color: var(--text2); }
@@ -92,7 +92,7 @@ body.vscode-light .nd { box-shadow: 0 2px 8px rgba(20, 30, 50, .10); }
 .bar { height: 6px; border-radius: 999px; background: var(--l1); overflow: hidden; margin: 4px 0 10px; }
 .bar span { display: block; height: 100%; background: #4C93EA; border-radius: 999px; }
 
-.cluster { position: absolute; left: 0; top: 0; width: 800px; transform-origin: 0 0; transition: transform .6s cubic-bezier(.2, .7, .2, 1); }
+.cluster { position: absolute; left: 0; top: 0; width: 100%; transform-origin: 0 0; transition: transform .6s cubic-bezier(.2, .7, .2, 1); }
 .layer2 { animation: fade .45s ease-out .25s both; }
 .layer2.late { animation-delay: .45s; }
 .keep-nodes .nd, .keep-nodes .ndopen, .keep-layer2 .layer2 { animation: none; }

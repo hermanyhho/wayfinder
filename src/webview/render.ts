@@ -87,7 +87,7 @@ export function renderMap(result: Layout, view: ViewData, ui: UiState): string {
 </div>
 <div class="count">${escapeHtml(countLabel(view))}</div>
 </div>
-<div class="ne"><div class="fit"><div class="cv" style="height:${outer ? outer.height : inner.height}px">
+<div class="ne"><div class="fit"><div class="cv" style="width:${result.width}px;height:${outer ? outer.height : inner.height}px">
 ${outer ? renderOuterBack(outer, open.name, immediateCount(view)) : ""}
 <div class="cluster" style="height:${inner.height}px">${renderLayer(inner, canOpen)}</div>
 ${outer ? `<div class="layer2 late">${outer.nodes.map((node) => renderNode(node, canOpen)).join("")}${outer.ports.map(renderPort).join("")}${renderToggles(outer.floors)}</div>` : ""}
