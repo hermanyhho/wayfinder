@@ -13,7 +13,7 @@ export interface AiScan {
 
 export type AiStatus = { ready: true; model: string; sendsCodeTo?: string } | { ready: false; reason: string };
 
-export type AiScanState = { state: "idle" } | { state: "loading" } | { state: "done"; result: AiScan } | { state: "error"; message: string };
+export type AiScanState = { state: "idle" } | { state: "loading" } | { state: "done"; result: AiScan; rulesCut: boolean } | { state: "error"; message: string };
 
 export type HostMessage =
   | { type: "view"; data: ViewData }

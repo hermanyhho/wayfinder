@@ -64,7 +64,7 @@ function aiStatusLine(ai: PanelAi): string {
   const cloudNotice = ai.status?.ready && ai.status.sendsCodeTo ? `Cloud: sends code to ${escapeHtml(ai.status.sendsCodeTo)}` : "";
   if (ai.scan.state === "error") return [cloudNotice, escapeHtml(ai.scan.message)].filter(Boolean).join(". ");
   if (!ai.status) return "Checking AI setup";
-  if (ai.status.ready) return cloudNotice;
+  if (ai.status.ready) return [cloudNotice, ai.scan.state === "done" && ai.scan.rulesCut ? "Rules were cut to fit the model." : ""].filter(Boolean).join(". ");
   return `AI not set up: ${escapeHtml(ai.status.reason)}.`;
 }
 

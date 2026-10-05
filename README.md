@@ -24,9 +24,16 @@ Open a TypeScript or JavaScript file and run **Wayfinder: Show map for this file
 
 If `claude` or `codex` is on your PATH, the model list shows **Claude Code (cloud)** or **Codex (cloud)** under Cloud. The scan runs the CLI in headless mode with your existing login, so no API key is needed. Log in first with `claude auth login` or `codex login`.
 
-A cloud scan sends the open file and the names of related files to Anthropic or OpenAI. The first cloud scan in a workspace asks first. **Allow for this workspace** saves the answer for that workspace and that CLI. The side panel shows "Cloud: sends code to ..." while a cloud model is picked.
+A cloud scan sends the open file and the names of related files to Anthropic or OpenAI. With `wayfinder.ai.scope` set to `neighbours`, it also sends the code of the open file's imports, tests and callers. The first cloud scan in a workspace asks first. **Allow for this workspace** saves the answer for that workspace and that CLI. The side panel shows "Cloud: sends code to ..." while a cloud model is picked.
 
-Findings that name a file or line outside the import map are dropped. Results are kept until the file changes or the panel closes.
+Findings that name a file or line outside the import map are dropped. Results are kept until the file, the rules or the scope change, or the panel closes.
+
+### Rules and scope
+
+- The scan sends the built-in rules, then the team rules in `.wayfinder/rules.md`, then your rules in `wayfinder.ai.instructions`. Team and user rules are added to the built-in rules. They do not replace them.
+- Run **Wayfinder: Create AI rules file** to write a starter `.wayfinder/rules.md` and open it. An existing file is opened, not overwritten.
+- Team and user rules together are cut at 2,000 characters to fit the model. The side panel then shows "Rules were cut to fit the model".
+- `wayfinder.ai.scope`: `file` (default) sends only the open file. `neighbours` also sends the code of its direct imports, tests and callers, cut to fit. Neighbours are cut before the open file.
 
 ## Develop
 

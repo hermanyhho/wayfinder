@@ -24,6 +24,10 @@
       {
         "command": "wayfinder.chooseAiModel",
         "title": "Wayfinder: Choose AI model"
+      },
+      {
+        "command": "wayfinder.createAiRules",
+        "title": "Wayfinder: Create AI rules file"
       }
     ],
     "menus": {
@@ -46,6 +50,19 @@
           "type": "string",
           "default": "",
           "description": "Model for Scan with AI: an Ollama model such as qwen2.5-coder:1.5b, or claude-code or codex to scan through that CLI in the cloud. Leave empty to turn AI off."
+        },
+        "wayfinder.ai.instructions": {
+          "type": "string",
+          "default": "",
+          "editPresentation": "multilineText",
+          "description": "Your own rules for Scan with AI. Added after the built-in rules and the team rules in .wayfinder/rules.md."
+        },
+        "wayfinder.ai.scope": {
+          "type": "string",
+          "enum": ["file", "neighbours"],
+          "enumDescriptions": ["Send only the open file.", "Also send the code of the open file's direct imports, callers and tests, cut to fit the model."],
+          "default": "file",
+          "description": "What Scan with AI sends to the model."
         }
       }
     }
