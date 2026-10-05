@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import * as vscode from "vscode";
 import { type InstalledModel, type ModelPickerItem, modelPickerItems } from "../ai/modelPicker";
-import { SCAN_SYSTEM_PROMPT, aiStatusFor, buildScanPrompt, parseScanReply } from "../ai/scanFile";
+import { RULES_FILE, SCAN_SYSTEM_PROMPT, STARTER_RULES_FILE, type ScanPromptExtras, aiStatusFor, buildScanPrompt, neighbourFiles, parseScanReply } from "../ai/scanFile";
 import { buildViewData } from "../graph/neighbourhood";
 import { OllamaProvider } from "../providers/index";
 import type { AiScanState, AiStatus, HostMessage, WebviewMessage } from "../shared/messages";
@@ -36,6 +36,21 @@ export async function chooseAiModel(): Promise<void> {
   else if (picked?.opensSettings) await vscode.commands.executeCommand("workbench.action.openSettings", "wayfinder.ai");
 }
 
+export async function createAiRulesFile(): Promise<void> {
+  const root = WayfinderPanel.rulesRoot();
+  if (!root) {
+    void vscode.window.showInformationMessage("Wayfinder needs an open folder.");
+    return;
+  }
+  const rulesFile = vscode.Uri.joinPath(root, RULES_FILE);
+  const exists = await vscode.workspace.fs.stat(rulesFile).then(
+    () => true,
+    () => false,
+  );
+  if (!exists) await vscode.workspace.fs.writeFile(rulesFile, new TextEncoder().encode(STARTER_RULES_FILE));
+  await vscode.window.showTextDocument(rulesFile, { preview: false });
+}
+
 export class WayfinderPanel implements vscode.Disposable {
   private static current: WayfinderPanel | undefined;
   private readonly marks = new EditorMarks();
@@ -48,6 +63,11 @@ export class WayfinderPanel implements vscode.Disposable {
   private aiStatus: AiStatus = { ready: false, reason: "checking Ollama" };
   private readonly scans = new Map<string, { textHash: string; scan: AiScanState }>();
   private latestStatusCheck = 0;
+
+  // the index keeps the folder it was first opened with, and the scan reads the rules file from there
+  static rulesRoot(): vscode.Uri | undefined {
+    return WayfinderPanel.current?.index.root ?? vscode.workspace.workspaceFolders?.[0]?.uri;
+  }
 
   static show(context: vscode.ExtensionContext, index: WorkspaceIndex): void {
     if (WayfinderPanel.current) {
@@ -83,6 +103,7 @@ export class WayfinderPanel implements vscode.Disposable {
 
   private constructor(private readonly panel: vscode.WebviewPanel, context: vscode.ExtensionContext, private readonly index: WorkspaceIndex) {
     panel.webview.html = this.html(context);
+    const rulesWatcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(index.root, RULES_FILE));
     this.disposables.push(
       panel.onDidDispose(() => this.dispose()),
       panel.webview.onDidReceiveMessage((message: WebviewMessage) =>
@@ -93,8 +114,13 @@ export class WayfinderPanel implements vscode.Disposable {
       vscode.window.onDidChangeActiveTextEditor((editor) => this.followEditor(editor)),
       index.onDidChange(() => this.scheduleRefresh()),
       vscode.workspace.onDidChangeConfiguration((event) => {
+        if (event.affectsConfiguration("wayfinder.ai.instructions") || event.affectsConfiguration("wayfinder.ai.scope")) this.dropStoredScans();
         if (event.affectsConfiguration("wayfinder.ai")) void this.refreshAiStatus();
       }),
+      rulesWatcher,
+      rulesWatcher.onDidChange(() => this.dropStoredScans()),
+      rulesWatcher.onDidCreate(() => this.dropStoredScans()),
+      rulesWatcher.onDidDelete(() => this.dropStoredScans()),
     );
     this.followEditor(vscode.window.activeTextEditor);
     void this.refreshAiStatus();
@@ -182,18 +208,41 @@ export class WayfinderPanel implements vscode.Disposable {
   private async runScan(text: string, view: ViewData): Promise<AiScanState> {
     const { baseUrl, model } = aiSettings();
     try {
-      const reply = await new OllamaProvider({ name: "ollama", baseUrl, model }).chat([{ role: "user", content: buildScanPrompt(text, view) }], SCAN_SYSTEM_PROMPT, {
+      const { prompt, rulesCut } = buildScanPrompt(text, view, await this.scanExtras(view));
+      const reply = await new OllamaProvider({ name: "ollama", baseUrl, model }).chat([{ role: "user", content: prompt }], SCAN_SYSTEM_PROMPT, {
         format: "json",
         numCtx: NUM_CTX,
         signal: AbortSignal.timeout(SCAN_TIMEOUT_MS),
       });
       const result = parseScanReply(reply, this.lineCountByFile(view, text));
-      return result ? { state: "done", result } : { state: "error", message: "The model's reply could not be read. Try again." };
+      return result ? { state: "done", result, rulesCut } : { state: "error", message: "The model's reply could not be read. Try again." };
     } catch (error) {
       if (error instanceof Error && error.name === "TimeoutError") return { state: "error", message: "The model took too long. Try again." };
       void this.refreshAiStatus();
       return { state: "error", message: `The scan failed: ${error instanceof Error ? error.message : String(error)}` };
     }
+  }
+
+  private async scanExtras(view: ViewData): Promise<ScanPromptExtras> {
+    const settings = vscode.workspace.getConfiguration("wayfinder.ai");
+    const repoRules = await vscode.workspace.fs.readFile(vscode.Uri.joinPath(this.index.root, RULES_FILE)).then(
+      (bytes) => new TextDecoder().decode(bytes),
+      (error: unknown) => {
+        if (error instanceof vscode.FileSystemError && error.code === "FileNotFound") return "";
+        throw error;
+      },
+    );
+    const userRules = settings.get<string>("instructions") ?? "";
+    if (settings.get<string>("scope") !== "neighbours") return { repoRules, userRules };
+    const neighbours = neighbourFiles(view).filter((file) => this.index.graph.files.has(file));
+    const readResults = await Promise.allSettled(neighbours.map(async (file) => ({ file, source: await this.textOf(file) })));
+    const neighbourSources = readResults.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
+    return { repoRules, userRules, neighbourSources };
+  }
+
+  private dropStoredScans(): void {
+    for (const [file, stored] of this.scans) if (stored.scan.state !== "loading") this.scans.delete(file);
+    if (this.openFile) this.sendScanState(this.openFile).catch(() => undefined);
   }
 
   private storeScan(file: string, textHash: string, scan: AiScanState): void {
