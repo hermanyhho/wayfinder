@@ -61,9 +61,10 @@ const aiHead = (text: string) => `<div class="aih"><span class="aib">AI</span>${
 const loadingBlock = (text: string) => `<div class="aiblock loading">${aiHead(text)}<span class="skl"></span><span class="skl short"></span></div>`;
 
 function aiStatusLine(ai: PanelAi): string {
-  if (ai.scan.state === "error") return escapeHtml(ai.scan.message);
+  const cloudNotice = ai.status?.ready && ai.status.sendsCodeTo ? `Cloud: sends code to ${escapeHtml(ai.status.sendsCodeTo)}` : "";
+  if (ai.scan.state === "error") return [cloudNotice, escapeHtml(ai.scan.message)].filter(Boolean).join(". ");
   if (!ai.status) return "Checking AI setup";
-  if (ai.status.ready) return ai.scan.state === "done" && ai.scan.rulesCut ? "Rules were cut to fit the model." : "";
+  if (ai.status.ready) return [cloudNotice, ai.scan.state === "done" && ai.scan.rulesCut ? "Rules were cut to fit the model." : ""].filter(Boolean).join(". ");
   return `AI not set up: ${escapeHtml(ai.status.reason)}.`;
 }
 

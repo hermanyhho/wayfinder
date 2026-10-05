@@ -49,7 +49,7 @@
         "wayfinder.ai.model": {
           "type": "string",
           "default": "",
-          "description": "Ollama model for Scan with AI, for example qwen2.5-coder:1.5b. Leave empty to turn AI off."
+          "description": "Model for Scan with AI: an Ollama model such as qwen2.5-coder:1.5b, or claude-code or codex to scan through that CLI in the cloud. Leave empty to turn AI off."
         },
         "wayfinder.ai.instructions": {
           "type": "string",

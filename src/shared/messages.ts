@@ -11,7 +11,7 @@ export interface AiScan {
   findings: AiFinding[];
 }
 
-export type AiStatus = { ready: true; model: string } | { ready: false; reason: string };
+export type AiStatus = { ready: true; model: string; sendsCodeTo?: string } | { ready: false; reason: string };
 
 export type AiScanState = { state: "idle" } | { state: "loading" } | { state: "done"; result: AiScan; rulesCut: boolean } | { state: "error"; message: string };
 
