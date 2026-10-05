@@ -35,16 +35,16 @@ describe("panel content", () => {
     expect(importsRows).toHaveLength(1);
   });
 
-  it("answers Why with importers and git history, and Best practices with the checks", () => {
+  it("answers Why with importers and git history, and Checks with the rule results", () => {
     const git = [{ label: "3 weeks ago", value: "add remindUnsigned" }];
     expect(answerFor(view(), DOCUMENT_SERVICE, "why", git)).toEqual([
       { label: "Imported by", value: "DocumentController.ts, SendReminderJob.ts" },
       ...git,
     ]);
-    expect(answerFor(view(), DOCUMENT_SERVICE, "practice", [])).toContainEqual({
+    expect(answerFor(view(), DOCUMENT_SERVICE, "checks", [])).toContainEqual({
       label: "Missing",
       value: "IDocumentService.ts: 4 of 4 files in src/services have a matching interface file.",
     });
-    expect(answerFor(view(), "src/db/schema.ts", "practice", [])).toEqual([{ label: "Result", value: "No differences found against the files in the same folder." }]);
+    expect(answerFor(view(), "src/db/schema.ts", "checks", [])).toEqual([{ label: "Result", value: "No differences found against the files in the same folder." }]);
   });
 });

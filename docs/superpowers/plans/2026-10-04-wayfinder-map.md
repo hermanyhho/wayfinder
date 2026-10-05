@@ -31,7 +31,7 @@ The approved design is the Design canvas at https://claude.ai/artifact/MUHcCKRXF
 | Empty floors and the "Nothing connects to this file" card | `floor.empty`, `banner` | 6, 9 |
 | First scan banner with progress bar | `scanning` scenario, `.banner`, `.bar` | 7, 9 |
 | Colours: open file green, callers blue, dependencies and types violet, tests pink, circular import red, packages grey | `KINDS`, `.green` ... `.grey` | 9, 11 |
-| Panel: What it does, Connections, More about this file (Context, Why, Where, Best practices), every section tagged "From code" | `<aside class="panel">`, `describe`, `codeAnswer` | 10, 11 |
+| Panel: What it does, Connections, More about this file (Context, Why, Where, Checks), every section tagged "From code" | `<aside class="panel">`, `describe`, `codeAnswer` | 10, 11 |
 | Light and dark themes | `.app` and `.app.light` tokens | 11 |
 
 Deviations, decided here:
@@ -1862,17 +1862,17 @@ describe("panel content", () => {
     expect(model.connections).toContainEqual({ label: "DocumentController.ts:27", value: "return this.service.listForEmployee(actor, id)" });
   });
 
-  it("answers Why with importers and git history, and Best practices with the checks", () => {
+  it("answers Why with importers and git history, and Checks with the rule results", () => {
     const git = [{ label: "3 weeks ago", value: "add remindUnsigned" }];
     expect(answerFor(view(), DOCUMENT_SERVICE, "why", git)).toEqual([
       { label: "Imported by", value: "DocumentController.ts, SendReminderJob.ts" },
       ...git,
     ]);
-    expect(answerFor(view(), DOCUMENT_SERVICE, "practice", [])).toContainEqual({
+    expect(answerFor(view(), DOCUMENT_SERVICE, "checks", [])).toContainEqual({
       label: "Missing",
       value: "IDocumentService.ts: 4 of 4 files in src/services have a matching interface file.",
     });
-    expect(answerFor(view(), "src/db/schema.ts", "practice", [])).toEqual([{ label: "Result", value: "No differences found against the files in the same folder." }]);
+    expect(answerFor(view(), "src/db/schema.ts", "checks", [])).toEqual([{ label: "Result", value: "No differences found against the files in the same folder." }]);
   });
 });
 ```
@@ -1888,7 +1888,7 @@ Expected: FAIL, module not found.
 import type { Fact, NodeKind, ViewData, ViewNode } from "../shared/viewData";
 import { colorOf } from "./layout";
 
-export type Action = "context" | "why" | "where" | "practice";
+export type Action = "context" | "why" | "where" | "checks";
 
 export interface PanelModel {
   id: string;
@@ -2010,7 +2010,7 @@ const ASKS: { action: Action; label: string; icon: string }[] = [
   { action: "context", label: "Context", icon: '<path d="M12 3 3 8l9 5 9-5-9-5z"></path><path d="m3 13 9 5 9-5"></path>' },
   { action: "why", label: "Why", icon: '<circle cx="12" cy="12" r="9"></circle><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14"></path><path d="M12 17h.01"></path>' },
   { action: "where", label: "Where", icon: '<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"></path><circle cx="12" cy="10" r="2.5"></circle>' },
-  { action: "practice", label: "Best practices", icon: '<path d="M20 6 9 17l-5-5"></path>' },
+  { action: "checks", label: "Checks", icon: '<path d="M20 6 9 17l-5-5"></path>' },
 ];
 
 const LEGEND = `<div class="legend">

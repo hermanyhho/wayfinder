@@ -1,7 +1,7 @@
 import type { Fact, NodeKind, ViewData, ViewNode } from "../shared/viewData";
 import { colorOf } from "./layout";
 
-export type Action = "context" | "why" | "where" | "practice";
+export type Action = "context" | "why" | "where" | "checks";
 
 export interface PanelModel {
   id: string;
@@ -98,7 +98,7 @@ export function answerFor(view: ViewData, id: string, action: Action, git: Fact[
       const history = git.length ? git : [{ label: "Git history", value: "No commits found for this file." }];
       return [...(importedBy ? [importedBy] : []), ...history];
     }
-    case "practice":
+    case "checks":
       return node.checks.length ? node.checks : [{ label: "Result", value: "No differences found against the files in the same folder." }];
   }
 }
