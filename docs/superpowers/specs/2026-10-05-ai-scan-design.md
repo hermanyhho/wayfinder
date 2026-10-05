@@ -11,7 +11,7 @@ In:
 - "Scan with AI" button in the side panel for the open file. The label changes to "Scanning" while a scan runs and to "Scan again" after a result.
 - AI block under the facts from code: summary, then "Worth checking" findings, then the line "Every file and line named here exists in the import map."
 - Loading bars while a scan runs. The old AI text is hidden during a rescan.
-- AI status in the top bar: "AI ready: <model>" or "AI not set up: <reason>".
+- AI status in the top bar: "AI ready: <model>" or "AI not set up". The reason shows next to the disabled button: "AI not set up: <reason>".
 - Settings `wayfinder.ai.baseUrl` and `wayfinder.ai.model`.
 
 Out, for later issues:
@@ -37,7 +37,7 @@ The extension host makes the request. The webview CSP stays as it is.
 | File | Change |
 |---|---|
 | `src/providers/index.ts` | `OllamaProvider` takes optional `format` and `numCtx` and sends them to `/api/chat`. Add `listModels()` that reads `/api/tags`. Other providers unchanged. |
-| `src/ai/scanFile.ts` (new) | Pure functions: `buildScanPrompt(source, viewData)` and `parseScanReply(text, viewData, lineCounts)`. |
+| `src/ai/scanFile.ts` (new) | Pure functions: `buildScanPrompt(source, viewData)`, `parseScanReply(reply, lineCountByFile)` and `aiStatusFor(model, baseUrl, installedModels)`. |
 | `src/shared/messages.ts` | Add `{ type: "scan" }` to `WebviewMessage`. Add `{ type: "aiStatus" }` and `{ type: "ai" }` to `HostMessage`. |
 | `src/view/WayfinderPanel.ts` | Handle `scan`, check AI status on open and on settings change, keep results in memory. |
 | `src/webview/main.ts`, `render.ts`, `styles.css` | AI status chip, button, loading bars and AI block, using the mockup's classes (`aistate`, `aibtn`, `aiblock`, `aih`, `aib`, `findings`, `skl`, `based`). |
