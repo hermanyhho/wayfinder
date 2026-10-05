@@ -1,5 +1,24 @@
 import type { Fact, ViewData } from "./viewData";
 
-export type HostMessage = { type: "view"; data: ViewData } | { type: "git"; id: string; facts: Fact[] };
+export interface AiFinding {
+  file: string;
+  line: number;
+  text: string;
+}
 
-export type WebviewMessage = { type: "ready" } | { type: "select"; id: string } | { type: "open"; id: string };
+export interface AiScan {
+  summary: string;
+  findings: AiFinding[];
+}
+
+export type AiStatus = { ready: true; model: string } | { ready: false; reason: string };
+
+export type AiScanState = { state: "idle" } | { state: "loading" } | { state: "done"; result: AiScan } | { state: "error"; message: string };
+
+export type HostMessage =
+  | { type: "view"; data: ViewData }
+  | { type: "git"; id: string; facts: Fact[] }
+  | { type: "aiStatus"; status: AiStatus }
+  | { type: "ai"; openFile: string; scan: AiScanState };
+
+export type WebviewMessage = { type: "ready" } | { type: "select"; id: string } | { type: "open"; id: string } | { type: "scan" };
