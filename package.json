@@ -6,6 +6,19 @@
   "publisher": "hermanho",
   "private": true,
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hermanyhho/wayfinder.git"
+  },
+  "icon": "media/icon.png",
+  "keywords": [
+    "imports",
+    "dependencies",
+    "map",
+    "navigation",
+    "ollama",
+    "ai"
+  ],
   "engines": {
     "vscode": "^1.116.0"
   },
@@ -81,6 +94,7 @@
   "devDependencies": {
     "@types/node": "^20.19.39",
     "@types/vscode": "^1.116.0",
+    "@vscode/vsce": "^4.0.0",
     "esbuild": "^0.28.2",
     "vitest": "^4.1.11"
   }
