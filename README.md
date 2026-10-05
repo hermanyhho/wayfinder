@@ -20,6 +20,12 @@ Open a TypeScript or JavaScript file and run **Wayfinder: Show map for this file
 2. Run **Wayfinder: Choose AI model** and pick one of your installed models. The cog next to **Scan with AI** in the side panel opens the same list. The choice is saved as `wayfinder.ai.model` in user settings. `wayfinder.ai.baseUrl` defaults to `http://localhost:11434`.
 3. Hover the cog to see which model the scan uses. Press **Scan with AI** to scan the open file. The summary appears under Why, the findings under Checks.
 
+### Cloud: Claude Code or Codex
+
+If `claude` or `codex` is on your PATH, the model list shows **Claude Code (cloud)** or **Codex (cloud)** under Cloud. The scan runs the CLI in headless mode with your existing login, so no API key is needed. Log in first with `claude auth login` or `codex login`.
+
+A cloud scan sends the open file and the names of related files to Anthropic or OpenAI. The first cloud scan in a workspace asks first. **Allow for this workspace** saves the answer for that workspace and that CLI. The side panel shows "Cloud: sends code to ..." while a cloud model is picked.
+
 Findings that name a file or line outside the import map are dropped. Results are kept until the file changes or the panel closes.
 
 ## Develop

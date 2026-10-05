@@ -2,7 +2,7 @@
 
 This is the provider-neutral guide for working in this repo. Any agent (Claude, Codex or another) starts here. `CLAUDE.md` is a short Claude adapter that points back to this file.
 
-Wayfinder is a VS Code extension. It shows where the open file sits in the codebase: the files that import it, the files it imports, its tests, expected files that are missing, and a second layer behind those. The map comes from the code. An optional AI scan of the open file uses a local Ollama model.
+Wayfinder is a VS Code extension. It shows where the open file sits in the codebase: the files that import it, the files it imports, its tests, expected files that are missing, and a second layer behind those. The map comes from the code. An optional AI scan of the open file uses a local Ollama model, or Claude Code or Codex through their CLIs.
 
 ## Ground rules
 
@@ -82,7 +82,7 @@ src/workspace/         workspace scan, tsconfig loading, git history
 src/view/              webview panel host, editor gutter marks
 src/webview/           layout engine, panel model, HTML rendering, styles, webview entry
 src/ai/                AI scan prompt, reply checks and AI status (pure)
-src/providers/         AI providers; only Ollama is used
+src/providers/         AI providers: Ollama over HTTP, and the runner for the Claude Code and Codex CLIs
 test/unit/             vitest unit tests, mirrors src/
 test/sample-project/   small workspace for manual checks in the Extension Development Host
 ```

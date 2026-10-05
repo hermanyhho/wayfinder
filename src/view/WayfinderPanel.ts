@@ -1,8 +1,11 @@
 import { createHash, randomBytes } from "node:crypto";
+import { basename } from "node:path";
 import * as vscode from "vscode";
+import { CLOUD_CLIS, type CloudCli, cloudCliFor, cloudCliStatus, cloudConsentQuestion } from "../ai/cloudCli";
 import { type InstalledModel, type ModelPickerItem, modelPickerItems } from "../ai/modelPicker";
 import { SCAN_SYSTEM_PROMPT, aiStatusFor, buildScanPrompt, parseScanReply } from "../ai/scanFile";
 import { buildViewData } from "../graph/neighbourhood";
+import { cliLoginState, runCliScan } from "../providers/cliRunner";
 import { OllamaProvider } from "../providers/index";
 import type { AiScanState, AiStatus, HostMessage, WebviewMessage } from "../shared/messages";
 import type { ViewData } from "../shared/viewData";
@@ -26,10 +29,17 @@ function listInstalledModels(baseUrl: string): Promise<InstalledModel[] | null> 
   return new OllamaProvider({ name: "ollama", baseUrl }).listModels(AbortSignal.timeout(STATUS_TIMEOUT_MS)).catch(() => null);
 }
 
+async function installedCloudClis(): Promise<CloudCli[]> {
+  const logins = await Promise.all(CLOUD_CLIS.map((cli) => cliLoginState(cli, STATUS_TIMEOUT_MS)));
+  return CLOUD_CLIS.filter((_cli, index) => logins[index] !== "missing");
+}
+
 export async function chooseAiModel(): Promise<void> {
   const { baseUrl } = aiSettings();
-  const picked = await vscode.window.showQuickPick<ModelPickerItem>(
-    listInstalledModels(baseUrl).then((installedModels) => modelPickerItems(installedModels, baseUrl)),
+  const picked = await vscode.window.showQuickPick<ModelPickerItem & vscode.QuickPickItem>(
+    Promise.all([listInstalledModels(baseUrl), installedCloudClis()]).then(([installedModels, installedClis]) =>
+      modelPickerItems(installedModels, baseUrl, installedClis).map((item) => (item.separator ? { ...item, kind: vscode.QuickPickItemKind.Separator } : item)),
+    ),
     { title: "Wayfinder: Choose AI model" },
   );
   if (picked?.model) await vscode.workspace.getConfiguration("wayfinder.ai").update("model", picked.model, vscode.ConfigurationTarget.Global);
@@ -48,6 +58,7 @@ export class WayfinderPanel implements vscode.Disposable {
   private aiStatus: AiStatus = { ready: false, reason: "checking Ollama" };
   private readonly scans = new Map<string, { textHash: string; scan: AiScanState }>();
   private latestStatusCheck = 0;
+  private readonly stopScansOnClose = new AbortController();
 
   static show(context: vscode.ExtensionContext, index: WorkspaceIndex): void {
     if (WayfinderPanel.current) {
@@ -81,7 +92,7 @@ export class WayfinderPanel implements vscode.Disposable {
     });
   }
 
-  private constructor(private readonly panel: vscode.WebviewPanel, context: vscode.ExtensionContext, private readonly index: WorkspaceIndex) {
+  private constructor(private readonly panel: vscode.WebviewPanel, private readonly context: vscode.ExtensionContext, private readonly index: WorkspaceIndex) {
     panel.webview.html = this.html(context);
     this.disposables.push(
       panel.onDidDispose(() => this.dispose()),
@@ -102,6 +113,7 @@ export class WayfinderPanel implements vscode.Disposable {
 
   dispose(): void {
     this.disposed = true;
+    this.stopScansOnClose.abort();
     WayfinderPanel.current = undefined;
     clearTimeout(this.refreshTimer);
     this.marks.dispose();
@@ -161,9 +173,12 @@ export class WayfinderPanel implements vscode.Disposable {
   private async refreshAiStatus(): Promise<void> {
     const statusCheck = ++this.latestStatusCheck;
     const { baseUrl, model } = aiSettings();
-    const installedModels = model ? ((await listInstalledModels(baseUrl))?.map((installed) => installed.name) ?? null) : null;
+    const cloudCli = cloudCliFor(model);
+    const status = cloudCli
+      ? cloudCliStatus(cloudCli, await cliLoginState(cloudCli, STATUS_TIMEOUT_MS))
+      : aiStatusFor(model, baseUrl, model ? ((await listInstalledModels(baseUrl))?.map((installed) => installed.name) ?? null) : null);
     if (statusCheck !== this.latestStatusCheck) return;
-    this.aiStatus = aiStatusFor(model, baseUrl, installedModels);
+    this.aiStatus = status;
     this.send({ type: "aiStatus", status: this.aiStatus });
   }
 
@@ -171,22 +186,27 @@ export class WayfinderPanel implements vscode.Disposable {
     const file = this.openFile;
     const view = this.lastView;
     if (!file || !view || !this.aiStatus.ready || this.scans.get(file)?.scan.state === "loading") return;
+    const { baseUrl, model } = aiSettings();
+    const cloudCli = cloudCliFor(model);
+    if (cloudCli && !(await this.cloudScanAllowed(file, cloudCli))) return;
     const text = await this.textOf(file);
     const textHash = hashOf(text);
     this.storeScan(file, textHash, { state: "loading" });
-    const scan = await this.runScan(text, view);
+    const scan = await this.runScan(text, view, baseUrl, model, cloudCli);
     const textAfterScan = await this.textOf(file).catch(() => "");
     this.storeScan(file, textHash, hashOf(textAfterScan) === textHash ? scan : { state: "idle" });
   }
 
-  private async runScan(text: string, view: ViewData): Promise<AiScanState> {
-    const { baseUrl, model } = aiSettings();
+  private async runScan(text: string, view: ViewData, baseUrl: string, model: string, cloudCli: CloudCli | undefined): Promise<AiScanState> {
+    const prompt = buildScanPrompt(text, view);
     try {
-      const reply = await new OllamaProvider({ name: "ollama", baseUrl, model }).chat([{ role: "user", content: buildScanPrompt(text, view) }], SCAN_SYSTEM_PROMPT, {
-        format: "json",
-        numCtx: NUM_CTX,
-        signal: AbortSignal.timeout(SCAN_TIMEOUT_MS),
-      });
+      const reply = cloudCli
+        ? await runCliScan(cloudCli, prompt, AbortSignal.any([AbortSignal.timeout(SCAN_TIMEOUT_MS), this.stopScansOnClose.signal]))
+        : await new OllamaProvider({ name: "ollama", baseUrl, model }).chat([{ role: "user", content: prompt }], SCAN_SYSTEM_PROMPT, {
+            format: "json",
+            numCtx: NUM_CTX,
+            signal: AbortSignal.timeout(SCAN_TIMEOUT_MS),
+          });
       const result = parseScanReply(reply, this.lineCountByFile(view, text));
       return result ? { state: "done", result } : { state: "error", message: "The model's reply could not be read. Try again." };
     } catch (error) {
@@ -194,6 +214,15 @@ export class WayfinderPanel implements vscode.Disposable {
       void this.refreshAiStatus();
       return { state: "error", message: `The scan failed: ${error instanceof Error ? error.message : String(error)}` };
     }
+  }
+
+  private async cloudScanAllowed(file: string, cloudCli: CloudCli): Promise<boolean> {
+    const consentKey = `wayfinder.ai.cloudAllowed.${cloudCli.model}`;
+    if (this.context.workspaceState.get<boolean>(consentKey)) return true;
+    const allow = "Allow for this workspace";
+    if ((await vscode.window.showWarningMessage(cloudConsentQuestion(basename(file), cloudCli), { modal: true }, allow)) !== allow) return false;
+    await this.context.workspaceState.update(consentKey, true);
+    return true;
   }
 
   private storeScan(file: string, textHash: string, scan: AiScanState): void {
