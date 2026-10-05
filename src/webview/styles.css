@@ -34,23 +34,21 @@ body.vscode-light .green { --c: #17924B; } body.vscode-light .red { --c: #D23A3A
 .lsw { width: 10px; height: 10px; border-radius: 3px; background: var(--c); display: block; }
 .lsw.dash { background: transparent; border: 1.5px dashed var(--c); box-sizing: border-box; width: 12px; height: 12px; }
 
-.fl { position: absolute; left: 16px; width: 768px; box-sizing: border-box; border: 1px solid var(--l1); border-radius: 14px; background: var(--floor); }
+.fl { position: absolute; box-sizing: border-box; border: 1px solid var(--l1); border-radius: 14px; background: var(--floor); }
 .fl.mine { border-color: var(--l3); background: var(--floormine); }
 .fl.annex, .fl.empty { border-style: dashed; }
 .fl.empty { background: transparent; }
-.phtext { position: absolute; left: 0; right: 0; bottom: 12px; text-align: center; color: var(--muted); font-size: 12.5px; }
-.flh { position: absolute; left: 30px; display: flex; align-items: baseline; gap: 8px; white-space: nowrap; padding: 0 8px 2px 0; background: var(--floor); border-radius: 6px; }
+.phtext { position: absolute; left: 0; right: 0; top: 34px; text-align: center; color: var(--muted); font-size: 12.5px; }
+.flh { position: absolute; box-sizing: border-box; overflow: hidden; display: flex; align-items: baseline; gap: 8px; white-space: nowrap; padding: 0 8px 2px 0; background: var(--floor); border-radius: 6px; }
 .flh.mine { background: var(--floormine); }
-.flh .ti { font-size: 12px; font-weight: 700; color: var(--text); }
+.flh .ti { flex: none; font-size: 12px; font-weight: 700; color: var(--text); }
 .flh.mine .ti { color: var(--strong); }
-.flh .fp { font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
+.flh .fp { overflow: hidden; text-overflow: ellipsis; font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
 .wires { position: absolute; left: 0; top: 0; width: 800px; height: 100%; overflow: visible; fill: none; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
 .w { stroke: var(--c); stroke-width: 2.4; transition: opacity .25s, stroke-width .25s; }
-.w.dashed { stroke-dasharray: 5 6; }
 .w.lo { opacity: .3; }
 .w.hi { opacity: 1; stroke-width: 3.4; stroke-dasharray: 7 7; animation: flow .9s linear infinite; filter: drop-shadow(0 0 3px var(--c)); }
 @keyframes flow { to { stroke-dashoffset: -14; } }
-.wl { position: absolute; transform: translate(-50%, -50%); font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; color: var(--c); background: var(--bg); border: 1px dashed var(--c); border-radius: 999px; padding: 3px 8px 2px; }
 .port { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; box-sizing: border-box; border-radius: 50%; background: var(--c); border: 2px solid var(--bg); pointer-events: none; }
 .port.in { background: var(--bg); border-color: var(--c); }
 
@@ -79,7 +77,7 @@ body.vscode-light .nd { box-shadow: 0 2px 8px rgba(20, 30, 50, .10); }
 .nd:hover + .ndopen, .nd.sel + .ndopen, .ndopen:hover, .ndopen:focus-visible { opacity: 1; color: var(--strong); }
 .ndopen:hover { background: var(--l2); }
 
-.ftog { position: absolute; left: 30px; display: inline-flex; align-items: center; gap: 7px; height: 22px; padding: 0 10px 0 4px; font: inherit; font-size: 11.5px; font-weight: 600; color: var(--text2); background: var(--raise); border: 1px solid var(--l3); border-radius: 999px; cursor: pointer; }
+.ftog { position: absolute; display: inline-flex; align-items: center; gap: 7px; height: 22px; padding: 0 10px 0 4px; font: inherit; font-size: 11.5px; font-weight: 600; color: var(--text2); background: var(--raise); border: 1px solid var(--l3); border-radius: 999px; cursor: pointer; }
 .ftog:hover { color: var(--strong); border-color: var(--l4); }
 .ftic { position: relative; width: 16px; height: 16px; border-radius: 50%; background: var(--l2); }
 .ftic::before, .ftic::after { content: ""; position: absolute; left: 4px; top: 7.25px; width: 8px; height: 1.5px; border-radius: 1px; background: var(--strong); }
