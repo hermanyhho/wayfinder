@@ -1,13 +1,25 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import * as vscode from "vscode";
+import { SCAN_SYSTEM_PROMPT, aiStatusFor, buildScanPrompt, parseScanReply } from "../ai/scanFile";
 import { buildViewData } from "../graph/neighbourhood";
-import type { HostMessage, WebviewMessage } from "../shared/messages";
+import { OllamaProvider } from "../providers/index";
+import type { AiScanState, AiStatus, HostMessage, WebviewMessage } from "../shared/messages";
 import type { ViewData } from "../shared/viewData";
 import { gitHistory } from "../workspace/gitFacts";
 import type { WorkspaceIndex } from "../workspace/WorkspaceIndex";
 import { EditorMarks } from "./EditorMarks";
 
 const SOURCE_FILE = /\.[cm]?[jt]sx?$/;
+const NUM_CTX = 8192;
+const SCAN_TIMEOUT_MS = 120_000;
+const STATUS_TIMEOUT_MS = 3_000;
+
+const hashOf = (text: string) => createHash("sha1").update(text).digest("hex");
+
+function aiSettings(): { baseUrl: string; model: string } {
+  const settings = vscode.workspace.getConfiguration("wayfinder.ai");
+  return { baseUrl: settings.get<string>("baseUrl") || "http://localhost:11434", model: settings.get<string>("model")?.trim() ?? "" };
+}
 
 export class WayfinderPanel implements vscode.Disposable {
   private static current: WayfinderPanel | undefined;
@@ -18,6 +30,8 @@ export class WayfinderPanel implements vscode.Disposable {
   private lastView: ViewData | undefined;
   private refreshTimer: NodeJS.Timeout | undefined;
   private disposed = false;
+  private aiStatus: AiStatus = { ready: false, reason: "checking Ollama" };
+  private readonly scans = new Map<string, { textHash: string; scan: AiScanState }>();
 
   static show(context: vscode.ExtensionContext, index: WorkspaceIndex): void {
     if (WayfinderPanel.current) {
@@ -62,8 +76,12 @@ export class WayfinderPanel implements vscode.Disposable {
       ),
       vscode.window.onDidChangeActiveTextEditor((editor) => this.followEditor(editor)),
       index.onDidChange(() => this.scheduleRefresh()),
+      vscode.workspace.onDidChangeConfiguration((event) => {
+        if (event.affectsConfiguration("wayfinder.ai")) void this.refreshAiStatus();
+      }),
     );
     this.followEditor(vscode.window.activeTextEditor);
+    void this.refreshAiStatus();
   }
 
   dispose(): void {
@@ -92,12 +110,14 @@ export class WayfinderPanel implements vscode.Disposable {
     this.lastView = buildViewData(this.index.graph, this.openFile, { scan: this.index.progress, packageJsonText: this.index.packageJsonText });
     this.send({ type: "view", data: this.lastView });
     this.marks.apply(this.editorFor(this.openFile), this.lastView, this.selected ?? this.openFile);
+    this.sendScanState(this.openFile).catch(() => undefined);
   }
 
   private async onMessage(message: WebviewMessage): Promise<void> {
     switch (message.type) {
       case "ready":
         this.post();
+        this.send({ type: "aiStatus", status: this.aiStatus });
         return;
       case "select": {
         this.selected = message.id;
@@ -113,7 +133,71 @@ export class WayfinderPanel implements vscode.Disposable {
         await vscode.window.showTextDocument(document, { viewColumn: this.editorColumn(), preview: false });
         return;
       }
+      case "scan":
+        await this.scanOpenFile();
+        return;
     }
+  }
+
+  private async refreshAiStatus(): Promise<void> {
+    const { baseUrl, model } = aiSettings();
+    const installedModels = model
+      ? await new OllamaProvider({ name: "ollama", baseUrl }).listModels(AbortSignal.timeout(STATUS_TIMEOUT_MS)).catch(() => null)
+      : null;
+    this.aiStatus = aiStatusFor(model, baseUrl, installedModels);
+    this.send({ type: "aiStatus", status: this.aiStatus });
+  }
+
+  private async scanOpenFile(): Promise<void> {
+    const file = this.openFile;
+    const view = this.lastView;
+    if (!file || !view || !this.aiStatus.ready || this.scans.get(file)?.scan.state === "loading") return;
+    const text = await this.textOf(file);
+    const textHash = hashOf(text);
+    this.storeScan(file, textHash, { state: "loading" });
+    this.storeScan(file, textHash, await this.runScan(text, view));
+  }
+
+  private async runScan(text: string, view: ViewData): Promise<AiScanState> {
+    const { baseUrl, model } = aiSettings();
+    try {
+      const reply = await new OllamaProvider({ name: "ollama", baseUrl, model }).chat([{ role: "user", content: buildScanPrompt(text, view) }], SCAN_SYSTEM_PROMPT, {
+        format: "json",
+        numCtx: NUM_CTX,
+        signal: AbortSignal.timeout(SCAN_TIMEOUT_MS),
+      });
+      const result = parseScanReply(reply, this.lineCountByFile(view, text));
+      return result ? { state: "done", result } : { state: "error", message: "The model's reply could not be read. Try again." };
+    } catch (error) {
+      if (error instanceof Error && error.name === "TimeoutError") return { state: "error", message: "The model took too long. Try again." };
+      void this.refreshAiStatus();
+      return { state: "error", message: `The scan failed: ${error instanceof Error ? error.message : String(error)}` };
+    }
+  }
+
+  private storeScan(file: string, textHash: string, scan: AiScanState): void {
+    this.scans.set(file, { textHash, scan });
+    if (file === this.openFile) this.send({ type: "ai", openFile: file, scan });
+  }
+
+  private async sendScanState(file: string): Promise<void> {
+    const stored = this.scans.get(file);
+    if (stored && stored.scan.state !== "loading" && stored.textHash !== hashOf(await this.textOf(file))) this.scans.delete(file);
+    if (file === this.openFile) this.send({ type: "ai", openFile: file, scan: this.scans.get(file)?.scan ?? { state: "idle" } });
+  }
+
+  private async textOf(relativePath: string): Promise<string> {
+    return (await vscode.workspace.openTextDocument(this.index.uriOf(relativePath))).getText();
+  }
+
+  private lineCountByFile(view: ViewData, openFileText: string): Map<string, number> {
+    const lineCounts = new Map<string, number>();
+    for (const node of view.nodes) {
+      const analysis = this.index.graph.files.get(node.id);
+      if (analysis) lineCounts.set(node.id, analysis.lineCount);
+    }
+    lineCounts.set(view.openFile, openFileText.split(/\r?\n/).length);
+    return lineCounts;
   }
 
   private send(message: HostMessage): void {
