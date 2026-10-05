@@ -89,7 +89,7 @@ describe("cloudCliStatus", () => {
 
 describe("cloudConsentQuestion", () => {
   it("names the file, the company and the CLI", () => {
-    expect(cloudConsentQuestion("DocumentService.ts", claudeCode)).toBe("Scan with AI sends DocumentService.ts to Anthropic through Claude Code. Continue?");
+    expect(cloudConsentQuestion("DocumentService.ts", claudeCode)).toBe("Scan with AI sends DocumentService.ts to Anthropic through Claude Code. With the wayfinder.ai.scope setting on neighbours, it also sends the code of its imports, tests and callers. Continue?");
   });
 });
 

@@ -72,7 +72,7 @@ export function cloudCliStatus(cli: CloudCli, login: CliLogin): AiStatus {
   return { ready: true, model: cloudLabel(cli), sendsCodeTo: cli.company };
 }
 
-export const cloudConsentQuestion = (fileName: string, cli: CloudCli) => `Scan with AI sends ${fileName} to ${cli.company} through ${cli.label}. Continue?`;
+export const cloudConsentQuestion = (fileName: string, cli: CloudCli) => `Scan with AI sends ${fileName} to ${cli.company} through ${cli.label}. With the wayfinder.ai.scope setting on neighbours, it also sends the code of its imports, tests and callers. Continue?`;
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
