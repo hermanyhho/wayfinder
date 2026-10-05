@@ -37,6 +37,10 @@ document.addEventListener("click", (event) => {
   const target = (event.target as HTMLElement).closest<HTMLElement>("[data-action]");
   if (!target || !view) return;
   const { action: kind, id, value } = target.dataset;
+  if (kind === "select" && id && (event.metaKey || event.ctrlKey) && panelFor(view, id).canOpen) {
+    vscode.postMessage({ type: "open", id });
+    return;
+  }
   if (kind === "select" && id) {
     ui = { ...ui, selected: id };
     vscode.postMessage({ type: "select", id });

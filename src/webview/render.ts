@@ -1,6 +1,6 @@
 import type { Fact, ViewData } from "../shared/viewData";
 import type { BannerView, FloorView, LabelView, LayerView, Layout, NodeView, PortView, SecondLayerView, UiState, WireView } from "./layout";
-import type { Action, PanelModel } from "./panelModel";
+import { panelFor, type Action, type PanelModel } from "./panelModel";
 
 const HTML_ESCAPES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => HTML_ESCAPES[character]);
@@ -35,8 +35,12 @@ const renderFloor = (floor: FloorView) =>
 const renderFloorHeader = (floor: FloorView) =>
   `<div class="flh ${floor.cls}" style="top:${floor.y + 9}px"><span class="ti">${escapeHtml(floor.title)}</span><span class="fp">${escapeHtml(floor.path)}</span></div>`;
 const renderWires = (wires: WireView[]) => `<svg class="wires" aria-hidden="true">${wires.map((wire) => `<path class="w ${wire.cls}" d="${wire.d}"></path>`).join("")}</svg>`;
-const renderNode = (node: NodeView) =>
-  `<button class="nd ${node.cls}" style="left:${node.x}px;top:${node.y}px;width:${node.w}px" data-action="select" data-id="${escapeHtml(node.id)}" title="${escapeHtml(node.id)}"><span class="nh"><span class="sw"></span>${escapeHtml(node.tag)}</span><span class="nn">${escapeHtml(node.name)}</span><span class="np">${escapeHtml(node.path)}</span></button>`;
+const OPEN_ICON = '<path d="M14 4h6v6"></path><path d="m20 4-9 9"></path><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"></path>';
+// the open icon is a sibling, not a child, because a button inside the node button is invalid html
+const renderOpenIcon = (node: NodeView) =>
+  `<button class="ndopen" style="left:${node.x + node.w - 22}px;top:${node.y + 1}px" data-action="open" data-id="${escapeHtml(node.id)}" title="Open file (or ⌘/Ctrl+click the node)" aria-label="Open ${escapeHtml(node.name)}"><svg viewBox="0 0 24 24" aria-hidden="true">${OPEN_ICON}</svg></button>`;
+const renderNode = (node: NodeView, canOpen: (id: string) => boolean) =>
+  `<button class="nd ${node.cls}" style="left:${node.x}px;top:${node.y}px;width:${node.w}px" data-action="select" data-id="${escapeHtml(node.id)}" title="${escapeHtml(node.id)}"><span class="nh"><span class="sw"></span>${escapeHtml(node.tag)}</span><span class="nn">${escapeHtml(node.name)}</span><span class="np">${escapeHtml(node.path)}</span></button>${canOpen(node.id) ? renderOpenIcon(node) : ""}`;
 const renderPort = (port: PortView) => `<span class="port ${port.cls}${port.incoming ? " in" : ""}" style="left:${port.x}px;top:${port.y}px"></span>`;
 const renderLabel = (label: LabelView) => `<span class="wl ${label.cls}" style="left:${label.x}px;top:${label.y}px">${escapeHtml(label.text)}</span>`;
 const renderToggles = (floors: FloorView[]) =>
@@ -52,13 +56,13 @@ function renderBanner(banner: BannerView): string {
   return `<div class="banner" style="top:${banner.y}px"><h4>${escapeHtml(banner.title)}</h4>${bar}<ul>${items}</ul></div>`;
 }
 
-function renderLayer(layer: LayerView): string {
+function renderLayer(layer: LayerView, canOpen: (id: string) => boolean): string {
   return [
     layer.floors.map(renderFloor).join(""),
     layer.banners.map(renderBanner).join(""),
     renderWires(layer.wires),
     layer.floors.map(renderFloorHeader).join(""),
-    layer.nodes.map(renderNode).join(""),
+    layer.nodes.map((node) => renderNode(node, canOpen)).join(""),
     layer.ports.map(renderPort).join(""),
     layer.labels.map(renderLabel).join(""),
     renderToggles(layer.floors),
@@ -76,6 +80,7 @@ ${renderWires(outer.wires)}</div>`;
 export function renderMap(result: Layout, view: ViewData, ui: UiState): string {
   const open = view.nodes.find((node) => node.id === view.openFile)!;
   const { inner, outer } = result;
+  const canOpen = (id: string) => panelFor(view, id).canOpen;
   return `<div class="toolbar">
 <div class="crumb"><span class="k">Open file</span><span class="mono">${escapeHtml(open.dir || ".")}</span><span>/</span><b class="mono">${escapeHtml(open.name)}</b></div>
 <div class="seg" role="group" aria-label="Layers to show">
@@ -86,8 +91,8 @@ export function renderMap(result: Layout, view: ViewData, ui: UiState): string {
 </div>
 <div class="ne"><div class="fit"><div class="cv" style="height:${outer ? outer.height : inner.height}px">
 ${outer ? renderOuterBack(outer, open.name, immediateCount(view)) : ""}
-<div class="cluster" style="height:${inner.height}px">${renderLayer(inner)}</div>
-${outer ? `<div class="layer2 late">${outer.nodes.map(renderNode).join("")}${outer.ports.map(renderPort).join("")}${renderToggles(outer.floors)}</div>` : ""}
+<div class="cluster" style="height:${inner.height}px">${renderLayer(inner, canOpen)}</div>
+${outer ? `<div class="layer2 late">${outer.nodes.map((node) => renderNode(node, canOpen)).join("")}${outer.ports.map(renderPort).join("")}${renderToggles(outer.floors)}</div>` : ""}
 ${ui.layer === 2 && !outer ? `<div class="nolayer">No second layer. Nothing is connected beyond the immediate layer.</div>` : ""}
 </div></div></div>
 ${LEGEND}`;
