@@ -9,7 +9,7 @@ const ASKS: { action: Action; label: string; icon: string }[] = [
   { action: "context", label: "Context", icon: '<path d="M12 3 3 8l9 5 9-5-9-5z"></path><path d="m3 13 9 5 9-5"></path>' },
   { action: "why", label: "Why", icon: '<circle cx="12" cy="12" r="9"></circle><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14"></path><path d="M12 17h.01"></path>' },
   { action: "where", label: "Where", icon: '<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"></path><circle cx="12" cy="10" r="2.5"></circle>' },
-  { action: "practice", label: "Best practices", icon: '<path d="M20 6 9 17l-5-5"></path>' },
+  { action: "checks", label: "Checks", icon: '<path d="M20 6 9 17l-5-5"></path>' },
 ];
 
 const LEGEND = `<div class="legend">
