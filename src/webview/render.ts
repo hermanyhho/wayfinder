@@ -1,3 +1,4 @@
+import type { AiScanState, AiStatus } from "../shared/messages";
 import type { Fact, ViewData } from "../shared/viewData";
 import type { BannerView, FloorView, LayerView, Layout, NodeView, PortView, SecondLayerView, UiState, WireView } from "./layout";
 import { panelFor, type Action, type PanelModel } from "./panelModel";
@@ -49,6 +50,45 @@ const renderToggles = (floors: FloorView[]) =>
     .join("");
 const factList = (facts: Fact[]) => `<ul class="facts">${facts.map((fact) => `<li><span class="fk">${escapeHtml(fact.label)}</span><span class="fv">${escapeHtml(fact.value)}</span></li>`).join("")}</ul>`;
 
+export interface PanelAi {
+  status: AiStatus | null;
+  scan: AiScanState;
+}
+
+const SCAN_ICON = '<path d="M12 3v4M12 17v4M3 12h4M17 12h4"></path><path d="M12 8.5 13.6 12 12 15.5 10.4 12z"></path>';
+const aiHead = (text: string) => `<div class="aih"><span class="aib">AI</span>${escapeHtml(text)}</div>`;
+const loadingBlock = (text: string) => `<div class="aiblock loading">${aiHead(text)}<span class="skl"></span><span class="skl short"></span></div>`;
+
+function renderAiState(status: AiStatus | null): string {
+  if (!status) return "";
+  return status.ready
+    ? `<span class="aistate ready"><span class="dotx"></span>AI ready: ${escapeHtml(status.model)}</span>`
+    : `<span class="aistate" title="${escapeHtml(status.reason)}"><span class="dotx"></span>AI not set up</span>`;
+}
+
+function renderAiBar(ai: PanelAi): string {
+  const loading = ai.scan.state === "loading";
+  const disabled = loading || !ai.status?.ready;
+  const label = loading ? "Scanning" : ai.scan.state === "done" ? "Scan again" : "Scan with AI";
+  const statusText = ai.scan.state === "error" ? ai.scan.message : ai.status && !ai.status.ready ? `AI not set up: ${ai.status.reason}` : "";
+  return `<div class="aibar"><button class="aibtn ${loading ? "busy" : disabled ? "off" : ""}" data-action="scan" ${disabled ? "disabled" : ""}><svg viewBox="0 0 24 24" aria-hidden="true">${SCAN_ICON}</svg>${label}</button><span class="aistatus">${escapeHtml(statusText)}</span></div>`;
+}
+
+function renderAiSummary(ai: PanelAi | null): string {
+  if (ai?.scan.state === "loading") return loadingBlock("Writing a summary");
+  if (!ai || ai.scan.state !== "done") return "";
+  return `<div class="aiblock">${aiHead("Summary")}<p>${escapeHtml(ai.scan.result.summary)}</p></div>`;
+}
+
+function renderAiFindings(ai: PanelAi | null): string {
+  if (ai?.scan.state === "loading") return loadingBlock("Looking for things worth checking");
+  if (!ai || ai.scan.state !== "done" || !ai.scan.result.findings.length) return "";
+  const items = ai.scan.result.findings
+    .map((finding) => `<li><span class="mono">${escapeHtml(finding.file.slice(finding.file.lastIndexOf("/") + 1))}:${finding.line}</span> ${escapeHtml(finding.text)}</li>`)
+    .join("");
+  return `<div class="aiblock">${aiHead("Worth checking")}<ul class="findings">${items}</ul><div class="based">Every file and line named here exists in the import map.</div></div>`;
+}
+
 function renderBanner(banner: BannerView): string {
   const bar = banner.progress === null ? "" : `<div class="bar"><span style="width:${banner.progress}%"></span></div>`;
   const items = banner.items.map((item) => `<li><span class="ck">${escapeHtml(item.label)}</span><span>${escapeHtml(item.value)}</span></li>`).join("");
@@ -75,7 +115,7 @@ function renderOuterBack(outer: SecondLayerView, fileName: string, count: number
 ${renderWires(outer.wires)}</div>`;
 }
 
-export function renderMap(result: Layout, view: ViewData, ui: UiState): string {
+export function renderMap(result: Layout, view: ViewData, ui: UiState, aiStatus: AiStatus | null): string {
   const open = view.nodes.find((node) => node.id === view.openFile)!;
   const { inner, outer } = result;
   const canOpen = (id: string) => panelFor(view, id).canOpen;
@@ -85,6 +125,7 @@ export function renderMap(result: Layout, view: ViewData, ui: UiState): string {
 <button class="${ui.layer === 1 ? "on" : ""}" data-action="layer" data-value="1">Immediate layer</button>
 <button class="${ui.layer === 2 ? "on" : ""}" data-action="layer" data-value="2">Second layer</button>
 </div>
+${renderAiState(aiStatus)}
 <div class="count">${escapeHtml(countLabel(view))}</div>
 </div>
 <div class="ne"><div class="fit"><div class="cv" style="width:${result.width}px;height:${outer ? outer.height : inner.height}px">
@@ -96,7 +137,7 @@ ${ui.layer === 2 && !outer ? `<div class="nolayer">No second layer. Nothing is c
 ${LEGEND}`;
 }
 
-export function renderPanel(model: PanelModel, action: Action | null, answer: Fact[] | null): string {
+export function renderPanel(model: PanelModel, action: Action | null, answer: Fact[] | null, ai: PanelAi | null): string {
   const connections = model.connections.length
     ? model.connections.map((connection) => `<div class="lk"><span class="ref">${escapeHtml(connection.label)}</span><span class="lt">${escapeHtml(connection.value)}</span></div>`).join("")
     : `<div class="lt">None</div>`;
@@ -112,8 +153,9 @@ export function renderPanel(model: PanelModel, action: Action | null, answer: Fa
 <h2 class="title">${escapeHtml(model.name)}</h2>
 <div class="path">${escapeHtml(model.path)}</div>
 ${model.canOpen ? `<button class="openbtn" data-action="open" data-id="${escapeHtml(model.id)}">Open file</button>` : ""}
+${ai ? renderAiBar(ai) : ""}
 </div>
-<section><div class="sechead"><h3 class="label">What it does</h3><span class="src-tag">From code</span></div>${factList(model.facts)}</section>
-<section><div class="sechead"><h3 class="label">${escapeHtml(model.connectionsTitle)}</h3><span class="src-tag">From code</span></div><div class="links">${connections}</div></section>
+<section><div class="sechead"><h3 class="label">What it does</h3><span class="src-tag">From code</span></div>${factList(model.facts)}${renderAiSummary(ai)}</section>
+<section><div class="sechead"><h3 class="label">${escapeHtml(model.connectionsTitle)}</h3><span class="src-tag">From code</span></div><div class="links">${connections}</div>${renderAiFindings(ai)}</section>
 <section><h3 class="label">More about this file</h3><div class="asks">${asks}</div>${answerBlock}</section>`;
 }

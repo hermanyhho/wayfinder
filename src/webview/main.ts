@@ -1,4 +1,4 @@
-import type { HostMessage, WebviewMessage } from "../shared/messages";
+import type { AiScanState, AiStatus, HostMessage, WebviewMessage } from "../shared/messages";
 import type { Fact, ViewData } from "../shared/viewData";
 import { MAX_CANVAS_W, MIN_CANVAS_W, layout, type UiState } from "./layout";
 import { answerFor, panelFor, type Action } from "./panelModel";
@@ -16,6 +16,9 @@ let renderedView: ViewData | null = null;
 let renderedLayer: UiState["layer"] = 1;
 let renderedWidth = MIN_CANVAS_W;
 const gitFactsById = new Map<string, Fact[]>();
+const IDLE_SCAN: AiScanState = { state: "idle" };
+let aiStatus: AiStatus | null = null;
+let aiScan: { openFile: string; scan: AiScanState } | null = null;
 
 window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
   const message = event.data;
@@ -31,6 +34,8 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
     }
   }
   if (message.type === "git") gitFactsById.set(message.id, message.facts);
+  if (message.type === "aiStatus") aiStatus = message.status;
+  if (message.type === "ai") aiScan = { openFile: message.openFile, scan: message.scan };
   render();
 });
 
@@ -50,6 +55,7 @@ document.addEventListener("click", (event) => {
   if (kind === "layer" && value) ui = { ...ui, layer: value === "2" ? 2 : 1 };
   if (kind === "ask" && value) action = action === value ? null : (value as Action);
   if (kind === "open" && id) vscode.postMessage({ type: "open", id });
+  if (kind === "scan") vscode.postMessage({ type: "scan" });
   render();
 });
 
@@ -68,7 +74,7 @@ function render(remeasured = false): void {
   map.classList.toggle("keep-layer2", view === renderedView && ui.layer === renderedLayer);
   renderedView = view;
   renderedLayer = ui.layer;
-  map.innerHTML = renderMap(result, view, ui);
+  map.innerHTML = renderMap(result, view, ui, aiStatus);
   const nextTransform = result.outer ? result.outer.transform : IDENTITY;
   const cluster = document.querySelector<HTMLElement>(".cluster");
   if (cluster) {
@@ -79,7 +85,8 @@ function render(remeasured = false): void {
   lastTransform = nextTransform;
   const gitFacts = gitFactsById.get(ui.selected) ?? [];
   const answer = action ? answerFor(view, ui.selected, action, gitFacts) : null;
-  document.getElementById("panel")!.innerHTML = renderPanel(panelFor(view, ui.selected), action, answer);
+  const ai = ui.selected === view.openFile ? { status: aiStatus, scan: aiScan?.openFile === view.openFile ? aiScan.scan : IDLE_SCAN } : null;
+  document.getElementById("panel")!.innerHTML = renderPanel(panelFor(view, ui.selected), action, answer, ai);
   // the first render measures #map, which is wider than .fit by the scrollbar gutter
   if (!remeasured && canvasWidth() !== renderedWidth) render(true);
   else fitMap();
