@@ -5,6 +5,7 @@ export const NODE_H = 56;
 export const HERE_W = 220;
 export const HERE_H = 64;
 export const COL_GAP = 16;
+export const FLOOR_GAP = 40;
 export const ROW_H = 74;
 export const MAX_PER_ROW = 4;
 export const MAX_PER_COLUMN = 4;
@@ -152,15 +153,15 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number): { lay
     const row = layoutRow(callers.map((node) => node.id), !!ui.open.callers, y, CALLERS_FLOOR, floorWidth);
     Object.assign(boxes, row.boxes);
     floors.push({ key: "callers", title: "Imports this file", path: foldersOf(callers), cls: "", x: FLOOR_LEFT, y, w: floorWidth, h: row.h, emptyText: "", toggle: row.toggle });
-    y += row.h + 14;
+    y += row.h + FLOOR_GAP;
   } else {
     floors.push({ key: "callers", title: "Imports this file", path: "", cls: "empty", x: FLOOR_LEFT, y, w: floorWidth, h: 64, emptyText: `No file imports ${center.name}.`, toggle: null });
-    y += 64 + 14;
+    y += 64 + FLOOR_GAP;
   }
 
   floors.push({ key: "mine", title: "Same folder", path: center.dir, cls: "mine", x: FLOOR_LEFT, y, w: floorWidth, h: 112, emptyText: "", toggle: null });
   boxes[center.id] = { x: FLOOR_LEFT + Math.round((floorWidth - HERE_W) / 2), y: y + 34, w: HERE_W, h: HERE_H, floor: OPEN_FILE_FLOOR };
-  y += 112 + 14;
+  y += 112 + FLOOR_GAP;
 
   const columnMembers = COLUMNS.map((def) => immediate.filter((node) => columnOf(node) === def.key));
   const columnsTop = y;

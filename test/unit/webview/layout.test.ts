@@ -16,22 +16,22 @@ describe("layout", () => {
     const { inner } = layout(view(), ui(), 800);
     expect(inner.floors.map((floor) => [floor.title, floor.x, floor.y, floor.w, floor.h])).toEqual([
       ["Imports this file", 16, 16, 768, 112],
-      ["Same folder", 16, 142, 768, 112],
-      ["Imported by this file", COLUMN_X[0], 268, 245, 334],
-      ["Tests", COLUMN_X[1], 268, 245, 334],
-      ["Issues", COLUMN_X[2], 268, 245, 334],
+      ["Same folder", 16, 168, 768, 112],
+      ["Imported by this file", COLUMN_X[0], 320, 245, 334],
+      ["Tests", COLUMN_X[1], 320, 245, 334],
+      ["Issues", COLUMN_X[2], 320, 245, 334],
     ]);
     const at = (id: string) => {
       const node = inner.nodes.find((candidate) => candidate.id === id);
       return node && [node.x, node.y];
     };
     expect([at(CONTROLLER), at("src/jobs/SendReminderJob.ts")]).toEqual([[240, 50], [408, 50]]);
-    expect(inner.nodes.find((node) => node.id === DOCUMENT_SERVICE)).toMatchObject({ x: 290, y: 176, w: 220 });
+    expect(inner.nodes.find((node) => node.id === DOCUMENT_SERVICE)).toMatchObject({ x: 290, y: 202, w: 220 });
     expect(["src/db/repositories/DocumentRepository.ts", "src/integrations/storage/StorageClient.ts", "src/auth/PermissionPolicy.ts", "src/types/document.types.ts"].map(at)).toEqual([
-      [NODE_X[0], 302], [NODE_X[0], 376], [NODE_X[0], 450], [NODE_X[0], 524],
+      [NODE_X[0], 354], [NODE_X[0], 428], [NODE_X[0], 502], [NODE_X[0], 576],
     ]);
-    expect(at("test/services/DocumentService.spec.ts")).toEqual([NODE_X[1], 302]);
-    expect(at("expected:src/services/IDocumentService.ts")).toEqual([NODE_X[2], 302]);
+    expect(at("test/services/DocumentService.spec.ts")).toEqual([NODE_X[1], 354]);
+    expect(at("expected:src/services/IDocumentService.ts")).toEqual([NODE_X[2], 354]);
   });
 
   it("puts expected files and circular imports in the issues column", () => {
@@ -60,11 +60,11 @@ describe("layout", () => {
   it("draws wires from the callers to the open file and from the open file to the top of each column", () => {
     const wires = layout(view(), ui(), 800).inner.wires;
     expect(wires.map((wire) => wire.d)).toEqual([
-      "M316 106 C316 141, 400 141, 400 176",
-      "M484 106 C484 141, 400 141, 400 176",
-      "M400 240 C400 254, 139 254, 139 268",
-      "M400 240 C400 254, 400 254, 400 268",
-      "M400 240 C400 254, 661 254, 661 268",
+      "M316 106 C316 154, 400 154, 400 202",
+      "M484 106 C484 154, 400 154, 400 202",
+      "M400 266 C400 293, 139 293, 139 320",
+      "M400 266 C400 293, 400 293, 400 320",
+      "M400 266 C400 293, 661 293, 661 320",
     ]);
     expect(layout(cyclicView(), ui({ selected: "src/a/A.ts" }), 800).inner.wires).toHaveLength(3);
   });
@@ -100,9 +100,9 @@ describe("layout", () => {
     expect(inner.nodes.find((node) => node.id === CONTROLLER)).toMatchObject({ x: 440, w: 152 });
     expect(inner.nodes.find((node) => node.id === DOCUMENT_SERVICE)).toMatchObject({ x: 490, w: 220 });
     expect(inner.wires.slice(2).map((wire) => wire.d)).toEqual([
-      "M600 240 C600 254, 205 254, 205 268",
-      "M600 240 C600 254, 599 254, 599 268",
-      "M600 240 C600 254, 993 254, 993 268",
+      "M600 266 C600 293, 205 293, 205 320",
+      "M600 266 C600 293, 599 293, 599 320",
+      "M600 266 C600 293, 993 293, 993 320",
     ]);
   });
 
@@ -127,12 +127,12 @@ describe("layout", () => {
     const dependencies = Array.from({ length: 6 }, (_, index) => `src/d/D${index}.ts`);
     const crowded = buildViewData(graphOf([analysisOf("src/x.ts", dependencies), ...dependencies.map((path) => analysisOf(path))]), "src/x.ts");
     const closed = layout(crowded, ui({ selected: "src/x.ts" }), 800).inner;
-    expect(closed.floors.find((floor) => floor.key === "deps")).toMatchObject({ y: 220, h: 364, toggle: { text: "Show 2 more", icon: "plus", y: 554 } });
+    expect(closed.floors.find((floor) => floor.key === "deps")).toMatchObject({ y: 272, h: 364, toggle: { text: "Show 2 more", icon: "plus", y: 606 } });
     expect(closed.nodes.filter((node) => node.id.startsWith("src/d/"))).toHaveLength(4);
     expect(closed.floors.find((floor) => floor.key === "tests")?.h).toBe(364);
     const opened = layout(crowded, ui({ selected: "src/x.ts", open: { deps: true } }), 800).inner;
     expect(opened.floors.find((floor) => floor.key === "deps")).toMatchObject({ h: 512, toggle: { text: "Show fewer", icon: "minus" } });
-    expect(opened.nodes.filter((node) => node.id.startsWith("src/d/")).map((node) => node.y)).toEqual([254, 328, 402, 476, 550, 624]);
+    expect(opened.nodes.filter((node) => node.id.startsWith("src/d/")).map((node) => node.y)).toEqual([306, 380, 454, 528, 602, 676]);
   });
 
   it("brightens the wires of the selected node and fades the rest", () => {
@@ -143,7 +143,7 @@ describe("layout", () => {
 
   it("shrinks the immediate layer into a frame for the second layer", () => {
     const result = layout(view(), ui({ layer: 2 }), 800);
-    expect(result.outer?.frame).toEqual({ x: 166, y: 172, w: 468, h: 369 });
+    expect(result.outer?.frame).toEqual({ x: 166, y: 172, w: 468, h: 399 });
     expect(result.outer?.transform).toBe("translate(176px, 182px) scale(0.56)");
     expect(["src/api/routes.ts", "src/jobs/scheduler.ts"].map((id) => result.outer?.nodes.find((node) => node.id === id)?.x)).toEqual([240, 408]);
     expect(result.outer?.floors.map((floor) => floor.title)).toEqual(["Second layer: imports the callers", "Second layer: imported by the immediate layer"]);
@@ -158,7 +158,7 @@ describe("layout", () => {
     };
     const schema = startOfHighlightedWire("src/db/schema.ts");
     expect(schema.x).toBeCloseTo(176 + (NODE_X[0] + COLUMN_NODE_W / 2) * 0.56);
-    expect(schema.y).toBe(541);
+    expect(schema.y).toBe(571);
     expect(startOfHighlightedWire("test/fixtures/documents.fixture.ts").x).toBeCloseTo(176 + (NODE_X[1] + COLUMN_NODE_W / 2) * 0.56);
   });
 });
