@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import * as vscode from "vscode";
+import { type InstalledModel, type ModelPickerItem, modelPickerItems } from "../ai/modelPicker";
 import { SCAN_SYSTEM_PROMPT, aiStatusFor, buildScanPrompt, parseScanReply } from "../ai/scanFile";
 import { buildViewData } from "../graph/neighbourhood";
 import { OllamaProvider } from "../providers/index";
@@ -19,6 +20,20 @@ const hashOf = (text: string) => createHash("sha1").update(text).digest("hex");
 function aiSettings(): { baseUrl: string; model: string } {
   const settings = vscode.workspace.getConfiguration("wayfinder.ai");
   return { baseUrl: settings.get<string>("baseUrl") || "http://localhost:11434", model: settings.get<string>("model")?.trim() ?? "" };
+}
+
+function listInstalledModels(baseUrl: string): Promise<InstalledModel[] | null> {
+  return new OllamaProvider({ name: "ollama", baseUrl }).listModels(AbortSignal.timeout(STATUS_TIMEOUT_MS)).catch(() => null);
+}
+
+export async function chooseAiModel(): Promise<void> {
+  const { baseUrl } = aiSettings();
+  const picked = await vscode.window.showQuickPick<ModelPickerItem>(
+    listInstalledModels(baseUrl).then((installedModels) => modelPickerItems(installedModels, baseUrl)),
+    { title: "Wayfinder: Choose AI model" },
+  );
+  if (picked?.model) await vscode.workspace.getConfiguration("wayfinder.ai").update("model", picked.model, vscode.ConfigurationTarget.Global);
+  else if (picked?.opensSettings) await vscode.commands.executeCommand("workbench.action.openSettings", "wayfinder.ai");
 }
 
 export class WayfinderPanel implements vscode.Disposable {
@@ -138,7 +153,7 @@ export class WayfinderPanel implements vscode.Disposable {
         await this.scanOpenFile();
         return;
       case "openAiSettings":
-        await vscode.commands.executeCommand("workbench.action.openSettings", "wayfinder.ai");
+        await chooseAiModel();
         return;
     }
   }
@@ -146,9 +161,7 @@ export class WayfinderPanel implements vscode.Disposable {
   private async refreshAiStatus(): Promise<void> {
     const statusCheck = ++this.latestStatusCheck;
     const { baseUrl, model } = aiSettings();
-    const installedModels = model
-      ? await new OllamaProvider({ name: "ollama", baseUrl }).listModels(AbortSignal.timeout(STATUS_TIMEOUT_MS)).catch(() => null)
-      : null;
+    const installedModels = model ? ((await listInstalledModels(baseUrl))?.map((installed) => installed.name) ?? null) : null;
     if (statusCheck !== this.latestStatusCheck) return;
     this.aiStatus = aiStatusFor(model, baseUrl, installedModels);
     this.send({ type: "aiStatus", status: this.aiStatus });

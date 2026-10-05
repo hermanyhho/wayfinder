@@ -20,6 +20,10 @@
         "command": "wayfinder.showMap",
         "title": "Wayfinder: Show map for this file",
         "icon": "$(type-hierarchy)"
+      },
+      {
+        "command": "wayfinder.chooseAiModel",
+        "title": "Wayfinder: Choose AI model"
       }
     ],
     "menus": {

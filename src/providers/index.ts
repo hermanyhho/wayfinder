@@ -84,11 +84,11 @@ export class OllamaProvider implements AIProvider {
     return data.message.content;
   }
 
-  async listModels(signal?: AbortSignal): Promise<string[]> {
+  async listModels(signal?: AbortSignal): Promise<{ name: string; size: number }[]> {
     const res = await fetch(`${this.baseUrl}/api/tags`, { signal });
     if (!res.ok) throw new Error(`Ollama error: ${await res.text()}`);
-    const data = await res.json() as { models: { name: string }[] };
-    return data.models.map((model) => model.name);
+    const data = await res.json() as { models: { name: string; size: number }[] };
+    return data.models.map((model) => ({ name: model.name, size: model.size }));
   }
 }
 
