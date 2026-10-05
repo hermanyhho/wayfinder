@@ -1,6 +1,6 @@
 # Wayfinder
 
-Shows where the open file sits in the codebase, in a panel beside the editor.
+Shows where the open file sits in the codebase, in a panel beside the editor. The map's editor group is locked, so files you open from the explorer open in the other group.
 
 - **Imports this file:** files that import the open file.
 - **Imported by this file:** project files and packages the open file imports.
