@@ -3,7 +3,7 @@
   "displayName": "Wayfinder",
   "description": "Shows where the open file sits in the codebase: what imports it, what it imports, its tests and what is missing.",
   "version": "0.1.0",
-  "publisher": "hermanho",
+  "publisher": "hermanyhho",
   "private": true,
   "license": "MIT",
   "repository": {
