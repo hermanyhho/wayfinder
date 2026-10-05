@@ -32,6 +32,7 @@ export class WayfinderPanel implements vscode.Disposable {
   private disposed = false;
   private aiStatus: AiStatus = { ready: false, reason: "checking Ollama" };
   private readonly scans = new Map<string, { textHash: string; scan: AiScanState }>();
+  private latestStatusCheck = 0;
 
   static show(context: vscode.ExtensionContext, index: WorkspaceIndex): void {
     if (WayfinderPanel.current) {
@@ -140,10 +141,12 @@ export class WayfinderPanel implements vscode.Disposable {
   }
 
   private async refreshAiStatus(): Promise<void> {
+    const statusCheck = ++this.latestStatusCheck;
     const { baseUrl, model } = aiSettings();
     const installedModels = model
       ? await new OllamaProvider({ name: "ollama", baseUrl }).listModels(AbortSignal.timeout(STATUS_TIMEOUT_MS)).catch(() => null)
       : null;
+    if (statusCheck !== this.latestStatusCheck) return;
     this.aiStatus = aiStatusFor(model, baseUrl, installedModels);
     this.send({ type: "aiStatus", status: this.aiStatus });
   }
@@ -155,7 +158,9 @@ export class WayfinderPanel implements vscode.Disposable {
     const text = await this.textOf(file);
     const textHash = hashOf(text);
     this.storeScan(file, textHash, { state: "loading" });
-    this.storeScan(file, textHash, await this.runScan(text, view));
+    const scan = await this.runScan(text, view);
+    const textAfterScan = await this.textOf(file).catch(() => "");
+    this.storeScan(file, textHash, hashOf(textAfterScan) === textHash ? scan : { state: "idle" });
   }
 
   private async runScan(text: string, view: ViewData): Promise<AiScanState> {
@@ -182,7 +187,7 @@ export class WayfinderPanel implements vscode.Disposable {
 
   private async sendScanState(file: string): Promise<void> {
     const stored = this.scans.get(file);
-    if (stored && stored.scan.state !== "loading" && stored.textHash !== hashOf(await this.textOf(file))) this.scans.delete(file);
+    if (stored && stored.scan.state !== "loading" && stored.textHash !== hashOf(await this.textOf(file)) && this.scans.get(file) === stored) this.scans.delete(file);
     if (file === this.openFile) this.send({ type: "ai", openFile: file, scan: this.scans.get(file)?.scan ?? { state: "idle" } });
   }
 

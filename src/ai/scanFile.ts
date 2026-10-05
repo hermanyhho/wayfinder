@@ -1,7 +1,7 @@
 import type { AiFinding, AiScan, AiStatus } from "../shared/messages";
 import type { ViewData } from "../shared/viewData";
 
-// num_ctx 8192 tokens is roughly 24,000 characters; this leaves room for the related files and the reply
+// counts the numbered source lines; num_ctx 8192 tokens is roughly 24,000 characters, which leaves room for the reply
 export const MAX_SOURCE_CHARS = 20_000;
 
 export const SCAN_SYSTEM_PROMPT = `You review one TypeScript or JavaScript file for a developer who is new to the codebase.
@@ -13,17 +13,21 @@ export function buildScanPrompt(source: string, view: ViewData): string {
   const relatedFiles = view.nodes
     .filter((node) => node.id !== view.openFile && node.kind !== "package" && node.kind !== "expected")
     .map((node) => `- ${node.id} (${node.kind})`);
-  const allLines = source.split(/\r?\n/);
-  const isCut = source.length > MAX_SOURCE_CHARS;
-  const shownLines = isCut ? source.slice(0, MAX_SOURCE_CHARS).split(/\r?\n/) : allLines;
-  const cutNote = isCut ? `The file was cut after line ${shownLines.length} of ${allLines.length}.` : "";
+  const numberedLines = source.split(/\r?\n/).map((line, index) => `${index + 1}| ${line}`);
+  let shownCount = 0;
+  let shownChars = 0;
+  while (shownCount < numberedLines.length && shownChars + numberedLines[shownCount].length < MAX_SOURCE_CHARS) {
+    shownChars += numberedLines[shownCount].length + 1;
+    shownCount++;
+  }
+  const cutNote = shownCount < numberedLines.length ? `The file was cut after line ${shownCount} of ${numberedLines.length}.` : "";
   return [
     `Open file: ${view.openFile}`,
     "Related files:",
     ...(relatedFiles.length ? relatedFiles : ["- none"]),
     cutNote,
     "Source, with line numbers:",
-    shownLines.map((line, index) => `${index + 1}| ${line}`).join("\n"),
+    numberedLines.slice(0, shownCount).join("\n"),
   ]
     .filter(Boolean)
     .join("\n");

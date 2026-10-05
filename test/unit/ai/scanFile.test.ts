@@ -25,12 +25,13 @@ describe("buildScanPrompt", () => {
     expect(prompt).not.toMatch(/- expected:/);
   });
 
-  it("cuts a long file and says where it was cut", () => {
-    const longSource = Array.from({ length: 2000 }, (_, index) => `const value${index} = ${index};`).join("\n");
+  it("cuts a long file after a whole line and says which line", () => {
+    const longSource = Array.from({ length: 2000 }, (_, index) => `const value${index + 1} = ${index + 1};`).join("\n");
     const prompt = buildScanPrompt(longSource, view());
-    expect(prompt).toMatch(/The file was cut after line \d+ of 2000\./);
-    expect(prompt).not.toContain("const value1999 = 1999;");
-    expect(prompt.length).toBeLessThan(MAX_SOURCE_CHARS + 12_000);
+    const lastShownLine = Number(prompt.match(/The file was cut after line (\d+) of 2000\./)?.[1]);
+    expect(prompt).toContain(`${lastShownLine}| const value${lastShownLine} = ${lastShownLine};`);
+    expect(prompt).not.toContain(`${lastShownLine + 1}| `);
+    expect(prompt.length).toBeLessThan(MAX_SOURCE_CHARS + 2_000);
   });
 
   it("does not mention a cut when the whole file fits", () => {

@@ -77,7 +77,7 @@ The host checks status when the panel opens and when either setting changes. It 
 
 ## Tests
 
-- `test/ai/scanFile.test.ts`: the prompt includes the source and the neighbour paths, and marks a cut file; the parser accepts a valid reply, rejects invalid JSON and a missing summary, and drops findings with an unknown file or a line out of range.
+- `test/unit/ai/scanFile.test.ts`: the prompt includes the source and the neighbour paths, and marks a cut file; the parser accepts a valid reply, rejects invalid JSON and a missing summary, and drops findings with an unknown file or a line out of range.
 - No unit tests for the webview rendering, following AGENTS.md.
 
 ## Manual check
