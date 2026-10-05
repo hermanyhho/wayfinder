@@ -21,7 +21,7 @@ export class WayfinderPanel implements vscode.Disposable {
 
   static show(context: vscode.ExtensionContext, index: WorkspaceIndex): void {
     if (WayfinderPanel.current) {
-      WayfinderPanel.current.panel.reveal(vscode.ViewColumn.Beside, true);
+      WayfinderPanel.current.panel.reveal(undefined, true);
       WayfinderPanel.current.followEditor(vscode.window.activeTextEditor);
       return;
     }
@@ -32,6 +32,23 @@ export class WayfinderPanel implements vscode.Disposable {
       { enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, "out")] },
     );
     WayfinderPanel.current = new WayfinderPanel(panel, context, index);
+    WayfinderPanel.lockGroupKeepingFocus(panel).catch((error: unknown) => {
+      void vscode.window.showErrorMessage(`Wayfinder could not finish opening the map: ${String(error)}`);
+    });
+  }
+
+  // locked here, not via a workbench.editor.autoLockGroups default: an extension default replaces vs code's list,
+  // so terminal editors and the simple browser would stop locking their groups.
+  private static async lockGroupKeepingFocus(panel: vscode.WebviewPanel): Promise<void> {
+    const previousEditor = vscode.window.activeTextEditor;
+    panel.reveal(panel.viewColumn, false);
+    await vscode.commands.executeCommand("workbench.action.lockEditorGroup");
+    if (!previousEditor) return;
+    await vscode.window.showTextDocument(previousEditor.document, {
+      viewColumn: previousEditor.viewColumn ?? vscode.ViewColumn.One,
+      selection: previousEditor.selection,
+      preview: false,
+    });
   }
 
   private constructor(private readonly panel: vscode.WebviewPanel, context: vscode.ExtensionContext, private readonly index: WorkspaceIndex) {
