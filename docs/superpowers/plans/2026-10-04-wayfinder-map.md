@@ -32,7 +32,7 @@ The approved design is the Design canvas at https://claude.ai/artifact/MUHcCKRXF
 | Empty floors and the "Nothing connects to this file" card | `floor.empty`, `banner` | 6, 9 |
 | First scan banner with progress bar | `scanning` scenario, `.banner`, `.bar` | 7, 9 |
 | Colours: open file green, callers blue, dependencies and types violet, tests pink, circular import red, packages grey | `KINDS`, `.green` ... `.grey` | 9, 11 |
-| Panel: What it does, Connections, More about this file (Context, Why, Where, Checks), every section tagged "From code" | `<aside class="panel">`, `describe`, `codeAnswer` | 10, 11 |
+| Panel: four question tabs at the top (Context, Why, Where, Checks), Context selected first. Context holds the facts and connections, Why holds the AI summary, Checks the AI findings. Replaced the What it does and Connections sections | `<aside class="panel">`, `describe`, `codeAnswer` | 10, 11 |
 | Light and dark themes | `.app` and `.app.light` tokens | 11 |
 
 Deviations, decided here:
