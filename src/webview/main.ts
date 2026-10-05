@@ -55,6 +55,7 @@ document.addEventListener("click", (event) => {
   if (kind === "layer" && value) ui = { ...ui, layer: value === "2" ? 2 : 1 };
   if (kind === "ask" && value) action = action === value ? null : (value as Action);
   if (kind === "open" && id) vscode.postMessage({ type: "open", id });
+  if (kind === "ai-settings") vscode.postMessage({ type: "openAiSettings" });
   if (kind === "scan") {
     aiScan = { openFile: view.openFile, scan: { state: "loading" } };
     vscode.postMessage({ type: "scan" });

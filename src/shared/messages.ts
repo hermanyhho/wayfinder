@@ -21,4 +21,4 @@ export type HostMessage =
   | { type: "aiStatus"; status: AiStatus }
   | { type: "ai"; openFile: string; scan: AiScanState };
 
-export type WebviewMessage = { type: "ready" } | { type: "select"; id: string } | { type: "open"; id: string } | { type: "scan" };
+export type WebviewMessage = { type: "ready" } | { type: "select"; id: string } | { type: "open"; id: string } | { type: "scan" } | { type: "openAiSettings" };

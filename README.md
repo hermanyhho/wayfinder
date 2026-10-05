@@ -17,7 +17,7 @@ Open a TypeScript or JavaScript file and run **Wayfinder: Show map for this file
 ## AI scan
 
 1. Install [Ollama](https://ollama.com) and pull a model, for example `ollama pull qwen2.5-coder:1.5b`.
-2. Set `wayfinder.ai.model` to that model name. `wayfinder.ai.baseUrl` defaults to `http://localhost:11434`.
+2. Set `wayfinder.ai.model` to that model name. Clicking "AI not set up" in the top bar, or "Open AI settings" in the side panel, opens these settings. `wayfinder.ai.baseUrl` defaults to `http://localhost:11434`.
 3. The top bar shows `AI ready: <model>`. Press **Scan with AI** in the side panel.
 
 Findings that name a file or line outside the import map are dropped. Results are kept until the file changes or the panel closes.

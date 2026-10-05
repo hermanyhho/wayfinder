@@ -63,15 +63,21 @@ function renderAiState(status: AiStatus | null): string {
   if (!status) return "";
   return status.ready
     ? `<span class="aistate ready"><span class="dotx"></span>AI ready: ${escapeHtml(status.model)}</span>`
-    : `<span class="aistate" title="${escapeHtml(status.reason)}"><span class="dotx"></span>AI not set up</span>`;
+    : `<button class="aistate" data-action="ai-settings" title="AI not set up: ${escapeHtml(status.reason)}. Click to open AI settings."><span class="dotx"></span>AI not set up</button>`;
+}
+
+function aiStatusLine(ai: PanelAi): string {
+  if (ai.scan.state === "error") return escapeHtml(ai.scan.message);
+  if (!ai.status) return "Checking AI setup";
+  if (ai.status.ready) return "";
+  return `AI not set up: ${escapeHtml(ai.status.reason)}. <button class="ailink" data-action="ai-settings">Open AI settings</button>`;
 }
 
 function renderAiBar(ai: PanelAi): string {
   const loading = ai.scan.state === "loading";
   const disabled = loading || !ai.status?.ready;
   const label = loading ? "Scanning" : ai.scan.state === "done" ? "Scan again" : "Scan with AI";
-  const statusText = ai.scan.state === "error" ? ai.scan.message : ai.status && !ai.status.ready ? `AI not set up: ${ai.status.reason}` : "";
-  return `<div class="aibar"><button class="aibtn ${loading ? "busy" : disabled ? "off" : ""}" data-action="scan" ${disabled ? "disabled" : ""}><svg viewBox="0 0 24 24" aria-hidden="true">${SCAN_ICON}</svg>${label}</button><span class="aistatus">${escapeHtml(statusText)}</span></div>`;
+  return `<div class="aibar"><button class="aibtn ${loading ? "busy" : disabled ? "off" : ""}" data-action="scan" ${disabled ? "disabled" : ""}><svg viewBox="0 0 24 24" aria-hidden="true">${SCAN_ICON}</svg>${label}</button><span class="aistatus">${aiStatusLine(ai)}</span></div>`;
 }
 
 function renderAiSummary(ai: PanelAi | null): string {

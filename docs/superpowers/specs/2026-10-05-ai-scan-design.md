@@ -57,7 +57,7 @@ The host checks status when the panel opens and when either setting changes. It 
 | Situation | What the user sees |
 |---|---|
 | Model set and listed by Ollama | "AI ready: <model>", button enabled |
-| `wayfinder.ai.model` empty | "AI not set up: set wayfinder.ai.model", button disabled |
+| `wayfinder.ai.model` empty | "AI not set up: no model is set. Open AI settings", button disabled |
 | Ollama does not answer | "AI not set up: Ollama is not running at <baseUrl>", button disabled |
 | Model not in the list | "AI not set up: run ollama pull <model>", button disabled |
 | No reply after 120 seconds | Scan stops: "The model took too long. Try again." |

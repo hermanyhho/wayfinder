@@ -110,6 +110,7 @@ export class WayfinderPanel implements vscode.Disposable {
     if (!this.openFile) return;
     this.lastView = buildViewData(this.index.graph, this.openFile, { scan: this.index.progress, packageJsonText: this.index.packageJsonText });
     this.send({ type: "view", data: this.lastView });
+    this.send({ type: "aiStatus", status: this.aiStatus });
     this.marks.apply(this.editorFor(this.openFile), this.lastView, this.selected ?? this.openFile);
     this.sendScanState(this.openFile).catch(() => undefined);
   }
@@ -118,7 +119,6 @@ export class WayfinderPanel implements vscode.Disposable {
     switch (message.type) {
       case "ready":
         this.post();
-        this.send({ type: "aiStatus", status: this.aiStatus });
         return;
       case "select": {
         this.selected = message.id;
@@ -136,6 +136,9 @@ export class WayfinderPanel implements vscode.Disposable {
       }
       case "scan":
         await this.scanOpenFile();
+        return;
+      case "openAiSettings":
+        await vscode.commands.executeCommand("workbench.action.openSettings", "wayfinder.ai");
         return;
     }
   }

@@ -133,6 +133,8 @@ body.vscode-light .nd { box-shadow: 0 2px 8px rgba(20, 30, 50, .10); }
 .answer .facts { margin-top: 4px; }
 button:focus-visible { outline: 2px solid var(--strong); outline-offset: 2px; }
 .aistate { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; border-radius: 999px; padding: 5px 12px 4px; border: 1px solid var(--l2); color: var(--muted); }
+button.aistate { font-family: inherit; background: none; cursor: pointer; }
+button.aistate:hover { border-color: var(--l4); color: var(--text2); }
 .aistate .dotx { width: 8px; height: 8px; border-radius: 50%; background: var(--l4); }
 .aistate.ready { color: var(--goldtext); border-color: rgba(242, 179, 61, .45); }
 .aistate.ready .dotx { background: #F2B33D; box-shadow: 0 0 0 3px rgba(242, 179, 61, .2); }
@@ -155,3 +157,4 @@ body.vscode-light .aiblock { background: rgba(242, 179, 61, .12); }
 .skl { display: block; height: 9px; margin-top: 9px; border-radius: 5px; background: linear-gradient(90deg, rgba(242, 179, 61, .10) 0%, rgba(242, 179, 61, .28) 50%, rgba(242, 179, 61, .10) 100%); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
 .skl.short { width: 60%; }
 @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+.ailink { font: inherit; color: var(--goldtext); background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
