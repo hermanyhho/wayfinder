@@ -63,7 +63,7 @@ const loadingBlock = (text: string) => `<div class="aiblock loading">${aiHead(te
 function aiStatusLine(ai: PanelAi): string {
   if (ai.scan.state === "error") return escapeHtml(ai.scan.message);
   if (!ai.status) return "Checking AI setup";
-  if (ai.status.ready) return "";
+  if (ai.status.ready) return ai.scan.state === "done" && ai.scan.rulesCut ? "Rules were cut to fit the model." : "";
   return `AI not set up: ${escapeHtml(ai.status.reason)}.`;
 }
 
