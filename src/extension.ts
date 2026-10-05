@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { WayfinderPanel } from "./view/WayfinderPanel";
+import { WayfinderPanel, chooseAiModel } from "./view/WayfinderPanel";
 import { WorkspaceIndex } from "./workspace/WorkspaceIndex";
 
 let index: WorkspaceIndex | undefined;
@@ -22,6 +22,7 @@ export function activate(context: vscode.ExtensionContext) {
       });
       WayfinderPanel.show(context, index);
     }),
+    vscode.commands.registerCommand("wayfinder.chooseAiModel", chooseAiModel),
   );
 }
 

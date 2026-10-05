@@ -63,7 +63,7 @@ function renderAiState(status: AiStatus | null): string {
   if (!status) return "";
   return status.ready
     ? `<span class="aistate ready"><span class="dotx"></span>AI ready: ${escapeHtml(status.model)}</span>`
-    : `<button class="aistate" data-action="ai-settings" title="AI not set up: ${escapeHtml(status.reason)}. Click to open AI settings."><span class="dotx"></span>AI not set up</button>`;
+    : `<button class="aistate" data-action="ai-settings" title="AI not set up: ${escapeHtml(status.reason)}. Click to choose an AI model."><span class="dotx"></span>AI not set up</button>`;
 }
 
 function aiStatusLine(ai: PanelAi): string {
