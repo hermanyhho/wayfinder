@@ -1,5 +1,5 @@
 import type { Fact, ViewData } from "../shared/viewData";
-import type { BannerView, FloorView, LabelView, LayerView, Layout, NodeView, PortView, SecondLayerView, UiState, WireView } from "./layout";
+import type { BannerView, FloorView, LayerView, Layout, NodeView, PortView, SecondLayerView, UiState, WireView } from "./layout";
 import { panelFor, type Action, type PanelModel } from "./panelModel";
 
 const HTML_ESCAPES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
@@ -18,7 +18,7 @@ const LEGEND = `<div class="legend">
 <span class="violet"><span class="lsw"></span>Imported by this file</span>
 <span class="pink"><span class="lsw"></span>Tests</span>
 <span class="violet"><span class="lsw dash"></span>Expected, not found</span>
-<span class="red"><span class="lsw dash"></span>Circular import</span>
+<span class="red"><span class="lsw"></span>Circular import</span>
 <span class="grey"><span class="lsw"></span>Package</span>
 </div>`;
 
@@ -31,9 +31,9 @@ function countLabel(view: ViewData): string {
 }
 
 const renderFloor = (floor: FloorView) =>
-  `<div class="fl ${floor.cls}" style="top:${floor.y}px;height:${floor.h}px">${floor.emptyText ? `<span class="phtext">${escapeHtml(floor.emptyText)}</span>` : ""}</div>`;
+  `<div class="fl ${floor.cls}" style="left:${floor.x}px;top:${floor.y}px;width:${floor.w}px;height:${floor.h}px">${floor.emptyText ? `<span class="phtext">${escapeHtml(floor.emptyText)}</span>` : ""}</div>`;
 const renderFloorHeader = (floor: FloorView) =>
-  `<div class="flh ${floor.cls}" style="top:${floor.y + 9}px"><span class="ti">${escapeHtml(floor.title)}</span><span class="fp">${escapeHtml(floor.path)}</span></div>`;
+  `<div class="flh ${floor.cls}" style="left:${floor.x + 14}px;top:${floor.y + 9}px;max-width:${floor.w - 28}px"><span class="ti">${escapeHtml(floor.title)}</span><span class="fp">${escapeHtml(floor.path)}</span></div>`;
 const renderWires = (wires: WireView[]) => `<svg class="wires" aria-hidden="true">${wires.map((wire) => `<path class="w ${wire.cls}" d="${wire.d}"></path>`).join("")}</svg>`;
 const OPEN_ICON = '<path d="M14 4h6v6"></path><path d="m20 4-9 9"></path><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"></path>';
 // the open icon is a sibling, not a child, because a button inside the node button is invalid html
@@ -42,11 +42,10 @@ const renderOpenIcon = (node: NodeView) =>
 const renderNode = (node: NodeView, canOpen: (id: string) => boolean) =>
   `<button class="nd ${node.cls}" style="left:${node.x}px;top:${node.y}px;width:${node.w}px" data-action="select" data-id="${escapeHtml(node.id)}" title="${escapeHtml(node.id)}"><span class="nh"><span class="sw"></span>${escapeHtml(node.tag)}</span><span class="nn">${escapeHtml(node.name)}</span><span class="np">${escapeHtml(node.path)}</span></button>${canOpen(node.id) ? renderOpenIcon(node) : ""}`;
 const renderPort = (port: PortView) => `<span class="port ${port.cls}${port.incoming ? " in" : ""}" style="left:${port.x}px;top:${port.y}px"></span>`;
-const renderLabel = (label: LabelView) => `<span class="wl ${label.cls}" style="left:${label.x}px;top:${label.y}px">${escapeHtml(label.text)}</span>`;
 const renderToggles = (floors: FloorView[]) =>
   floors
     .filter((floor) => floor.toggle)
-    .map((floor) => `<button class="ftog" style="top:${floor.toggle!.y}px" data-action="toggle" data-value="${floor.key}"><span class="ftic ${floor.toggle!.icon}"></span>${escapeHtml(floor.toggle!.text)}</button>`)
+    .map((floor) => `<button class="ftog" style="left:${floor.x + 14}px;top:${floor.toggle!.y}px" data-action="toggle" data-value="${floor.key}"><span class="ftic ${floor.toggle!.icon}"></span>${escapeHtml(floor.toggle!.text)}</button>`)
     .join("");
 const factList = (facts: Fact[]) => `<ul class="facts">${facts.map((fact) => `<li><span class="fk">${escapeHtml(fact.label)}</span><span class="fv">${escapeHtml(fact.value)}</span></li>`).join("")}</ul>`;
 
@@ -64,7 +63,6 @@ function renderLayer(layer: LayerView, canOpen: (id: string) => boolean): string
     layer.floors.map(renderFloorHeader).join(""),
     layer.nodes.map((node) => renderNode(node, canOpen)).join(""),
     layer.ports.map(renderPort).join(""),
-    layer.labels.map(renderLabel).join(""),
     renderToggles(layer.floors),
   ].join("");
 }

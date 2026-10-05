@@ -7,9 +7,10 @@ export const HERE_H = 64;
 export const COL_GAP = 16;
 export const ROW_H = 74;
 export const MAX_PER_ROW = 4;
-export const AREA_LEFT = 28;
-export const AREA_W = 656;
-export const LANE_X = 756;
+export const MAX_PER_COLUMN = 4;
+export const FLOOR_LEFT = 16;
+export const FLOOR_W = 768;
+export const COLUMN_W = Math.floor((FLOOR_W - 2 * COL_GAP) / 3);
 export const CANVAS_W = 800;
 export const CLUSTER_SCALE = 0.56;
 
@@ -21,13 +22,12 @@ export interface UiState {
 
 export interface Box { x: number; y: number; w: number; h: number; floor: number; }
 export interface FloorToggle { text: string; icon: "plus" | "minus"; y: number; }
-export interface FloorView { key: string; title: string; path: string; cls: string; y: number; h: number; emptyText: string; toggle: FloorToggle | null; }
+export interface FloorView { key: string; title: string; path: string; cls: string; x: number; y: number; w: number; h: number; emptyText: string; toggle: FloorToggle | null; }
 export interface NodeView { id: string; x: number; y: number; w: number; cls: string; tag: string; name: string; path: string; }
 export interface WireView { cls: string; d: string; }
 export interface PortView { cls: string; x: number; y: number; incoming: boolean; }
-export interface LabelView { cls: string; x: number; y: number; text: string; }
 export interface BannerView { y: number; title: string; items: Fact[]; progress: number | null; }
-export interface LayerView { floors: FloorView[]; nodes: NodeView[]; wires: WireView[]; ports: PortView[]; labels: LabelView[]; banners: BannerView[]; height: number; }
+export interface LayerView { floors: FloorView[]; nodes: NodeView[]; wires: WireView[]; ports: PortView[]; banners: BannerView[]; height: number; }
 export interface SecondLayerView extends LayerView { frame: { x: number; y: number; w: number; h: number }; transform: string; }
 export interface Layout { inner: LayerView; outer: SecondLayerView | null; }
 
@@ -40,12 +40,22 @@ const KIND_TAG: Record<NodeKind, string> = {
 
 export const colorOf = (node: ViewNode): string => (node.kind === "expected" && node.expectedKind === "test" ? "pink" : KIND_COLOR[node.kind]);
 
-const FLOORS: { key: string; title: string; takes: (node: ViewNode) => boolean; empty: (name: string) => string }[] = [
-  { key: "callers", title: "Imports this file", takes: (node) => node.kind === "caller", empty: (name) => `No file imports ${name}.` },
-  { key: "mine", title: "Same folder", takes: (node) => node.kind === "here" || node.kind === "cycle" || (node.kind === "expected" && node.expectedKind === "partner"), empty: () => "" },
-  { key: "deps", title: "Imported by this file", takes: (node) => ["dependency", "types", "subject", "package"].includes(node.kind), empty: (name) => `${name} imports no project files.` },
-  { key: "tests", title: "Tests", takes: (node) => node.kind === "test" || (node.kind === "expected" && node.expectedKind === "test"), empty: (name) => `No test imports ${name}.` },
+type ColumnKey = "deps" | "tests" | "issues";
+
+const COLUMN_OF_KIND: Record<Exclude<NodeKind, "here" | "caller">, ColumnKey> = {
+  dependency: "deps", types: "deps", subject: "deps", package: "deps", test: "tests", expected: "issues", cycle: "issues",
+};
+const columnOf = (node: ViewNode): ColumnKey | null => (node.kind === "here" || node.kind === "caller" ? null : COLUMN_OF_KIND[node.kind]);
+
+const COLUMNS: { key: ColumnKey; title: string; empty: (name: string) => string }[] = [
+  { key: "deps", title: "Imported by this file", empty: (name) => `${name} imports no project files.` },
+  { key: "tests", title: "Tests", empty: (name) => `No test imports ${name}.` },
+  { key: "issues", title: "Issues", empty: () => "No missing files or circular imports." },
 ];
+
+const CALLERS_FLOOR = 0;
+const OPEN_FILE_FLOOR = 1;
+const COLUMNS_FLOOR = 2;
 
 export function layout(view: ViewData, ui: UiState): Layout {
   const inner = layoutImmediate(view, ui);
@@ -66,7 +76,7 @@ function layoutRow(ids: string[], open: boolean, top: number, floor: number) {
     const row = Math.floor(index / MAX_PER_ROW);
     const col = index % MAX_PER_ROW;
     const inRow = Math.min(MAX_PER_ROW, shown.length - row * MAX_PER_ROW);
-    const startX = AREA_LEFT + (AREA_W - (inRow * NODE_W + (inRow - 1) * COL_GAP)) / 2;
+    const startX = FLOOR_LEFT + (FLOOR_W - (inRow * NODE_W + (inRow - 1) * COL_GAP)) / 2;
     boxes[id] = { x: startX + col * (NODE_W + COL_GAP), y: top + 34 + row * ROW_H, w: NODE_W, h: NODE_H, floor };
   });
   const h = 34 + rows * ROW_H + 4 + (collapsible ? 30 : 0);
@@ -93,31 +103,32 @@ function wireState(view: ViewData, ui: UiState, ends: string[]): string {
   return ends.includes(ui.selected) ? " hi" : " lo";
 }
 
-export function routeWire(a: Box, b: Box, dy: number, laneIndex: number) {
-  if (a.floor === b.floor) {
-    const x1 = a.x < b.x ? a.x + a.w : a.x;
-    const x2 = a.x < b.x ? b.x : b.x + b.w;
-    const y1 = a.y + a.h / 2 + dy;
-    const y2 = b.y + b.h / 2 + dy;
-    const mx = (x1 + x2) / 2;
-    return { d: `M${x1} ${y1} C${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`, x1, y1, x2, y2, usedLane: false };
-  }
-  if (Math.abs(a.floor - b.floor) === 1) {
-    const x1 = a.x + a.w / 2;
-    const x2 = b.x + b.w / 2;
-    const y1 = a.floor < b.floor ? a.y + a.h : a.y;
-    const y2 = a.floor < b.floor ? b.y : b.y + b.h;
-    const k = (y2 - y1) / 2;
-    return { d: `M${x1} ${y1} C${x1} ${y1 + k}, ${x2} ${y2 - k}, ${x2} ${y2}`, x1, y1, x2, y2, usedLane: false };
-  }
-  const lane = LANE_X + laneIndex * 12;
-  const x1 = a.x + a.w / 2;
-  const y1 = a.y + a.h;
-  const x2 = b.x + b.w;
-  const y2 = b.y + b.h / 2;
-  const under = y1 + 11 + laneIndex * 6;
-  const d = `M${x1} ${y1} V${under - 8} Q${x1} ${under} ${x1 + 8} ${under} H${lane - 14} Q${lane} ${under} ${lane} ${under - 14} V${y2 + 14} Q${lane} ${y2} ${lane - 14} ${y2} H${x2}`;
-  return { d, x1, y1, x2, y2, usedLane: true };
+export function routeWire(from: Box, to: Box) {
+  const x1 = from.x + from.w / 2;
+  const x2 = to.x + to.w / 2;
+  const y1 = from.y + from.h;
+  const y2 = to.y;
+  const k = (y2 - y1) / 2;
+  return { d: `M${x1} ${y1} C${x1} ${y1 + k}, ${x2} ${y2 - k}, ${x2} ${y2}`, x1, y1, x2, y2 };
+}
+
+function layoutColumns(columns: { key: string; ids: string[] }[], ui: UiState, top: number) {
+  const shownCounts = columns.map((column) => (ui.open[column.key] ? column.ids.length : Math.min(MAX_PER_COLUMN, column.ids.length)));
+  const anyCollapsible = columns.some((column) => column.ids.length > MAX_PER_COLUMN);
+  const h = 34 + Math.max(1, ...shownCounts) * ROW_H + 4 + (anyCollapsible ? 30 : 0);
+  const boxes: Record<string, Box> = {};
+  const placed = columns.map((column, columnIndex) => {
+    const x = FLOOR_LEFT + columnIndex * (COLUMN_W + COL_GAP);
+    column.ids.slice(0, shownCounts[columnIndex]).forEach((id, index) => {
+      boxes[id] = { x: Math.round(x + (COLUMN_W - NODE_W) / 2), y: top + 34 + index * ROW_H, w: NODE_W, h: NODE_H, floor: COLUMNS_FLOOR };
+    });
+    const open = !!ui.open[column.key];
+    const toggle: FloorToggle | null = column.ids.length > MAX_PER_COLUMN
+      ? { text: open ? "Show fewer" : `Show ${column.ids.length - shownCounts[columnIndex]} more`, icon: open ? "minus" : "plus", y: top + h - 30 }
+      : null;
+    return { x, toggle };
+  });
+  return { boxes, h, placed };
 }
 
 function layoutImmediate(view: ViewData, ui: UiState): { layer: LayerView; boxes: Record<string, Box> } {
@@ -135,30 +146,33 @@ function layoutImmediate(view: ViewData, ui: UiState): { layer: LayerView; boxes
     y += 136;
   }
 
-  FLOORS.forEach((def, floorIndex) => {
-    const members = immediate.filter(def.takes);
-    if (def.key === "mine") {
-      floors.push({ key: def.key, title: def.title, path: center.dir, cls: "mine", y, h: 112, emptyText: "", toggle: null });
-      boxes[center.id] = { x: 380, y: y + 34, w: HERE_W, h: HERE_H, floor: floorIndex };
-      members
-        .filter((member) => member.kind !== "here")
-        .slice(0, 2)
-        .forEach((member, index) => {
-          boxes[member.id] = { x: AREA_LEFT + index * (NODE_W + COL_GAP), y: y + 38, w: NODE_W, h: NODE_H, floor: floorIndex };
-        });
-      y += 112 + 14;
-      return;
-    }
-    if (!members.length) {
-      floors.push({ key: def.key, title: def.title, path: "", cls: "empty", y, h: 64, emptyText: def.empty(center.name), toggle: null });
-      y += 64 + 14;
-      return;
-    }
-    const row = layoutRow(members.map((member) => member.id), !!ui.open[def.key], y, floorIndex);
+  const callers = immediate.filter((node) => node.kind === "caller");
+  if (callers.length) {
+    const row = layoutRow(callers.map((node) => node.id), !!ui.open.callers, y, CALLERS_FLOOR);
     Object.assign(boxes, row.boxes);
-    floors.push({ key: def.key, title: def.title, path: foldersOf(members), cls: def.key === "tests" ? "annex" : "", y, h: row.h, emptyText: "", toggle: row.toggle });
+    floors.push({ key: "callers", title: "Imports this file", path: foldersOf(callers), cls: "", x: FLOOR_LEFT, y, w: FLOOR_W, h: row.h, emptyText: "", toggle: row.toggle });
     y += row.h + 14;
+  } else {
+    floors.push({ key: "callers", title: "Imports this file", path: "", cls: "empty", x: FLOOR_LEFT, y, w: FLOOR_W, h: 64, emptyText: `No file imports ${center.name}.`, toggle: null });
+    y += 64 + 14;
+  }
+
+  floors.push({ key: "mine", title: "Same folder", path: center.dir, cls: "mine", x: FLOOR_LEFT, y, w: FLOOR_W, h: 112, emptyText: "", toggle: null });
+  boxes[center.id] = { x: FLOOR_LEFT + (FLOOR_W - HERE_W) / 2, y: y + 34, w: HERE_W, h: HERE_H, floor: OPEN_FILE_FLOOR };
+  y += 112 + 14;
+
+  const columnMembers = COLUMNS.map((def) => immediate.filter((node) => columnOf(node) === def.key));
+  const columns = layoutColumns(COLUMNS.map((def, index) => ({ key: def.key, ids: columnMembers[index].map((node) => node.id) })), ui, y);
+  Object.assign(boxes, columns.boxes);
+  COLUMNS.forEach((def, index) => {
+    const members = columnMembers[index];
+    const { x, toggle } = columns.placed[index];
+    floors.push({
+      key: def.key, title: def.title, path: foldersOf(members), cls: members.length ? (def.key === "deps" ? "" : "annex") : "empty",
+      x, y, w: COLUMN_W, h: columns.h, emptyText: members.length ? "" : def.empty(center.name), toggle,
+    });
   });
+  y += columns.h + 14;
 
   if (view.orphanChecks) {
     banners.push({ y: y + 4, title: "Nothing connects to this file", items: view.orphanChecks, progress: null });
@@ -167,29 +181,18 @@ function layoutImmediate(view: ViewData, ui: UiState): { layer: LayerView; boxes
 
   const wires: WireView[] = [];
   const ports: PortView[] = [];
-  const labels: LabelView[] = [];
-  let laneIndex = 0;
   for (const edge of view.edges) {
-    const a = boxes[edge.from];
-    const b = boxes[edge.to];
-    if (!a || !b) continue;
-    const fromNode = byId.get(edge.from)!;
-    const toNode = byId.get(edge.to)!;
-    let dy = 0;
-    if (fromNode.kind === "cycle") dy = 8;
-    else if (toNode.kind === "cycle") dy = -8;
-    const route = routeWire(a, b, dy, laneIndex);
-    if (route.usedLane) laneIndex++;
-    const color = colorOf(edge.from === view.openFile ? toNode : fromNode);
-    wires.push({ cls: `${color}${edge.style === "dashed" ? " dashed" : ""}${wireState(view, ui, [edge.from, edge.to])}`, d: route.d });
+    const from = boxes[edge.from];
+    const to = boxes[edge.to];
+    if (!from || from.floor !== CALLERS_FLOOR || !to) continue;
+    const route = routeWire(from, to);
+    const color = colorOf(byId.get(edge.from)!);
+    wires.push({ cls: `${color}${wireState(view, ui, [edge.from, edge.to])}`, d: route.d });
     ports.push({ cls: color, x: route.x1, y: route.y1, incoming: false }, { cls: color, x: route.x2, y: route.y2, incoming: true });
-    if (edge.label) {
-      labels.push({ cls: color, x: (route.x1 + route.x2) / 2, y: a.floor === b.floor ? Math.min(route.y1, route.y2) - 14 : (route.y1 + route.y2) / 2, text: edge.label });
-    }
   }
 
   const nodes = immediate.filter((node) => boxes[node.id]).map((node) => nodeView(node, boxes[node.id], ui));
-  return { layer: { floors, nodes, wires, ports, labels, banners, height: Math.max(y + 8, 600) }, boxes };
+  return { layer: { floors, nodes, wires, ports, banners, height: Math.max(y + 8, 600) }, boxes };
 }
 
 function layoutSecond(view: ViewData, ui: UiState, inner: { layer: LayerView; boxes: Record<string, Box> }): SecondLayerView | null {
@@ -205,7 +208,7 @@ function layoutSecond(view: ViewData, ui: UiState, inner: { layer: LayerView; bo
   if (up.length) {
     const row = layoutRow(up.map((node) => node.id), !!ui.open.l2up, y, 0);
     Object.assign(boxes, row.boxes);
-    floors.push({ key: "l2up", title: "Second layer: imports the callers", path: foldersOf(up), cls: "", y, h: row.h, emptyText: "", toggle: row.toggle });
+    floors.push({ key: "l2up", title: "Second layer: imports the callers", path: foldersOf(up), cls: "", x: FLOOR_LEFT, y, w: FLOOR_W, h: row.h, emptyText: "", toggle: row.toggle });
     up.forEach((node) => side.set(node.id, "up"));
     y += row.h + 44;
   }
@@ -217,7 +220,7 @@ function layoutSecond(view: ViewData, ui: UiState, inner: { layer: LayerView; bo
   if (down.length) {
     const row = layoutRow(down.map((node) => node.id), !!ui.open.l2down, y, 2);
     Object.assign(boxes, row.boxes);
-    floors.push({ key: "l2down", title: "Second layer: imported by the immediate layer", path: foldersOf(down), cls: "", y, h: row.h, emptyText: "", toggle: row.toggle });
+    floors.push({ key: "l2down", title: "Second layer: imported by the immediate layer", path: foldersOf(down), cls: "", x: FLOOR_LEFT, y, w: FLOOR_W, h: row.h, emptyText: "", toggle: row.toggle });
     down.forEach((node) => side.set(node.id, "down"));
     y += row.h + 16;
   }
@@ -245,5 +248,5 @@ function layoutSecond(view: ViewData, ui: UiState, inner: { layer: LayerView; bo
   }
 
   const nodes = second.filter((node) => boxes[node.id]).map((node) => nodeView(node, boxes[node.id], ui));
-  return { floors, nodes, wires, ports, labels: [], banners: [], height: y + 8, frame, transform: `translate(${ox}px, ${oy}px) scale(${CLUSTER_SCALE})` };
+  return { floors, nodes, wires, ports, banners: [], height: y + 8, frame, transform: `translate(${ox}px, ${oy}px) scale(${CLUSTER_SCALE})` };
 }

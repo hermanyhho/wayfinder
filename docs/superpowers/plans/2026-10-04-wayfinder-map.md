@@ -22,10 +22,11 @@ The approved design is the Design canvas at https://claude.ai/artifact/MUHcCKRXF
 
 | Design element | Mockup source (`docs/design/wayfinder-mockup.dc.html`) | Task |
 |---|---|---|
-| Floors in order: Imports this file, Same folder, Imported by this file, Tests | `buildImmediateLayer`, floor titles in `SCENARIOS` | 9 |
+| Floors in order: Imports this file, Same folder, Imported by this file, Tests. Replaced by the #44 row: callers, the open file alone, then the Imported by this file, Tests and Issues columns | `buildImmediateLayer`, floor titles in `SCENARIOS` | 9, #44 |
+| Deviation, approved after user testing: the open file sits alone in its row; below it three columns side by side (Imported by this file, Tests, Issues), 4 nodes each then the footer toggle, no wires from the open file to them. Second-layer wires below the frame start at the x of the column node they come through | differs from `buildImmediateLayer` floors and wire loop | #44 |
 | Node size 152x56, open file 220x64, 4 per row, row height 74, gap 16 | constants `NODE_W` ... `MAX_PER_ROW` | 9 |
 | Footer "Show N more" / "Show fewer" toggle, no aggregate node | `layoutRow`, `floorToggle`, `.ftog` | 9, 11 |
-| Wires: vertical bezier between neighbouring floors, side bezier on the same floor, right-hand lane for floors further apart | `buildImmediateLayer` wire loop | 9 |
+| Wires: vertical bezier between neighbouring floors, side bezier on the same floor, right-hand lane for floors further apart. Replaced by the #44 row: only the vertical bezier from each caller to the open file remains | `buildImmediateLayer` wire loop | 9, #44 |
 | Selected node: its wires brighten and animate, others fade to 30% | `wireState`, `.w.hi`, `.w.lo` | 9, 11 |
 | Second layer: immediate layer shrinks to 0.56 inside a green frame, second-layer floors fade in above and below, wires end on the frame edge | `buildSecondLayer`, `.cluster`, `.frame`, `.layer2` | 9, 11 |
 | Empty floors and the "Nothing connects to this file" card | `floor.empty`, `banner` | 6, 9 |
