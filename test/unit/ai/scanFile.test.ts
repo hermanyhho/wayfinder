@@ -81,7 +81,7 @@ describe("aiStatusFor", () => {
   const baseUrl = "http://localhost:11434";
 
   it("is not set up when no model is configured", () => {
-    expect(aiStatusFor("", baseUrl, ["qwen2.5-coder:1.5b"])).toEqual({ ready: false, reason: "set wayfinder.ai.model" });
+    expect(aiStatusFor("", baseUrl, ["qwen2.5-coder:1.5b"])).toEqual({ ready: false, reason: "no model is set" });
   });
 
   it("is not set up when Ollama does not answer", () => {

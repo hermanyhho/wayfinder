@@ -49,7 +49,7 @@ export function parseScanReply(reply: string, lineCountByFile: ReadonlyMap<strin
 }
 
 export function aiStatusFor(model: string, baseUrl: string, installedModels: string[] | null): AiStatus {
-  if (!model) return { ready: false, reason: "set wayfinder.ai.model" };
+  if (!model) return { ready: false, reason: "no model is set" };
   if (!installedModels) return { ready: false, reason: `Ollama is not running at ${baseUrl}` };
   const installed = installedModels.some((name) => name === model || name === `${model}:latest`);
   return installed ? { ready: true, model } : { ready: false, reason: `run ollama pull ${model}` };

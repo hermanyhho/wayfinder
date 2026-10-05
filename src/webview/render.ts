@@ -63,15 +63,21 @@ function renderAiState(status: AiStatus | null): string {
   if (!status) return "";
   return status.ready
     ? `<span class="aistate ready"><span class="dotx"></span>AI ready: ${escapeHtml(status.model)}</span>`
-    : `<span class="aistate" title="${escapeHtml(status.reason)}"><span class="dotx"></span>AI not set up</span>`;
+    : `<button class="aistate" data-action="ai-settings" title="AI not set up: ${escapeHtml(status.reason)}. Click to open AI settings."><span class="dotx"></span>AI not set up</button>`;
+}
+
+function aiStatusLine(ai: PanelAi): string {
+  if (ai.scan.state === "error") return escapeHtml(ai.scan.message);
+  if (!ai.status) return "Checking AI setup";
+  if (ai.status.ready) return "";
+  return `AI not set up: ${escapeHtml(ai.status.reason)}. <button class="ailink" data-action="ai-settings">Open AI settings</button>`;
 }
 
 function renderAiBar(ai: PanelAi): string {
   const loading = ai.scan.state === "loading";
   const disabled = loading || !ai.status?.ready;
   const label = loading ? "Scanning" : ai.scan.state === "done" ? "Scan again" : "Scan with AI";
-  const statusText = ai.scan.state === "error" ? ai.scan.message : ai.status && !ai.status.ready ? `AI not set up: ${ai.status.reason}` : "";
-  return `<div class="aibar"><button class="aibtn ${loading ? "busy" : disabled ? "off" : ""}" data-action="scan" ${disabled ? "disabled" : ""}><svg viewBox="0 0 24 24" aria-hidden="true">${SCAN_ICON}</svg>${label}</button><span class="aistatus">${escapeHtml(statusText)}</span></div>`;
+  return `<div class="aibar"><button class="aibtn ${loading ? "busy" : disabled ? "off" : ""}" data-action="scan" ${disabled ? "disabled" : ""}><svg viewBox="0 0 24 24" aria-hidden="true">${SCAN_ICON}</svg>${label}</button><span class="aistatus">${aiStatusLine(ai)}</span></div>`;
 }
 
 function renderAiSummary(ai: PanelAi | null): string {
@@ -82,11 +88,19 @@ function renderAiSummary(ai: PanelAi | null): string {
 
 function renderAiFindings(ai: PanelAi | null): string {
   if (ai?.scan.state === "loading") return loadingBlock("Looking for things worth checking");
-  if (!ai || ai.scan.state !== "done" || !ai.scan.result.findings.length) return "";
+  if (ai?.scan.state === "idle" && ai.status?.ready) return `<div class="aihint">Scan with AI to add things worth checking below these facts.</div>`;
+  if (!ai || ai.scan.state !== "done") return "";
+  if (!ai.scan.result.findings.length) return `<div class="aiblock">${aiHead("Worth checking")}<div class="based">The model found nothing worth checking.</div></div>`;
   const items = ai.scan.result.findings
     .map((finding) => `<li><span class="mono">${escapeHtml(finding.file.slice(finding.file.lastIndexOf("/") + 1))}:${finding.line}</span> ${escapeHtml(finding.text)}</li>`)
     .join("");
   return `<div class="aiblock">${aiHead("Worth checking")}<ul class="findings">${items}</ul><div class="based">Every file and line named here exists in the import map.</div></div>`;
+}
+
+function renderChecksBadge(ai: PanelAi | null): string {
+  if (ai?.scan.state === "loading") return `<span class="askai busy">AI</span>`;
+  if (ai?.scan.state !== "done") return "";
+  return `<span class="askai">AI ${ai.scan.result.findings.length}</span>`;
 }
 
 function renderBanner(banner: BannerView): string {
@@ -142,11 +156,12 @@ export function renderPanel(model: PanelModel, action: Action | null, answer: Fa
     ? model.connections.map((connection) => `<div class="lk"><span class="ref">${escapeHtml(connection.label)}</span><span class="lt">${escapeHtml(connection.value)}</span></div>`).join("")
     : `<div class="lt">None</div>`;
   const asks = ASKS.map(
-    (ask) => `<button class="ask ${ask.action === action ? "on" : ""}" data-action="ask" data-value="${ask.action}"><svg viewBox="0 0 24 24" aria-hidden="true">${ask.icon}</svg>${ask.label}</button>`,
+    (ask) =>
+      `<button class="ask ${ask.action === action ? "on" : ""}" data-action="ask" data-value="${ask.action}"><svg viewBox="0 0 24 24" aria-hidden="true">${ask.icon}</svg>${ask.label}${ask.action === "checks" ? renderChecksBadge(ai) : ""}</button>`,
   ).join("");
   const answerLabel = ASKS.find((ask) => ask.action === action)?.label ?? "";
   const answerBlock = action && answer
-    ? `<div class="answer"><div class="ah"><span>${escapeHtml(answerLabel)}: ${escapeHtml(model.name)}</span><span class="src-tag">From code</span></div>${factList(answer)}</div>`
+    ? `<div class="answer"><div class="ah"><span>${escapeHtml(answerLabel)}: ${escapeHtml(model.name)}</span><span class="src-tag">From code</span></div>${factList(answer)}${action === "checks" ? renderAiFindings(ai) : ""}</div>`
     : "";
   return `<div class="pcard">
 <div class="kickrow"><span class="chip ${model.color}">${escapeHtml(model.rel)}</span></div>
@@ -156,6 +171,6 @@ ${model.canOpen ? `<button class="openbtn" data-action="open" data-id="${escapeH
 ${ai ? renderAiBar(ai) : ""}
 </div>
 <section><div class="sechead"><h3 class="label">What it does</h3><span class="src-tag">From code</span></div>${factList(model.facts)}${renderAiSummary(ai)}</section>
-<section><div class="sechead"><h3 class="label">${escapeHtml(model.connectionsTitle)}</h3><span class="src-tag">From code</span></div><div class="links">${connections}</div>${renderAiFindings(ai)}</section>
+<section><div class="sechead"><h3 class="label">${escapeHtml(model.connectionsTitle)}</h3><span class="src-tag">From code</span></div><div class="links">${connections}</div></section>
 <section><h3 class="label">More about this file</h3><div class="asks">${asks}</div>${answerBlock}</section>`;
 }

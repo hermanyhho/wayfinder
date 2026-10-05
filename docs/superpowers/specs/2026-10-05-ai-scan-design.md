@@ -9,7 +9,8 @@ Design boards: the "AI ready" boards at https://claude.ai/artifact/MUHcCKRXFR9PN
 In:
 
 - "Scan with AI" button in the side panel for the open file. The label changes to "Scanning" while a scan runs and to "Scan again" after a result.
-- AI block under the facts from code: summary, then "Worth checking" findings, then the line "Every file and line named here exists in the import map."
+- Summary block under "What it does". "Worth checking" findings inside the Checks answer, ending with "Every file and line named here exists in the import map."
+- A gold "AI" badge on the Checks button shows that findings are there: blinking while a scan runs, then with the number of findings.
 - Loading bars while a scan runs. The old AI text is hidden during a rescan.
 - AI status in the top bar: "AI ready: <model>" or "AI not set up". The reason shows next to the disabled button: "AI not set up: <reason>".
 - Settings `wayfinder.ai.baseUrl` and `wayfinder.ai.model`.
@@ -57,7 +58,7 @@ The host checks status when the panel opens and when either setting changes. It 
 | Situation | What the user sees |
 |---|---|
 | Model set and listed by Ollama | "AI ready: <model>", button enabled |
-| `wayfinder.ai.model` empty | "AI not set up: set wayfinder.ai.model", button disabled |
+| `wayfinder.ai.model` empty | "AI not set up: no model is set. Open AI settings", button disabled |
 | Ollama does not answer | "AI not set up: Ollama is not running at <baseUrl>", button disabled |
 | Model not in the list | "AI not set up: run ollama pull <model>", button disabled |
 | No reply after 120 seconds | Scan stops: "The model took too long. Try again." |
