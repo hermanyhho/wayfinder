@@ -29,6 +29,21 @@
           "group": "navigation"
         }
       ]
+    },
+    "configuration": {
+      "title": "Wayfinder",
+      "properties": {
+        "wayfinder.ai.baseUrl": {
+          "type": "string",
+          "default": "http://localhost:11434",
+          "description": "Where Ollama runs."
+        },
+        "wayfinder.ai.model": {
+          "type": "string",
+          "default": "",
+          "description": "Ollama model for Scan with AI, for example qwen2.5-coder:1.5b. Leave empty to turn AI off."
+        }
+      }
     }
   },
   "scripts": {
