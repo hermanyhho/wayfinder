@@ -10,7 +10,7 @@ const vscode = acquireVsCodeApi();
 const IDENTITY = "translate(0px, 0px) scale(1)";
 let view: ViewData | null = null;
 let ui: UiState = { selected: "", layer: 1, open: {} };
-let action: Action | null = null;
+let action: Action = "context";
 let lastTransform = IDENTITY;
 let renderedView: ViewData | null = null;
 let renderedLayer: UiState["layer"] = 1;
@@ -28,7 +28,7 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
     view = message.data;
     if (openFileChanged) {
       ui = { selected: view.openFile, layer: 1, open: {} };
-      action = null;
+      action = "context";
       lastTransform = IDENTITY;
     } else if (!view.nodes.some((node) => node.id === ui.selected)) {
       ui = { ...ui, selected: view.openFile };
@@ -54,7 +54,7 @@ document.addEventListener("click", (event) => {
   }
   if (kind === "toggle" && value) ui = { ...ui, open: { ...ui.open, [value]: !ui.open[value] } };
   if (kind === "layer" && value) ui = { ...ui, layer: value === "2" ? 2 : 1 };
-  if (kind === "ask" && value) action = action === value ? null : (value as Action);
+  if (kind === "ask" && value) action = value as Action;
   if (kind === "open" && id) vscode.postMessage({ type: "open", id });
   if (kind === "ai-settings") vscode.postMessage({ type: "openAiSettings" });
   if (kind === "scan") {
@@ -79,7 +79,7 @@ function render(remeasured = false): void {
   map.classList.toggle("keep-layer2", view === renderedView && ui.layer === renderedLayer);
   renderedView = view;
   renderedLayer = ui.layer;
-  map.innerHTML = renderMap(result, view, ui, aiStatus);
+  map.innerHTML = renderMap(result, view, ui);
   const nextTransform = result.outer ? result.outer.transform : IDENTITY;
   const cluster = document.querySelector<HTMLElement>(".cluster");
   if (cluster) {
@@ -89,7 +89,7 @@ function render(remeasured = false): void {
   }
   lastTransform = nextTransform;
   const gitFacts = gitFactsById.get(ui.selected) ?? [];
-  const answer = action ? answerFor(view, ui.selected, action, gitFacts) : null;
+  const answer = answerFor(view, ui.selected, action, gitFacts);
   const ai = ui.selected === view.openFile ? { status: aiStatus, scan: aiScan?.openFile === view.openFile ? aiScan.scan : IDLE_SCAN } : null;
   const panel = document.getElementById("panel")!;
   const aiKey = JSON.stringify([ui.selected, ai?.scan]);

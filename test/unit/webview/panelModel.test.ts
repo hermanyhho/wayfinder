@@ -20,19 +20,8 @@ describe("panel content", () => {
     expect(model.connections).toContainEqual({ label: "DocumentController.ts:27", value: "return this.service.listForEmployee(actor, id)" });
   });
 
-  it("answers Context with the first four facts and the files it imports, leaving out missing files", () => {
-    expect(answerFor(view(), DOCUMENT_SERVICE, "context")).toEqual([
-      { label: "Exports", value: "class DocumentService" },
-      { label: "Public methods", value: "listForEmployee, upload, remindUnsigned" },
-      { label: "Size", value: "31 lines" },
-      { label: "Doc comment", value: "none" },
-      { label: "Imports", value: "DocumentRepository.ts, StorageClient.ts, PermissionPolicy.ts, document.types.ts" },
-    ]);
-  });
-
-  it("answers Context for a caller with exactly one Imports row", () => {
-    const importsRows = answerFor(view(), CONTROLLER, "context").filter((fact) => fact.label === "Imports");
-    expect(importsRows).toHaveLength(1);
+  it("answers Context with the same facts the panel shows for the file", () => {
+    expect(answerFor(view(), DOCUMENT_SERVICE, "context")).toEqual(panelFor(view(), DOCUMENT_SERVICE).facts);
   });
 
   it("answers Why with importers and git history, and Checks with the rule results", () => {

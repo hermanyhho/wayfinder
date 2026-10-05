@@ -32,9 +32,6 @@ const findNode = (view: ViewData, id: string): ViewNode => view.nodes.find((node
 const namesOf = (view: ViewData, kinds: NodeKind[]) =>
   view.nodes.filter((node) => !node.secondLayer && kinds.includes(node.kind)).map((node) => node.name).join(", ");
 
-const importedNamesOf = (view: ViewData, id: string) =>
-  view.edges.filter((edge) => edge.from === id && edge.style === "solid").map((edge) => findNode(view, edge.to).name).join(", ");
-
 function connectionsOf(view: ViewData, node: ViewNode): Fact[] {
   if (node.kind === "here") {
     return [
@@ -83,10 +80,8 @@ export function panelFor(view: ViewData, id: string): PanelModel {
 export function answerFor(view: ViewData, id: string, action: Action, git: Fact[] = []): Fact[] {
   const node = findNode(view, id);
   switch (action) {
-    case "context": {
-      const firstFacts = panelFor(view, id).facts.filter((fact) => fact.label !== "Imports").slice(0, 4);
-      return [...firstFacts, { label: "Imports", value: importedNamesOf(view, node.id) || "none in the map" }];
-    }
+    case "context":
+      return panelFor(view, id).facts;
     case "where": {
       const model = panelFor(view, id);
       return [{ label: "Defined in", value: model.path }, ...model.connections];
