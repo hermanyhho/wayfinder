@@ -15,6 +15,7 @@ let lastTransform = IDENTITY;
 let renderedView: ViewData | null = null;
 let renderedLayer: UiState["layer"] = 1;
 let renderedWidth = MIN_CANVAS_W;
+let renderedAiKey = "";
 const gitFactsById = new Map<string, Fact[]>();
 const IDLE_SCAN: AiScanState = { state: "idle" };
 let aiStatus: AiStatus | null = null;
@@ -90,7 +91,12 @@ function render(remeasured = false): void {
   const gitFacts = gitFactsById.get(ui.selected) ?? [];
   const answer = action ? answerFor(view, ui.selected, action, gitFacts) : null;
   const ai = ui.selected === view.openFile ? { status: aiStatus, scan: aiScan?.openFile === view.openFile ? aiScan.scan : IDLE_SCAN } : null;
-  document.getElementById("panel")!.innerHTML = renderPanel(panelFor(view, ui.selected), action, answer, ai);
+  const panel = document.getElementById("panel")!;
+  const aiKey = JSON.stringify([ui.selected, ai?.scan]);
+  // the host resends the scan state with every view, so without this class the AI blocks pop in again on each update
+  panel.classList.toggle("keep-ai", aiKey === renderedAiKey);
+  renderedAiKey = aiKey;
+  panel.innerHTML = renderPanel(panelFor(view, ui.selected), action, answer, ai);
   // the first render measures #map, which is wider than .fit by the scrollbar gutter
   if (!remeasured && canvasWidth() !== renderedWidth) render(true);
   else fitMap();
