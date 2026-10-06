@@ -16,6 +16,7 @@ export const FLOOR_LEFT = 16;
 export const MIN_CANVAS_W = 800;
 export const MAX_CANVAS_W = 1280;
 const COLUMN_PADDING = 14;
+const COLUMN_SEARCH_ROW_H = 34;
 export const CLUSTER_SCALE = 0.56;
 
 export interface UiState {
@@ -24,12 +25,15 @@ export interface UiState {
   open: Record<string, boolean>;
 }
 
+export type ColumnKey = "deps" | "members" | "tests";
+export type SearchByColumn = Partial<Record<ColumnKey, string>>;
+
 export interface Box { x: number; y: number; w: number; h: number; floor: number; }
 export interface FloorToggle { text: string; icon: "plus" | "minus"; y: number; }
 export type GroupKind = MemberKind | NodeKind;
 export interface GroupHeadingView { key: string; x: number; y: number; w: number; cls: string; kind: GroupKind; text: string; collapsed: boolean; }
 export interface GroupToggleView extends FloorToggle { key: string; x: number; }
-export interface FloorView { key: string; title: string; path: string; cls: string; x: number; y: number; w: number; h: number; emptyText: string; toggle: FloorToggle | null; }
+export interface FloorView { key: string; title: string; path: string; cls: string; x: number; y: number; w: number; h: number; emptyText: string; toggle: FloorToggle | null; search?: string; }
 export interface NodeView { id: string; x: number; y: number; w: number; cls: string; kind: NodeKind; tag: string; name: string; path: string; }
 export interface MemberView extends Omit<NodeView, "kind"> { kind: MemberKind; line: number; }
 export interface WireView { cls: string; d: string; }
@@ -47,8 +51,6 @@ const KIND_TAG: Record<NodeKind, string> = {
 };
 
 export const colorOf = (node: ViewNode): string => (node.kind === "expected" && node.expectedKind === "test" ? "pink" : KIND_COLOR[node.kind]);
-
-type ColumnKey = "deps" | "members" | "tests";
 
 // missing expected files are listed in the Checks tab, so they get no card on the map
 const COLUMN_OF_KIND: Record<Exclude<NodeKind, "here" | "caller" | "expected">, Exclude<ColumnKey, "members">> = {
@@ -92,9 +94,9 @@ const CALLERS_FLOOR = 0;
 const OPEN_FILE_FLOOR = 1;
 const COLUMNS_FLOOR = 2;
 
-export function layout(view: ViewData, ui: UiState, width: number): Layout {
+export function layout(view: ViewData, ui: UiState, width: number, search: SearchByColumn = {}): Layout {
   const floorWidth = width - 2 * FLOOR_LEFT;
-  const inner = layoutImmediate(view, ui, floorWidth);
+  const inner = layoutImmediate(view, ui, floorWidth, search);
   return { width, inner: inner.layer, outer: ui.layer === 2 ? layoutSecond(view, ui, inner, width) : null };
 }
 
@@ -155,7 +157,7 @@ export function routeWire(from: Box, to: Box) {
   return { d: `M${x1} ${y1} C${x1} ${y1 + k}, ${x2} ${y2 - k}, ${x2} ${y2}`, x1, y1, x2, y2 };
 }
 
-function layoutColumns(columns: ColumnGroup[][], ui: UiState, top: number, columnWidth: number) {
+function layoutColumns(columns: ColumnGroup[][], searchingColumns: boolean[], ui: UiState, top: number, columnWidth: number) {
   const boxes: Record<string, Box> = {};
   const hiddenCardAnchors: Record<string, Box> = {};
   const groupHeadings: GroupHeadingView[] = [];
@@ -164,13 +166,14 @@ function layoutColumns(columns: ColumnGroup[][], ui: UiState, top: number, colum
     const x = FLOOR_LEFT + columnIndex * (columnWidth + COL_GAP);
     const cardX = x + COLUMN_PADDING;
     const cardW = columnWidth - 2 * COLUMN_PADDING;
-    let cursor = top + 34;
+    const searching = searchingColumns[columnIndex];
+    let cursor = top + 34 + COLUMN_SEARCH_ROW_H;
     for (const group of groups) {
       if (group !== groups[0]) cursor += GROUP_GAP;
       const collapseKey = `${group.key}:collapsed`;
       const moreKey = `${group.key}:more`;
-      const collapsed = !!ui.open[collapseKey];
-      const showAll = !!ui.open[moreKey];
+      const collapsed = !searching && !!ui.open[collapseKey];
+      const showAll = searching || !!ui.open[moreKey];
       const headingBox: Box = { x: cardX, y: cursor, w: cardW, h: GROUP_HEADING_H, floor: COLUMNS_FLOOR };
       if (group.heading) {
         groupHeadings.push({ key: collapseKey, x: cardX, y: cursor, w: cardW, cls: group.heading.cls, kind: group.heading.kind, text: `${group.heading.title} (${group.ids.length})`, collapsed });
@@ -184,18 +187,18 @@ function layoutColumns(columns: ColumnGroup[][], ui: UiState, top: number, colum
         else hiddenCardAnchors[id] = headingBox;
       });
       cursor += shownCount * ROW_H;
-      if (!collapsed && group.ids.length > MAX_PER_GROUP) {
+      if (!searching && !collapsed && group.ids.length > MAX_PER_GROUP) {
         groupToggles.push({ key: moreKey, x: cardX, y: cursor - 6, text: showAll ? "Show fewer" : `Show ${group.ids.length - shownCount} more`, icon: showAll ? "minus" : "plus" });
         cursor += GROUP_TOGGLE_H;
       }
     }
     return { x, bottom: cursor };
   });
-  const h = Math.max(top + 34 + ROW_H, ...placed.map((column) => column.bottom)) - top + 4;
+  const h = Math.max(top + 34 + COLUMN_SEARCH_ROW_H + ROW_H, ...placed.map((column) => column.bottom)) - top + 4;
   return { boxes, hiddenCardAnchors, groupHeadings, groupToggles, h, placed };
 }
 
-function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number): { layer: LayerView; boxes: Record<string, Box> } {
+function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search: SearchByColumn): { layer: LayerView; boxes: Record<string, Box> } {
   const immediate = view.nodes.filter((node) => !node.secondLayer);
   const byId = new Map(view.nodes.map((node) => [node.id, node]));
   const center = byId.get(view.openFile)!;
@@ -239,17 +242,27 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number): { lay
     })),
     tests: [{ key: "tests", heading: null, ids: idsByName(nodesInColumn("tests")) }],
   };
-  const columnGroups = COLUMNS.map((def) => groupsByColumn[def.key].filter((group) => group.ids.length > 0));
-  const columnIds = columnGroups.map((groups) => groups.flatMap((group) => group.ids));
+  const columnIds = COLUMNS.map((def) => groupsByColumn[def.key].flatMap((group) => group.ids));
+  const nameById = new Map<string, string>([...immediate.map((node) => [node.id, node.name] as const), ...view.members.map((member, index) => [memberIds[index], member.name] as const)]);
+  const searchTexts = COLUMNS.map((def) => search[def.key] ?? "");
+  const columnGroups = COLUMNS.map((def, index) => {
+    const searchText = searchTexts[index].toLowerCase();
+    return groupsByColumn[def.key]
+      .map((group) => (searchText ? { ...group, ids: group.ids.filter((id) => nameById.get(id)!.toLowerCase().includes(searchText)) } : group))
+      .filter((group) => group.ids.length > 0);
+  });
   const columnsTop = y;
   const columnWidth = Math.floor((floorWidth - (COLUMNS.length - 1) * COL_GAP) / COLUMNS.length);
-  const columns = layoutColumns(columnGroups, ui, y, columnWidth);
+  const columns = layoutColumns(columnGroups, searchTexts.map(Boolean), ui, y, columnWidth);
   Object.assign(boxes, columns.boxes);
   COLUMNS.forEach((def, index) => {
     const count = columnIds[index].length;
+    const searchText = searchTexts[index];
+    let emptyText = count ? "" : def.empty(center.name);
+    if (searchText && columnGroups[index].length === 0) emptyText = `No match for "${searchText}".`;
     floors.push({
       key: def.key, title: count ? `${def.title} (${count})` : def.title, path: foldersOf(nodesInColumn(def.key)), cls: count ? (def.key === "tests" ? "annex" : "") : "empty",
-      x: columns.placed[index].x, y, w: columnWidth, h: columns.h, emptyText: count ? "" : def.empty(center.name), toggle: null,
+      x: columns.placed[index].x, y, w: columnWidth, h: columns.h, emptyText, toggle: null, search: count ? searchText : undefined,
     });
   });
   y += columns.h + 14;

@@ -17,9 +17,9 @@ describe("layout", () => {
     expect(inner.floors.map((floor) => [floor.title, floor.x, floor.y, floor.w, floor.h])).toEqual([
       ["Imports this file", 16, 16, 768, 112],
       ["Same folder", 16, 168, 768, 112],
-      ["Imported by this file (4)", COLUMN_X[0], 320, 245, 400],
-      ["Members", COLUMN_X[1], 320, 245, 400],
-      ["Tests (1)", COLUMN_X[2], 320, 245, 400],
+      ["Imported by this file (4)", COLUMN_X[0], 320, 245, 434],
+      ["Members", COLUMN_X[1], 320, 245, 434],
+      ["Tests (1)", COLUMN_X[2], 320, 245, 434],
     ]);
     const at = (id: string) => {
       const node = inner.nodes.find((candidate) => candidate.id === id);
@@ -28,10 +28,10 @@ describe("layout", () => {
     expect([at(CONTROLLER), at("src/jobs/SendReminderJob.ts")]).toEqual([[240, 50], [408, 50]]);
     expect(inner.nodes.find((node) => node.id === DOCUMENT_SERVICE)).toMatchObject({ x: 290, y: 202, w: 220 });
     expect(["src/db/repositories/DocumentRepository.ts", "src/auth/PermissionPolicy.ts", "src/integrations/storage/StorageClient.ts", "src/types/document.types.ts"].map(at)).toEqual([
-      [NODE_X[0], 380], [NODE_X[0], 454], [NODE_X[0], 528], [NODE_X[0], 642],
+      [NODE_X[0], 414], [NODE_X[0], 488], [NODE_X[0], 562], [NODE_X[0], 676],
     ]);
-    expect(inner.groupHeadings.map((heading) => [heading.text, heading.y])).toEqual([["Dependencies (3)", 354], ["Types (1)", 616]]);
-    expect(at("test/services/DocumentService.spec.ts")).toEqual([NODE_X[2], 354]);
+    expect(inner.groupHeadings.map((heading) => [heading.text, heading.y])).toEqual([["Dependencies (3)", 388], ["Types (1)", 650]]);
+    expect(at("test/services/DocumentService.spec.ts")).toEqual([NODE_X[2], 388]);
     expect(at("expected:src/services/IDocumentService.ts")).toBeUndefined();
   });
 
@@ -147,14 +147,14 @@ describe("layout", () => {
     const dependencies = Array.from({ length: 6 }, (_, index) => `src/d/D${index}.ts`);
     const crowded = buildViewData(graphOf([analysisOf("src/x.ts", dependencies), ...dependencies.map((path) => analysisOf(path))]), "src/x.ts");
     const closed = layout(crowded, ui({ selected: "src/x.ts" }), 800).inner;
-    expect(closed.floors.find((floor) => floor.key === "deps")).toMatchObject({ y: 272, h: 388, toggle: null });
-    expect(closed.groupToggles).toEqual([{ key: "deps:dependency:more", x: NODE_X[0], y: 622, text: "Show 2 more", icon: "plus" }]);
+    expect(closed.floors.find((floor) => floor.key === "deps")).toMatchObject({ y: 272, h: 422, toggle: null });
+    expect(closed.groupToggles).toEqual([{ key: "deps:dependency:more", x: NODE_X[0], y: 656, text: "Show 2 more", icon: "plus" }]);
     expect(closed.nodes.filter((node) => node.id.startsWith("src/d/"))).toHaveLength(4);
-    expect(closed.floors.find((floor) => floor.key === "tests")?.h).toBe(388);
+    expect(closed.floors.find((floor) => floor.key === "tests")?.h).toBe(422);
     const opened = layout(crowded, ui({ selected: "src/x.ts", open: { "deps:dependency:more": true } }), 800).inner;
-    expect(opened.floors.find((floor) => floor.key === "deps")?.h).toBe(536);
+    expect(opened.floors.find((floor) => floor.key === "deps")?.h).toBe(570);
     expect(opened.groupToggles).toMatchObject([{ text: "Show fewer", icon: "minus" }]);
-    expect(opened.nodes.filter((node) => node.id.startsWith("src/d/")).map((node) => node.y)).toEqual([332, 406, 480, 554, 628, 702]);
+    expect(opened.nodes.filter((node) => node.id.startsWith("src/d/")).map((node) => node.y)).toEqual([366, 440, 514, 588, 662, 736]);
   });
 
   const documentServiceMembers = [
@@ -170,15 +170,15 @@ describe("layout", () => {
     const { inner } = layout({ ...view(), members: documentServiceMembers }, ui(), 800);
     expect(inner.floors.find((floor) => floor.key === "members")).toMatchObject({ title: "Members (6)", cls: "", emptyText: "", toggle: null });
     expect(inner.groupHeadings.filter((heading) => heading.key.startsWith("members:")).map((heading) => [heading.text, heading.kind, heading.y])).toEqual([
-      ["Classes (1)", "class", 354], ["Properties (3)", "property", 468], ["Methods (2)", "method", 730],
+      ["Classes (1)", "class", 388], ["Properties (3)", "property", 502], ["Methods (2)", "method", 764],
     ]);
     expect(inner.members.map((member) => [member.x, member.y, member.w, member.tag, member.name, member.path, member.line])).toEqual([
-      [NODE_X[1], 380, COLUMN_NODE_W, "class", "DocumentService", "exported", 6],
-      [NODE_X[1], 494, COLUMN_NODE_W, "property", "documents", "DocumentService", 8],
-      [NODE_X[1], 568, COLUMN_NODE_W, "property", "permissions", "DocumentService", 10],
-      [NODE_X[1], 642, COLUMN_NODE_W, "property", "storage", "DocumentService", 9],
-      [NODE_X[1], 756, COLUMN_NODE_W, "method", "listForEmployee", "DocumentService, exported", 13],
-      [NODE_X[1], 830, COLUMN_NODE_W, "method", "upload", "DocumentService, exported", 18],
+      [NODE_X[1], 414, COLUMN_NODE_W, "class", "DocumentService", "exported", 6],
+      [NODE_X[1], 528, COLUMN_NODE_W, "property", "documents", "DocumentService", 8],
+      [NODE_X[1], 602, COLUMN_NODE_W, "property", "permissions", "DocumentService", 10],
+      [NODE_X[1], 676, COLUMN_NODE_W, "property", "storage", "DocumentService", 9],
+      [NODE_X[1], 790, COLUMN_NODE_W, "method", "listForEmployee", "DocumentService, exported", 13],
+      [NODE_X[1], 864, COLUMN_NODE_W, "method", "upload", "DocumentService, exported", 18],
     ]);
     expect(inner.nodes.some((node) => node.id.startsWith("member:"))).toBe(false);
   });
@@ -227,6 +227,44 @@ describe("layout", () => {
     expect(collapsed.floors.find((floor) => floor.key === "members")!.h).toBe(expanded.floors.find((floor) => floor.key === "members")!.h - 2 * 74);
   });
 
+  it("shows only the members whose name contains the search text, ignoring case, and leaves other columns unfiltered", () => {
+    const { inner } = layout({ ...view(), members: documentServiceMembers }, ui(), 800, { members: "ST" });
+    expect(inner.members.map((member) => member.name)).toEqual(["storage", "listForEmployee"]);
+    expect(inner.groupHeadings.filter((heading) => heading.key.startsWith("members:")).map((heading) => heading.text)).toEqual(["Properties (1)", "Methods (1)"]);
+    expect(inner.floors.find((floor) => floor.key === "members")).toMatchObject({ title: "Members (6)", search: "ST", emptyText: "" });
+    expect(inner.nodes.filter((node) => node.x === NODE_X[0])).toHaveLength(4);
+  });
+
+  it("shows a search match that sits in a collapsed group or past the four-card cap, without a group toggle", () => {
+    const methods = ["a", "b", "c", "d", "match"].map((name, index) => ({ name, kind: "method" as const, line: index + 1, exported: false, className: "K" }));
+    const { inner } = layout({ ...view(), members: methods }, ui({ open: { "members:method:collapsed": true } }), 800, { members: "match" });
+    expect(inner.members.map((member) => member.name)).toEqual(["match"]);
+    expect(inner.groupHeadings.find((heading) => heading.key === "members:method:collapsed")).toMatchObject({ collapsed: false });
+    expect(inner.groupToggles.filter((toggle) => toggle.key.startsWith("members:"))).toEqual([]);
+  });
+
+  it("says no match when the search text matches no card in the column", () => {
+    const { inner } = layout({ ...view(), members: documentServiceMembers }, ui(), 800, { members: "zzz" });
+    expect(inner.members).toEqual([]);
+    expect(inner.groupHeadings.filter((heading) => heading.key.startsWith("members:"))).toEqual([]);
+    expect(inner.floors.find((floor) => floor.key === "members")).toMatchObject({ title: "Members (6)", emptyText: 'No match for "zzz".' });
+  });
+
+  it("filters the imported-by-this-file and tests columns by their own search text and drops groups with no match", () => {
+    const { inner } = layout(view(), ui(), 800, { deps: "STORAGE", tests: "spec" });
+    expect(inner.nodes.filter((node) => node.x === NODE_X[0]).map((node) => node.id)).toEqual(["src/integrations/storage/StorageClient.ts"]);
+    expect(inner.groupHeadings.filter((heading) => heading.key.startsWith("deps:")).map((heading) => heading.text)).toEqual(["Dependencies (1)"]);
+    expect(inner.floors.find((floor) => floor.key === "deps")).toMatchObject({ title: "Imported by this file (4)", search: "STORAGE" });
+    expect(inner.nodes.filter((node) => node.x === NODE_X[2])).toHaveLength(1);
+    expect(inner.nodes.filter((node) => node.x === NODE_X[1])).toHaveLength(0);
+  });
+
+  it("says no match in the tests column when no test name contains the search text", () => {
+    const { inner } = layout(view(), ui(), 800, { tests: "nothing" });
+    expect(inner.nodes.filter((node) => node.x === NODE_X[2])).toEqual([]);
+    expect(inner.floors.find((floor) => floor.key === "tests")).toMatchObject({ title: "Tests (1)", emptyText: 'No match for "nothing".' });
+  });
+
   it("brightens the wires of the selected node and fades the rest", () => {
     const wires = layout(view(), ui({ selected: CONTROLLER }), 800).inner.wires;
     expect(wires.filter((wire) => wire.cls.endsWith(" hi"))).toHaveLength(1);
@@ -235,7 +273,7 @@ describe("layout", () => {
 
   it("shrinks the immediate layer into a frame for the second layer", () => {
     const result = layout(view(), ui({ layer: 2 }), 800);
-    expect(result.outer?.frame).toEqual({ x: 166, y: 172, w: 468, h: 436 });
+    expect(result.outer?.frame).toEqual({ x: 166, y: 172, w: 468, h: 455 });
     expect(result.outer?.transform).toBe("translate(176px, 182px) scale(0.56)");
     expect(["src/api/routes.ts", "src/jobs/scheduler.ts"].map((id) => result.outer?.nodes.find((node) => node.id === id)?.x)).toEqual([240, 408]);
     expect(result.outer?.floors.map((floor) => floor.title)).toEqual(["Second layer: imports the callers", "Second layer: imported by the immediate layer"]);
@@ -250,7 +288,7 @@ describe("layout", () => {
     };
     const schema = startOfHighlightedWire("src/db/schema.ts");
     expect(schema.x).toBeCloseTo(176 + (NODE_X[0] + COLUMN_NODE_W / 2) * 0.56);
-    expect(schema.y).toBe(608);
+    expect(schema.y).toBe(627);
     expect(startOfHighlightedWire("src/db/schema.ts", { "deps:dependency:collapsed": true }).x).toBeCloseTo(176 + (NODE_X[0] + COLUMN_NODE_W / 2) * 0.56);
     expect(startOfHighlightedWire("test/fixtures/documents.fixture.ts").x).toBeCloseTo(176 + (NODE_X[2] + COLUMN_NODE_W / 2) * 0.56);
   });
