@@ -33,12 +33,12 @@ describe("layout", () => {
     expect(at("expected:src/services/IDocumentService.ts")).toBeUndefined();
   });
 
-  it("puts a circular import in the imported-by-this-file column with a red wire from the open file", () => {
+  it("puts a circular import in the imported-by-this-file column without a wire of its own", () => {
     const { inner } = layout(cyclicView(), ui({ selected: "src/a/A.ts" }), 800);
     const cycleNode = inner.nodes.find((node) => node.id === "src/a/B.ts");
     expect(cycleNode).toMatchObject({ x: NODE_X[0], tag: "Circular import" });
     expect(cycleNode?.cls.split(" ")).toContain("red");
-    expect(inner.wires.filter((wire) => wire.cls.startsWith("red"))).toEqual([{ cls: "red", d: "M400 218 C400 262, 204 262, 204 306" }]);
+    expect(inner.wires.filter((wire) => wire.cls.startsWith("red"))).toEqual([]);
   });
 
   it("places a circular import at the top of its column even when other imports come first", () => {
@@ -51,7 +51,7 @@ describe("layout", () => {
     const { inner } = layout(buildViewData(graph, "src/a/A.ts"), ui({ selected: "src/a/A.ts" }), 800);
     const firstColumn = inner.nodes.filter((node) => node.x === NODE_X[0]).sort((above, below) => above.y - below.y);
     expect(firstColumn.map((node) => node.id)).toEqual(["src/a/B.ts", "src/a/C.ts", "src/a/D.ts"]);
-    expect(inner.wires.filter((wire) => wire.cls.startsWith("red"))).toEqual([{ cls: "red", d: "M400 218 C400 262, 204 262, 204 306" }]);
+    expect(inner.wires.filter((wire) => wire.cls.startsWith("red"))).toEqual([]);
   });
 
   it("leaves missing expected files off the map", () => {

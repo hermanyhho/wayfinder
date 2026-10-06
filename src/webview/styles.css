@@ -63,6 +63,8 @@ body.vscode-light .nd { box-shadow: 0 2px 8px rgba(20, 30, 50, .10); }
 .nd.sel { border-color: var(--c); box-shadow: 0 0 0 3px color-mix(in oklab, var(--c) 30%, transparent), 0 6px 16px rgba(0, 0, 0, .35); }
 .nd.sel .nn { color: var(--c); }
 .nd.two { border-style: dashed; }
+.nd.red { border-color: var(--c); background: color-mix(in oklab, var(--c) 12%, var(--node)); }
+.nd.red .nh { background: color-mix(in oklab, var(--c) 22%, var(--nodehead)); }
 .nd.two .nn { font-weight: 400; color: var(--text2); }
 .nd.here { height: 64px; border: 2px solid var(--green); }
 .nd.here .nh { color: #0E1116; background: var(--green); height: 20px; letter-spacing: .14em; }
