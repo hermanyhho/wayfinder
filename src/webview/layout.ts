@@ -41,17 +41,18 @@ const KIND_TAG: Record<NodeKind, string> = {
 
 export const colorOf = (node: ViewNode): string => (node.kind === "expected" && node.expectedKind === "test" ? "pink" : KIND_COLOR[node.kind]);
 
-type ColumnKey = "deps" | "tests" | "issues";
+type ColumnKey = "deps" | "tests";
 
-const COLUMN_OF_KIND: Record<Exclude<NodeKind, "here" | "caller">, ColumnKey> = {
-  dependency: "deps", types: "deps", subject: "deps", package: "deps", test: "tests", expected: "issues", cycle: "issues",
+// missing expected files are listed in the Checks tab, so they get no card on the map
+const COLUMN_OF_KIND: Record<Exclude<NodeKind, "here" | "caller" | "expected">, ColumnKey> = {
+  dependency: "deps", types: "deps", subject: "deps", package: "deps", cycle: "deps", test: "tests",
 };
-const columnOf = (node: ViewNode): ColumnKey | null => (node.kind === "here" || node.kind === "caller" ? null : COLUMN_OF_KIND[node.kind]);
+const columnOf = (node: ViewNode): ColumnKey | null =>
+  node.kind === "here" || node.kind === "caller" || node.kind === "expected" ? null : COLUMN_OF_KIND[node.kind];
 
 const COLUMNS: { key: ColumnKey; title: string; color: string; empty: (name: string) => string }[] = [
   { key: "deps", title: "Imported by this file", color: "violet", empty: (name) => `${name} imports no project files.` },
   { key: "tests", title: "Tests", color: "pink", empty: (name) => `No test imports ${name}.` },
-  { key: "issues", title: "Issues", color: "red", empty: () => "No missing files or circular imports." },
 ];
 
 const CALLERS_FLOOR = 0;
@@ -89,7 +90,7 @@ function layoutRow(ids: string[], open: boolean, top: number, floor: number, flo
 }
 
 function nodeView(node: ViewNode, box: Box, ui: UiState): NodeView {
-  const cls = [colorOf(node), node.secondLayer ? "two" : "", node.kind === "expected" ? "ghost" : "", node.kind === "here" ? "here" : "", ui.selected === node.id ? "sel" : ""]
+  const cls = [colorOf(node), node.secondLayer ? "two" : "", node.kind === "here" ? "here" : "", ui.selected === node.id ? "sel" : ""]
     .filter(Boolean)
     .join(" ");
   return {
@@ -163,9 +164,11 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number): { lay
   boxes[center.id] = { x: FLOOR_LEFT + Math.round((floorWidth - HERE_W) / 2), y: y + 34, w: HERE_W, h: HERE_H, floor: OPEN_FILE_FLOOR };
   y += 112 + FLOOR_GAP;
 
-  const columnMembers = COLUMNS.map((def) => immediate.filter((node) => columnOf(node) === def.key));
+  // the red cycle wire runs straight from the open file to its card, so a card above it in the column would sit under the wire
+  const cyclesFirst = [...immediate].sort((left, right) => Number(right.kind === "cycle") - Number(left.kind === "cycle"));
+  const columnMembers = COLUMNS.map((def) => cyclesFirst.filter((node) => columnOf(node) === def.key));
   const columnsTop = y;
-  const columnWidth = Math.floor((floorWidth - 2 * COL_GAP) / 3);
+  const columnWidth = Math.floor((floorWidth - (COLUMNS.length - 1) * COL_GAP) / COLUMNS.length);
   const columns = layoutColumns(COLUMNS.map((def, index) => ({ key: def.key, ids: columnMembers[index].map((node) => node.id) })), ui, y, columnWidth);
   Object.assign(boxes, columns.boxes);
   COLUMNS.forEach((def, index) => {
@@ -201,6 +204,11 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number): { lay
     wires.push({ cls: `${def.color}${wireState(view, ui, columnMembers[index].map((node) => node.id))}`, d: route.d });
     ports.push({ cls: def.color, x: route.x2, y: route.y2, incoming: true });
   });
+  for (const cycle of immediate.filter((node) => node.kind === "cycle" && boxes[node.id])) {
+    const route = routeWire(openFileBox, boxes[cycle.id]);
+    wires.push({ cls: `red${wireState(view, ui, [cycle.id])}`, d: route.d });
+    ports.push({ cls: "red", x: route.x2, y: route.y2, incoming: true });
+  }
   ports.push({ cls: colorOf(center), x: openFileBox.x + openFileBox.w / 2, y: openFileBox.y + openFileBox.h, incoming: false });
 
   const nodes = immediate.filter((node) => boxes[node.id]).map((node) => nodeView(node, boxes[node.id], ui));

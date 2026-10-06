@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildViewData } from "../../../src/graph/neighbourhood";
-import { answerFor, panelFor } from "../../../src/webview/panelModel";
+import { answerFor, groupChecks, panelFor } from "../../../src/webview/panelModel";
 import { DOCUMENT_SERVICE, serviceGraph } from "../helpers/fixtures";
 
 const view = () => buildViewData(serviceGraph(), DOCUMENT_SERVICE);
@@ -35,5 +35,18 @@ describe("panel content", () => {
       value: "IDocumentService.ts: 4 of 4 files in src/services have a matching interface file.",
     });
     expect(answerFor(view(), "src/db/schema.ts", "checks", [])).toEqual([{ label: "Result", value: "No differences found against the files in the same folder." }]);
+  });
+
+  it("groups missing files and circular imports as issues, apart from the other checks", () => {
+    const missing = { label: "Missing", value: "IDocumentService.ts" };
+    const cycle = { label: "Circular import", value: "B.ts" };
+    const size = { label: "Size", value: "900 lines" };
+    expect(groupChecks([size, missing, cycle])).toEqual({ issues: [missing, cycle], others: [size] });
+  });
+
+  it("treats a node's own Cycle check as an issue and returns empty groups for no checks", () => {
+    const cycle = { label: "Cycle", value: "A.ts -> B.ts -> A.ts" };
+    expect(groupChecks([cycle])).toEqual({ issues: [cycle], others: [] });
+    expect(groupChecks([])).toEqual({ issues: [], others: [] });
   });
 });

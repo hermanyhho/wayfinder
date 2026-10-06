@@ -1,7 +1,7 @@
 import type { AiScanState, AiStatus } from "../shared/messages";
 import type { Fact, ViewData } from "../shared/viewData";
 import type { BannerView, FloorView, LayerView, Layout, NodeView, PortView, SecondLayerView, UiState, WireView } from "./layout";
-import { panelFor, type Action, type PanelModel } from "./panelModel";
+import { groupChecks, panelFor, type Action, type PanelModel } from "./panelModel";
 
 const HTML_ESCAPES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => HTML_ESCAPES[character]);
@@ -18,7 +18,6 @@ const LEGEND = `<div class="legend">
 <span class="blue"><span class="lsw"></span>Imports this file</span>
 <span class="violet"><span class="lsw"></span>Imported by this file</span>
 <span class="pink"><span class="lsw"></span>Tests</span>
-<span class="violet"><span class="lsw dash"></span>Expected, not found</span>
 <span class="red"><span class="lsw"></span>Circular import</span>
 <span class="grey"><span class="lsw"></span>Package</span>
 </div>`;
@@ -158,6 +157,13 @@ function renderConnections(model: PanelModel): string {
   return `<div class="ah sub"><span>${escapeHtml(model.connectionsTitle)}</span></div><div class="links">${rows}</div>`;
 }
 
+function renderChecks(checks: Fact[]): string {
+  const { issues, others } = groupChecks(checks);
+  if (!issues.length) return factList(others);
+  const otherChecks = others.length ? `<div class="ah sub"><span>Other checks</span></div>${factList(others)}` : "";
+  return `<div class="ah sub first"><span>Issues</span></div>${factList(issues)}${otherChecks}`;
+}
+
 function renderAiAnswer(action: Action, ai: PanelAi | null): string {
   if (action === "why") return renderAiSummary(ai);
   if (action === "checks") return renderAiFindings(ai);
@@ -177,5 +183,5 @@ export function renderPanel(model: PanelModel, action: Action, answer: Fact[], a
 ${model.canOpen ? `<button class="openbtn" data-action="open" data-id="${escapeHtml(model.id)}">Open file</button>` : ""}
 ${ai ? renderAiBar(ai) : ""}
 </div>
-<section><div class="asks">${asks}</div><div class="answer"><div class="ah"><span>${escapeHtml(answerLabel)}: ${escapeHtml(model.name)}</span><span class="src-tag">From code</span></div>${factList(answer)}${action === "context" ? renderConnections(model) : ""}</div>${renderAiAnswer(action, ai)}</section>`;
+<section><div class="asks">${asks}</div><div class="answer"><div class="ah"><span>${escapeHtml(answerLabel)}: ${escapeHtml(model.name)}</span><span class="src-tag">From code</span></div>${action === "checks" ? renderChecks(answer) : factList(answer)}${action === "context" ? renderConnections(model) : ""}</div>${renderAiAnswer(action, ai)}</section>`;
 }

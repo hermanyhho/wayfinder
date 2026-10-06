@@ -6,20 +6,19 @@ import { DOCUMENT_SERVICE, analysisOf, graphOf, serviceGraph } from "../helpers/
 const ui = (patch: Partial<UiState> = {}): UiState => ({ selected: DOCUMENT_SERVICE, layer: 1, open: {}, ...patch });
 const view = () => buildViewData(serviceGraph(), DOCUMENT_SERVICE);
 const CONTROLLER = "src/api/controllers/DocumentController.ts";
-const COLUMN_X = [16, 277, 538];
-const NODE_X = [30, 291, 552];
-const COLUMN_NODE_W = 217;
+const COLUMN_X = [16, 408];
+const NODE_X = [30, 422];
+const COLUMN_NODE_W = 348;
 const cyclicView = () => buildViewData(graphOf([analysisOf("src/a/A.ts", ["src/a/B.ts"]), analysisOf("src/a/B.ts", ["src/a/A.ts"])]), "src/a/A.ts");
 
 describe("layout", () => {
-  it("puts the callers above the open file and three columns below it", () => {
+  it("puts the callers above the open file and two columns below it, tests on the right", () => {
     const { inner } = layout(view(), ui(), 800);
     expect(inner.floors.map((floor) => [floor.title, floor.x, floor.y, floor.w, floor.h])).toEqual([
       ["Imports this file", 16, 16, 768, 112],
       ["Same folder", 16, 168, 768, 112],
-      ["Imported by this file", COLUMN_X[0], 320, 245, 334],
-      ["Tests", COLUMN_X[1], 320, 245, 334],
-      ["Issues", COLUMN_X[2], 320, 245, 334],
+      ["Imported by this file", COLUMN_X[0], 320, 376, 334],
+      ["Tests", COLUMN_X[1], 320, 376, 334],
     ]);
     const at = (id: string) => {
       const node = inner.nodes.find((candidate) => candidate.id === id);
@@ -31,14 +30,34 @@ describe("layout", () => {
       [NODE_X[0], 354], [NODE_X[0], 428], [NODE_X[0], 502], [NODE_X[0], 576],
     ]);
     expect(at("test/services/DocumentService.spec.ts")).toEqual([NODE_X[1], 354]);
-    expect(at("expected:src/services/IDocumentService.ts")).toEqual([NODE_X[2], 354]);
+    expect(at("expected:src/services/IDocumentService.ts")).toBeUndefined();
   });
 
-  it("puts expected files and circular imports in the issues column", () => {
+  it("puts a circular import in the imported-by-this-file column with a red wire from the open file", () => {
     const { inner } = layout(cyclicView(), ui({ selected: "src/a/A.ts" }), 800);
-    expect(inner.floors.find((floor) => floor.key === "issues")?.cls).toBe("annex");
-    expect(inner.nodes.find((node) => node.id === "src/a/B.ts")).toMatchObject({ x: NODE_X[2], tag: "Circular import" });
-    expect(layout(view(), ui(), 800).inner.nodes.find((node) => node.id === "expected:src/services/IDocumentService.ts")?.x).toBe(NODE_X[2]);
+    const cycleNode = inner.nodes.find((node) => node.id === "src/a/B.ts");
+    expect(cycleNode).toMatchObject({ x: NODE_X[0], tag: "Circular import" });
+    expect(cycleNode?.cls.split(" ")).toContain("red");
+    expect(inner.wires.filter((wire) => wire.cls.startsWith("red"))).toEqual([{ cls: "red", d: "M400 218 C400 262, 204 262, 204 306" }]);
+  });
+
+  it("places a circular import at the top of its column even when other imports come first", () => {
+    const graph = graphOf([
+      analysisOf("src/a/A.ts", ["src/a/C.ts", "src/a/D.ts", "src/a/B.ts"]),
+      analysisOf("src/a/B.ts", ["src/a/A.ts"]),
+      analysisOf("src/a/C.ts"),
+      analysisOf("src/a/D.ts"),
+    ]);
+    const { inner } = layout(buildViewData(graph, "src/a/A.ts"), ui({ selected: "src/a/A.ts" }), 800);
+    const firstColumn = inner.nodes.filter((node) => node.x === NODE_X[0]).sort((above, below) => above.y - below.y);
+    expect(firstColumn.map((node) => node.id)).toEqual(["src/a/B.ts", "src/a/C.ts", "src/a/D.ts"]);
+    expect(inner.wires.filter((wire) => wire.cls.startsWith("red"))).toEqual([{ cls: "red", d: "M400 218 C400 262, 204 262, 204 306" }]);
+  });
+
+  it("leaves missing expected files off the map", () => {
+    const { inner } = layout(view(), ui(), 800);
+    expect(inner.floors.map((floor) => floor.key)).toEqual(["callers", "mine", "deps", "tests"]);
+    expect(inner.nodes.some((node) => node.id.startsWith("expected:"))).toBe(false);
   });
 
   it("puts packages and the file under test in the imported-by-this-file column", () => {
@@ -52,7 +71,6 @@ describe("layout", () => {
     const floors = layout(cyclicView(), ui({ selected: "src/a/A.ts" }), 800).inner.floors;
     expect(floors.filter((floor) => floor.cls === "empty").map((floor) => [floor.title, floor.emptyText])).toEqual([
       ["Imports this file", "No file imports A.ts."],
-      ["Imported by this file", "A.ts imports no project files."],
       ["Tests", "No test imports A.ts."],
     ]);
   });
@@ -62,24 +80,22 @@ describe("layout", () => {
     expect(wires.map((wire) => wire.d)).toEqual([
       "M316 106 C316 154, 400 154, 400 202",
       "M484 106 C484 154, 400 154, 400 202",
-      "M400 266 C400 293, 139 293, 139 320",
-      "M400 266 C400 293, 400 293, 400 320",
-      "M400 266 C400 293, 661 293, 661 320",
+      "M400 266 C400 293, 204 293, 204 320",
+      "M400 266 C400 293, 596 293, 596 320",
     ]);
-    expect(layout(cyclicView(), ui({ selected: "src/a/A.ts" }), 800).inner.wires).toHaveLength(3);
   });
 
   it("brightens the wire of the column that holds the selected node and fades the rest", () => {
     const wires = layout(view(), ui({ selected: "src/db/repositories/DocumentRepository.ts" }), 800).inner.wires;
-    expect(wires.map((wire) => wire.cls.split(" ").pop())).toEqual(["lo", "lo", "hi", "lo", "lo"]);
+    expect(wires.map((wire) => wire.cls.split(" ").pop())).toEqual(["lo", "lo", "hi", "lo"]);
     const testWires = layout(view(), ui({ selected: "test/services/DocumentService.spec.ts" }), 800).inner.wires;
-    expect(testWires.slice(2).map((wire) => wire.cls.split(" ").pop())).toEqual(["lo", "hi", "lo"]);
+    expect(testWires.slice(2).map((wire) => wire.cls.split(" ").pop())).toEqual(["lo", "hi"]);
   });
 
   it("makes column nodes as wide as their column minus 14px on each side", () => {
     const columnNodes = (width: number) => {
       const { inner } = layout(view(), ui(), width);
-      const columns = inner.floors.filter((floor) => ["deps", "tests", "issues"].includes(floor.key));
+      const columns = inner.floors.filter((floor) => ["deps", "tests"].includes(floor.key));
       return inner.nodes
         .filter((node) => node.y > columns[0].y)
         .map((node) => ({ node, column: columns.find((column) => node.x >= column.x && node.x < column.x + column.w)! }));
@@ -95,14 +111,13 @@ describe("layout", () => {
   it("spreads floors and columns over the width it is given and keeps row nodes at 152px", () => {
     const { inner } = layout(view(), ui(), 1200);
     expect(inner.floors.map((floor) => [floor.key, floor.x, floor.w])).toEqual([
-      ["callers", 16, 1168], ["mine", 16, 1168], ["deps", 16, 378], ["tests", 410, 378], ["issues", 804, 378],
+      ["callers", 16, 1168], ["mine", 16, 1168], ["deps", 16, 576], ["tests", 608, 576],
     ]);
     expect(inner.nodes.find((node) => node.id === CONTROLLER)).toMatchObject({ x: 440, w: 152 });
     expect(inner.nodes.find((node) => node.id === DOCUMENT_SERVICE)).toMatchObject({ x: 490, w: 220 });
     expect(inner.wires.slice(2).map((wire) => wire.d)).toEqual([
-      "M600 266 C600 293, 205 293, 205 320",
-      "M600 266 C600 293, 599 293, 599 320",
-      "M600 266 C600 293, 993 293, 993 320",
+      "M600 266 C600 293, 304 293, 304 320",
+      "M600 266 C600 293, 896 293, 896 320",
     ]);
   });
 
