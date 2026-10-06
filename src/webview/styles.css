@@ -36,7 +36,6 @@ body.vscode-light .green { --c: #17924B; } body.vscode-light .red { --c: #D23A3A
 .fl { position: absolute; box-sizing: border-box; border: 1px solid var(--l1); border-radius: 14px; background: var(--floor); }
 .fl.mine { border-color: var(--l3); background: var(--floormine); }
 .fl.annex, .fl.empty { border-style: dashed; }
-.fl.empty { background: transparent; }
 .phtext { position: absolute; left: 0; right: 0; top: 34px; text-align: center; color: var(--muted); font-size: 12.5px; }
 .flh { position: absolute; box-sizing: border-box; overflow: hidden; display: flex; align-items: baseline; gap: 8px; white-space: nowrap; padding: 0 8px 2px 0; background: var(--floor); border-radius: 6px; }
 .flh.mine { background: var(--floormine); }
