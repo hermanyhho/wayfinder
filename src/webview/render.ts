@@ -1,5 +1,5 @@
 import type { AiScanState, AiStatus } from "../shared/messages";
-import type { Fact, ViewData } from "../shared/viewData";
+import type { Fact, MemberKind, ViewData } from "../shared/viewData";
 import type { BannerView, FloorView, LayerView, Layout, MemberView, NodeView, PortView, SecondLayerView, UiState, WireView } from "./layout";
 import { groupChecks, panelFor, type Action, type PanelModel } from "./panelModel";
 
@@ -14,7 +14,7 @@ const ASKS: { action: Action; label: string; icon: string }[] = [
 ];
 
 const LEGEND = `<div class="legend">
-<span class="green"><span class="lsw"></span>Open file</span>
+<span class="green"><span class="lsw"></span>Current file</span>
 <span class="blue"><span class="lsw"></span>Imports this file</span>
 <span class="violet"><span class="lsw"></span>Imported by this file</span>
 <span class="pink"><span class="lsw"></span>Tests</span>
@@ -36,13 +36,24 @@ const renderFloorHeader = (floor: FloorView) =>
   `<div class="flh ${floor.cls}" style="left:${floor.x + 14}px;top:${floor.y + 9}px;max-width:${floor.w - 28}px"><span class="ti">${escapeHtml(floor.title)}</span><span class="fp">${escapeHtml(floor.path)}</span></div>`;
 const renderWires = (wires: WireView[]) => `<svg class="wires" aria-hidden="true">${wires.map((wire) => `<path class="w ${wire.cls}" d="${wire.d}"></path>`).join("")}</svg>`;
 const OPEN_ICON = '<path d="M14 4h6v6"></path><path d="m20 4-9 9"></path><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"></path>';
+const MEMBER_KIND_ICONS: Record<MemberKind, string> = {
+  function: '<path d="M15 4h-2a3 3 0 0 0-3 3v13"></path><path d="M6 11h8"></path>',
+  class: '<rect x="4" y="4" width="16" height="16" rx="2"></rect><path d="M4 10h16"></path>',
+  method: '<path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z"></path><path d="M4 7.5 12 12l8-4.5"></path><path d="M12 12v9"></path>',
+  property: '<circle cx="8" cy="12" r="4"></circle><path d="M12 12h9"></path><path d="M18 12v4"></path>',
+  const: '<rect x="5" y="10" width="14" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path>',
+  let: '<path d="M4 20h4L19 9l-4-4L4 16z"></path><path d="m13 7 4 4"></path>',
+  interface: '<circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="12" r="3"></circle><path d="M9 12h6"></path>',
+  type: '<path d="M5 5h14"></path><path d="M12 5v14"></path>',
+  enum: '<path d="M9 6h11M9 12h11M9 18h11"></path><path d="M4 6h.01M4 12h.01M4 18h.01"></path>',
+};
 // the open icon is a sibling, not a child, because a button inside the node button is invalid html
 const renderOpenIcon = (node: NodeView) =>
   `<button class="ndopen" style="left:${node.x + node.w - 22}px;top:${node.y + 1}px" data-action="open" data-id="${escapeHtml(node.id)}" title="Open file (or ⌘/Ctrl+click the node)" aria-label="Open ${escapeHtml(node.name)}"><svg viewBox="0 0 24 24" aria-hidden="true">${OPEN_ICON}</svg></button>`;
 const renderNode = (node: NodeView, canOpen: (id: string) => boolean) =>
   `<button class="nd ${node.cls}" style="left:${node.x}px;top:${node.y}px;width:${node.w}px" data-action="select" data-id="${escapeHtml(node.id)}" title="${escapeHtml(node.id)}"><span class="nh"><span class="sw"></span>${escapeHtml(node.tag)}</span><span class="nn">${escapeHtml(node.name)}</span><span class="np">${escapeHtml(node.path)}</span></button>${canOpen(node.id) ? renderOpenIcon(node) : ""}`;
 const renderMember = (member: MemberView) =>
-  `<button class="nd ${member.cls}" style="left:${member.x}px;top:${member.y}px;width:${member.w}px" data-action="reveal" data-value="${member.line}" title="Go to line ${member.line}"><span class="nh"><span class="sw"></span>${escapeHtml(member.tag)}</span><span class="nn">${escapeHtml(member.name)}</span><span class="np">${escapeHtml(member.path)}</span></button>`;
+  `<button class="nd ${member.cls}" style="left:${member.x}px;top:${member.y}px;width:${member.w}px" data-action="reveal" data-value="${member.line}" title="Go to line ${member.line}"><span class="nh"><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${MEMBER_KIND_ICONS[member.kind]}</svg>${escapeHtml(member.tag)}</span><span class="nn">${escapeHtml(member.name)}</span><span class="np">${escapeHtml(member.path)}</span></button>`;
 const renderPort = (port: PortView) => `<span class="port ${port.cls}${port.incoming ? " in" : ""}" style="left:${port.x}px;top:${port.y}px"></span>`;
 const renderToggles = (floors: FloorView[]) =>
   floors
@@ -137,7 +148,7 @@ export function renderMap(result: Layout, view: ViewData, ui: UiState): string {
   const { inner, outer } = result;
   const canOpen = (id: string) => panelFor(view, id).canOpen;
   return `<div class="toolbar">
-<div class="crumb"><span class="k">Open file</span><span class="mono">${escapeHtml(open.dir || ".")}</span><span>/</span><b class="mono">${escapeHtml(open.name)}</b></div>
+<div class="crumb"><span class="k">Current file</span><span class="mono">${escapeHtml(open.dir || ".")}</span><span>/</span><b class="mono">${escapeHtml(open.name)}</b></div>
 <div class="seg" role="group" aria-label="Layers to show">
 <button class="${ui.layer === 1 ? "on" : ""}" data-action="layer" data-value="1">Immediate layer</button>
 <button class="${ui.layer === 2 ? "on" : ""}" data-action="layer" data-value="2">Second layer</button>

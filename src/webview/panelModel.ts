@@ -16,7 +16,7 @@ export interface PanelModel {
 }
 
 const REL: Record<NodeKind, string> = {
-  here: "Open file",
+  here: "Current file",
   caller: "Imports the open file",
   dependency: "Imported by the open file",
   types: "Types imported by the open file",

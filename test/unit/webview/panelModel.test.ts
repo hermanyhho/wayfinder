@@ -9,7 +9,7 @@ const CONTROLLER = "src/api/controllers/DocumentController.ts";
 describe("panel content", () => {
   it("summarises the open file's connections", () => {
     const model = panelFor(view(), DOCUMENT_SERVICE);
-    expect(model).toMatchObject({ rel: "Open file", color: "green", canOpen: false, connectionsTitle: "Connections" });
+    expect(model).toMatchObject({ rel: "Current file", color: "green", canOpen: false, connectionsTitle: "Connections" });
     expect(model.connections).toContainEqual({ label: "used by", value: "DocumentController.ts, SendReminderJob.ts" });
     expect(model.connections).toContainEqual({ label: "missing", value: "IDocumentService.ts" });
   });

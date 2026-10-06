@@ -1,4 +1,4 @@
-import type { Fact, Member, NodeKind, ViewData, ViewNode } from "../shared/viewData";
+import type { Fact, Member, MemberKind, NodeKind, ViewData, ViewNode } from "../shared/viewData";
 
 export const NODE_W = 152;
 export const NODE_H = 56;
@@ -25,7 +25,7 @@ export interface Box { x: number; y: number; w: number; h: number; floor: number
 export interface FloorToggle { text: string; icon: "plus" | "minus"; y: number; }
 export interface FloorView { key: string; title: string; path: string; cls: string; x: number; y: number; w: number; h: number; emptyText: string; toggle: FloorToggle | null; }
 export interface NodeView { id: string; x: number; y: number; w: number; cls: string; tag: string; name: string; path: string; }
-export interface MemberView extends NodeView { line: number; }
+export interface MemberView extends NodeView { kind: MemberKind; line: number; }
 export interface WireView { cls: string; d: string; }
 export interface PortView { cls: string; x: number; y: number; incoming: boolean; }
 export interface BannerView { y: number; title: string; items: Fact[]; progress: number | null; }
@@ -37,7 +37,7 @@ const KIND_COLOR: Record<NodeKind, string> = {
   here: "green", caller: "blue", dependency: "violet", types: "violet", test: "pink", subject: "pink", expected: "violet", cycle: "red", package: "grey",
 };
 const KIND_TAG: Record<NodeKind, string> = {
-  here: "Open file", caller: "Caller", dependency: "Dependency", types: "Types", test: "Test", subject: "Under test", expected: "Expected, not found", cycle: "Circular import", package: "Package",
+  here: "Current file", caller: "Caller", dependency: "Dependency", types: "Types", test: "Test", subject: "Under test", expected: "Expected, not found", cycle: "Circular import", package: "Package",
 };
 
 export const colorOf = (node: ViewNode): string => (node.kind === "expected" && node.expectedKind === "test" ? "pink" : KIND_COLOR[node.kind]);
@@ -107,7 +107,7 @@ function nodeView(node: ViewNode, box: Box, ui: UiState): NodeView {
 
 function memberView(member: Member, id: string, box: Box): MemberView {
   return {
-    id, x: box.x, y: box.y, w: box.w, cls: "green", tag: member.kind, name: member.name, line: member.line,
+    id, x: box.x, y: box.y, w: box.w, cls: "green", tag: member.kind, kind: member.kind, name: member.name, line: member.line,
     path: [member.className, member.exported ? "exported" : ""].filter(Boolean).join(", "),
   };
 }
