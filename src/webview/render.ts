@@ -1,6 +1,6 @@
 import type { AiScanState, AiStatus } from "../shared/messages";
 import type { Fact, ViewData } from "../shared/viewData";
-import type { BannerView, FloorView, LayerView, Layout, NodeView, PortView, SecondLayerView, UiState, WireView } from "./layout";
+import type { BannerView, FloorView, LayerView, Layout, MemberView, NodeView, PortView, SecondLayerView, UiState, WireView } from "./layout";
 import { groupChecks, panelFor, type Action, type PanelModel } from "./panelModel";
 
 const HTML_ESCAPES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
@@ -41,6 +41,8 @@ const renderOpenIcon = (node: NodeView) =>
   `<button class="ndopen" style="left:${node.x + node.w - 22}px;top:${node.y + 1}px" data-action="open" data-id="${escapeHtml(node.id)}" title="Open file (or ⌘/Ctrl+click the node)" aria-label="Open ${escapeHtml(node.name)}"><svg viewBox="0 0 24 24" aria-hidden="true">${OPEN_ICON}</svg></button>`;
 const renderNode = (node: NodeView, canOpen: (id: string) => boolean) =>
   `<button class="nd ${node.cls}" style="left:${node.x}px;top:${node.y}px;width:${node.w}px" data-action="select" data-id="${escapeHtml(node.id)}" title="${escapeHtml(node.id)}"><span class="nh"><span class="sw"></span>${escapeHtml(node.tag)}</span><span class="nn">${escapeHtml(node.name)}</span><span class="np">${escapeHtml(node.path)}</span></button>${canOpen(node.id) ? renderOpenIcon(node) : ""}`;
+const renderMember = (member: MemberView) =>
+  `<button class="nd ${member.cls}" style="left:${member.x}px;top:${member.y}px;width:${member.w}px" data-action="reveal" data-value="${member.line}" title="Go to line ${member.line}"><span class="nh"><span class="sw"></span>${escapeHtml(member.tag)}</span><span class="nn">${escapeHtml(member.name)}</span><span class="np">${escapeHtml(member.path)}</span></button>`;
 const renderPort = (port: PortView) => `<span class="port ${port.cls}${port.incoming ? " in" : ""}" style="left:${port.x}px;top:${port.y}px"></span>`;
 const renderToggles = (floors: FloorView[]) =>
   floors
@@ -116,6 +118,7 @@ function renderLayer(layer: LayerView, canOpen: (id: string) => boolean): string
     renderWires(layer.wires),
     layer.floors.map(renderFloorHeader).join(""),
     layer.nodes.map((node) => renderNode(node, canOpen)).join(""),
+    layer.members.map(renderMember).join(""),
     layer.ports.map(renderPort).join(""),
     renderToggles(layer.floors),
   ].join("");

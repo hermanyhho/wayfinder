@@ -1,4 +1,4 @@
-import type { Fact, NodeKind, ViewData, ViewNode } from "../shared/viewData";
+import type { Fact, Member, NodeKind, ViewData, ViewNode } from "../shared/viewData";
 
 export const NODE_W = 152;
 export const NODE_H = 56;
@@ -25,10 +25,11 @@ export interface Box { x: number; y: number; w: number; h: number; floor: number
 export interface FloorToggle { text: string; icon: "plus" | "minus"; y: number; }
 export interface FloorView { key: string; title: string; path: string; cls: string; x: number; y: number; w: number; h: number; emptyText: string; toggle: FloorToggle | null; }
 export interface NodeView { id: string; x: number; y: number; w: number; cls: string; tag: string; name: string; path: string; }
+export interface MemberView extends NodeView { line: number; }
 export interface WireView { cls: string; d: string; }
 export interface PortView { cls: string; x: number; y: number; incoming: boolean; }
 export interface BannerView { y: number; title: string; items: Fact[]; progress: number | null; }
-export interface LayerView { floors: FloorView[]; nodes: NodeView[]; wires: WireView[]; ports: PortView[]; banners: BannerView[]; height: number; }
+export interface LayerView { floors: FloorView[]; nodes: NodeView[]; members: MemberView[]; wires: WireView[]; ports: PortView[]; banners: BannerView[]; height: number; }
 export interface SecondLayerView extends LayerView { frame: { x: number; y: number; w: number; h: number }; transform: string; }
 export interface Layout { width: number; inner: LayerView; outer: SecondLayerView | null; }
 
@@ -41,10 +42,10 @@ const KIND_TAG: Record<NodeKind, string> = {
 
 export const colorOf = (node: ViewNode): string => (node.kind === "expected" && node.expectedKind === "test" ? "pink" : KIND_COLOR[node.kind]);
 
-type ColumnKey = "deps" | "tests";
+type ColumnKey = "deps" | "members" | "tests";
 
 // missing expected files are listed in the Checks tab, so they get no card on the map
-const COLUMN_OF_KIND: Record<Exclude<NodeKind, "here" | "caller" | "expected">, ColumnKey> = {
+const COLUMN_OF_KIND: Record<Exclude<NodeKind, "here" | "caller" | "expected">, Exclude<ColumnKey, "members">> = {
   dependency: "deps", types: "deps", subject: "deps", package: "deps", cycle: "deps", test: "tests",
 };
 const columnOf = (node: ViewNode): ColumnKey | null =>
@@ -52,8 +53,11 @@ const columnOf = (node: ViewNode): ColumnKey | null =>
 
 const COLUMNS: { key: ColumnKey; title: string; color: string; empty: (name: string) => string }[] = [
   { key: "deps", title: "Imported by this file", color: "violet", empty: (name) => `${name} imports no project files.` },
+  { key: "members", title: "Members", color: "green", empty: (name) => `${name} defines no members.` },
   { key: "tests", title: "Tests", color: "pink", empty: (name) => `No test imports ${name}.` },
 ];
+
+const memberIdOf = (index: number) => `member:${index}`;
 
 const CALLERS_FLOOR = 0;
 const OPEN_FILE_FLOOR = 1;
@@ -98,6 +102,13 @@ function nodeView(node: ViewNode, box: Box, ui: UiState): NodeView {
     tag: node.secondLayer ? "Second layer" : KIND_TAG[node.kind],
     name: node.name,
     path: node.kind === "package" ? "npm package" : node.dir,
+  };
+}
+
+function memberView(member: Member, id: string, box: Box): MemberView {
+  return {
+    id, x: box.x, y: box.y, w: box.w, cls: "green", tag: member.kind, name: member.name, line: member.line,
+    path: [member.className, member.exported ? "exported" : ""].filter(Boolean).join(", "),
   };
 }
 
@@ -165,17 +176,19 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number): { lay
   y += 112 + FLOOR_GAP;
 
   const cyclesFirst = [...immediate].sort((left, right) => Number(right.kind === "cycle") - Number(left.kind === "cycle"));
-  const columnMembers = COLUMNS.map((def) => cyclesFirst.filter((node) => columnOf(node) === def.key));
+  const columnNodes = COLUMNS.map((def) => cyclesFirst.filter((node) => columnOf(node) === def.key));
+  const memberIds = view.members.map((_member, index) => memberIdOf(index));
+  const columnIds = COLUMNS.map((def, index) => (def.key === "members" ? memberIds : columnNodes[index].map((node) => node.id)));
   const columnsTop = y;
   const columnWidth = Math.floor((floorWidth - (COLUMNS.length - 1) * COL_GAP) / COLUMNS.length);
-  const columns = layoutColumns(COLUMNS.map((def, index) => ({ key: def.key, ids: columnMembers[index].map((node) => node.id) })), ui, y, columnWidth);
+  const columns = layoutColumns(COLUMNS.map((def, index) => ({ key: def.key, ids: columnIds[index] })), ui, y, columnWidth);
   Object.assign(boxes, columns.boxes);
   COLUMNS.forEach((def, index) => {
-    const members = columnMembers[index];
+    const filled = columnIds[index].length > 0;
     const { x, toggle } = columns.placed[index];
     floors.push({
-      key: def.key, title: def.title, path: foldersOf(members), cls: members.length ? (def.key === "deps" ? "" : "annex") : "empty",
-      x, y, w: columnWidth, h: columns.h, emptyText: members.length ? "" : def.empty(center.name), toggle,
+      key: def.key, title: def.title, path: foldersOf(columnNodes[index]), cls: filled ? (def.key === "tests" ? "annex" : "") : "empty",
+      x, y, w: columnWidth, h: columns.h, emptyText: filled ? "" : def.empty(center.name), toggle,
     });
   });
   y += columns.h + 14;
@@ -200,13 +213,17 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number): { lay
   COLUMNS.forEach((def, index) => {
     const columnTop: Box = { x: Math.round(columns.placed[index].x + columnWidth / 2), y: columnsTop, w: 0, h: 0, floor: COLUMNS_FLOOR };
     const route = routeWire(openFileBox, columnTop);
-    wires.push({ cls: `${def.color}${wireState(view, ui, columnMembers[index].map((node) => node.id))}`, d: route.d });
+    wires.push({ cls: `${def.color}${wireState(view, ui, columnIds[index])}`, d: route.d });
     ports.push({ cls: def.color, x: route.x2, y: route.y2, incoming: true });
   });
   ports.push({ cls: colorOf(center), x: openFileBox.x + openFileBox.w / 2, y: openFileBox.y + openFileBox.h, incoming: false });
 
   const nodes = immediate.filter((node) => boxes[node.id]).map((node) => nodeView(node, boxes[node.id], ui));
-  return { layer: { floors, nodes, wires, ports, banners, height: Math.max(y + 8, 600) }, boxes };
+  const members = view.members.flatMap((member, index) => {
+    const box = boxes[memberIds[index]];
+    return box ? [memberView(member, memberIds[index], box)] : [];
+  });
+  return { layer: { floors, nodes, members, wires, ports, banners, height: Math.max(y + 8, 600) }, boxes };
 }
 
 function layoutSecond(view: ViewData, ui: UiState, inner: { layer: LayerView; boxes: Record<string, Box> }, width: number): SecondLayerView | null {
@@ -263,5 +280,5 @@ function layoutSecond(view: ViewData, ui: UiState, inner: { layer: LayerView; bo
   }
 
   const nodes = second.filter((node) => boxes[node.id]).map((node) => nodeView(node, boxes[node.id], ui));
-  return { floors, nodes, wires, ports, banners: [], height: y + 8, frame, transform: `translate(${ox}px, ${oy}px) scale(${CLUSTER_SCALE})` };
+  return { floors, nodes, members: [], wires, ports, banners: [], height: y + 8, frame, transform: `translate(${ox}px, ${oy}px) scale(${CLUSTER_SCALE})` };
 }
