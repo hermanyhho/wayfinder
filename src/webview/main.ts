@@ -1,6 +1,7 @@
 import type { AiScanState, AiStatus, HostMessage, WebviewMessage } from "../shared/messages";
 import type { Fact, ViewData } from "../shared/viewData";
 import { MAX_CANVAS_W, MIN_CANVAS_W, layout, type ColumnKey, type SearchByColumn, type UiState } from "./layout";
+import { COLUMN_ORDER, navigationCards, nextCardKey, type ArrowKey, type NavigationCard } from "./keyboardNavigation";
 import { answerFor, panelFor, type Action } from "./panelModel";
 import { renderMap, renderPanel } from "./render";
 
@@ -22,6 +23,8 @@ const savedUiByFile = new Map<string, Pick<UiState, "layer" | "open">>();
 const IDLE_SCAN: AiScanState = { state: "idle" };
 let aiStatus: AiStatus | null = null;
 let aiScan: { openFile: string; scan: AiScanState } | null = null;
+let cards: NavigationCard[] = [];
+const ARROW_KEYS = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
 
 window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
   const message = event.data;
@@ -80,6 +83,50 @@ document.addEventListener("input", (event) => {
   render();
 });
 
+document.addEventListener("keydown", (event) => {
+  const target = event.target as HTMLElement;
+  if (!view || target.closest("#panel")) return;
+  const searchColumn = target.dataset.search as ColumnKey | undefined;
+  if (searchColumn && event.key === "Escape") {
+    event.preventDefault();
+    searchByColumn = { ...searchByColumn, [searchColumn]: "" };
+    render();
+    const firstCard = cards.find((card) => card.floor === searchColumn);
+    if (firstCard) focusCard(firstCard.key);
+    return;
+  }
+  if (target.matches("input, textarea, select, [contenteditable]")) return;
+  const focusedKey = target.dataset.nav;
+  const { action, id } = target.dataset;
+  if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+    if (action !== "select" || !id || !panelFor(view, id).canOpen) return;
+    event.preventDefault();
+    vscode.postMessage({ type: "open", id });
+    return;
+  }
+  if (event.metaKey || event.ctrlKey || event.altKey) return;
+  if (event.key === "/") {
+    event.preventDefault();
+    const focusedFloor = cards.find((card) => card.key === focusedKey)?.floor as ColumnKey;
+    const column = COLUMN_ORDER.includes(focusedFloor) ? focusedFloor : "members";
+    document.querySelector<HTMLInputElement>(`[data-search="${column}"]`)?.focus();
+    return;
+  }
+  if (!ARROW_KEYS.has(event.key)) return;
+  if (focusedKey) {
+    event.preventDefault();
+    const nextKey = nextCardKey(cards, focusedKey, event.key as ArrowKey);
+    if (nextKey) focusCard(nextKey);
+  } else if (target === document.body) {
+    event.preventDefault();
+    focusCard(view.openFile);
+  }
+});
+
+function focusCard(key: string, options?: FocusOptions): void {
+  document.querySelector<HTMLElement>(`[data-nav="${CSS.escape(key)}"]`)?.focus(options);
+}
+
 document.addEventListener("dblclick", (event) => {
   const id = (event.target as HTMLElement).closest<HTMLElement>('[data-action="select"]')?.dataset.id;
   if (view && id && panelFor(view, id).canOpen) vscode.postMessage({ type: "open", id });
@@ -96,8 +143,11 @@ function render(remeasured = false): void {
   renderedView = view;
   renderedLayer = ui.layer;
   const focusedSearch = document.activeElement instanceof HTMLInputElement && document.activeElement.dataset.search ? document.activeElement : null;
+  const focusedCardKey = document.activeElement instanceof HTMLElement ? document.activeElement.dataset.nav : undefined;
   map.innerHTML = renderMap(result, view, ui);
+  cards = navigationCards(result.inner);
   if (focusedSearch) restoreSearchFocus(map, focusedSearch);
+  if (focusedCardKey) focusCard(focusedCardKey, { preventScroll: true });
   const nextTransform = result.outer ? result.outer.transform : IDENTITY;
   const cluster = document.querySelector<HTMLElement>(".cluster");
   if (cluster) {

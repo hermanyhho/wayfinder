@@ -21,6 +21,12 @@ Open a TypeScript or JavaScript file and run **Wayfinder: Show map for this file
 
 Click a card to select it. The lines in the open file that use that file are highlighted. Coloured dots in the gutter mark the lines that use a file on the map, in that file's colour. Cmd+click (Ctrl+click on Windows and Linux) opens the file.
 
+To use the map with the keyboard:
+
+- Arrow keys move between cards. Up and Down move within a column, Left and Right move to the first card of the next column. Up from the top of a column goes to the current file, then to **Imports this file**.
+- Enter selects a file card, moves the editor to a member's line, or collapses and expands a group. Cmd+Enter (Ctrl+Enter) opens the file.
+- `/` moves to the search box of the column you are in, or Members. Esc clears the search and moves back to the first card.
+
 ![StorageClient.ts selected on the map, and the three lines in DocumentService.ts that use it highlighted](media/selected-card.png)
 
 Click **Second layer** to see one more step out: the files that import the callers, and the files the imports use.
