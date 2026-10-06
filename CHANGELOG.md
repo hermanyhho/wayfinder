@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1
+
+- Fixed: closing the map left an empty locked editor group, so files opened afterwards only used part of the window.
+
 ## 0.1.0
 
 - Map of the open file in a panel beside the editor: files that import it, files and packages it imports, its members, its tests, and a second layer one step further out.
