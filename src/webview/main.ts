@@ -1,6 +1,6 @@
 import type { AiScanState, AiStatus, HostMessage, WebviewMessage } from "../shared/messages";
 import type { Fact, ViewData } from "../shared/viewData";
-import { MAX_CANVAS_W, MIN_CANVAS_W, layout, type UiState } from "./layout";
+import { MAX_CANVAS_W, MIN_CANVAS_W, layout, type ColumnKey, type SearchByColumn, type UiState } from "./layout";
 import { answerFor, panelFor, type Action } from "./panelModel";
 import { renderMap, renderPanel } from "./render";
 
@@ -10,6 +10,7 @@ const vscode = acquireVsCodeApi();
 const IDENTITY = "translate(0px, 0px) scale(1)";
 let view: ViewData | null = null;
 let ui: UiState = { selected: "", layer: 1, open: {} };
+let searchByColumn: SearchByColumn = {};
 let action: Action = "context";
 let lastTransform = IDENTITY;
 let renderedView: ViewData | null = null;
@@ -29,6 +30,7 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
     if (openFileChanged) {
       vscode.setState({ openFile: message.data.openFile });
       ui = { selected: view.openFile, layer: 1, open: {} };
+      searchByColumn = {};
       action = "context";
       lastTransform = IDENTITY;
     } else if (!view.nodes.some((node) => node.id === ui.selected)) {
@@ -66,6 +68,14 @@ document.addEventListener("click", (event) => {
   render();
 });
 
+document.addEventListener("input", (event) => {
+  const input = event.target as HTMLInputElement;
+  const column = input.dataset.search as ColumnKey | undefined;
+  if (!column) return;
+  searchByColumn = { ...searchByColumn, [column]: input.value };
+  render();
+});
+
 document.addEventListener("dblclick", (event) => {
   const id = (event.target as HTMLElement).closest<HTMLElement>('[data-action="select"]')?.dataset.id;
   if (view && id && panelFor(view, id).canOpen) vscode.postMessage({ type: "open", id });
@@ -81,7 +91,9 @@ function render(remeasured = false): void {
   map.classList.toggle("keep-layer2", view === renderedView && ui.layer === renderedLayer);
   renderedView = view;
   renderedLayer = ui.layer;
+  const focusedSearch = document.activeElement instanceof HTMLInputElement && document.activeElement.dataset.search ? document.activeElement : null;
   map.innerHTML = renderMap(result, view, ui);
+  if (focusedSearch) restoreSearchFocus(map, focusedSearch);
   const nextTransform = result.outer ? result.outer.transform : IDENTITY;
   const cluster = document.querySelector<HTMLElement>(".cluster");
   if (cluster) {
@@ -102,6 +114,13 @@ function render(remeasured = false): void {
   // the first render measures #map, which is wider than .fit by the scrollbar gutter
   if (!remeasured && canvasWidth() !== renderedWidth) render(true);
   else fitMap();
+}
+
+function restoreSearchFocus(map: HTMLElement, previousInput: HTMLInputElement): void {
+  const input = map.querySelector<HTMLInputElement>(`[data-search="${previousInput.dataset.search}"]`);
+  if (!input) return;
+  input.focus();
+  input.setSelectionRange(previousInput.selectionStart, previousInput.selectionEnd, previousInput.selectionDirection ?? undefined);
 }
 
 function canvasWidth(): number {

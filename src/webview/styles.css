@@ -42,6 +42,10 @@ body.vscode-light .green { --c: #17924B; } body.vscode-light .red { --c: #D23A3A
 .flh .ti { flex: none; font-size: 12px; font-weight: 700; color: var(--text); }
 .flh.mine .ti { color: var(--strong); }
 .flh .fp { overflow: hidden; text-overflow: ellipsis; font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
+.flh.searchable { width: 100%; }
+.colsearch { flex: 0 1 120px; min-width: 56px; margin-left: auto; align-self: center; box-sizing: border-box; height: 20px; padding: 0 6px; font: inherit; font-size: 11px; color: var(--text); background: var(--raise); border: 1px solid var(--l3); border-radius: 6px; outline: none; }
+.colsearch:focus { border-color: var(--l4); }
+.colsearch::placeholder { color: var(--faint); }
 .wires { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; fill: none; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
 .w { stroke: var(--c); stroke-width: 2.4; transition: opacity .25s, stroke-width .25s; }
 .w.lo { opacity: .3; }

@@ -227,6 +227,44 @@ describe("layout", () => {
     expect(collapsed.floors.find((floor) => floor.key === "members")!.h).toBe(expanded.floors.find((floor) => floor.key === "members")!.h - 2 * 74);
   });
 
+  it("shows only the members whose name contains the search text, ignoring case, and leaves other columns unfiltered", () => {
+    const { inner } = layout({ ...view(), members: documentServiceMembers }, ui(), 800, { members: "ST" });
+    expect(inner.members.map((member) => member.name)).toEqual(["storage", "listForEmployee"]);
+    expect(inner.groupHeadings.filter((heading) => heading.key.startsWith("members:")).map((heading) => heading.text)).toEqual(["Properties (1)", "Methods (1)"]);
+    expect(inner.floors.find((floor) => floor.key === "members")).toMatchObject({ title: "Members (6)", search: "ST", emptyText: "" });
+    expect(inner.nodes.filter((node) => node.x === NODE_X[0])).toHaveLength(4);
+  });
+
+  it("shows a search match that sits in a collapsed group or past the four-card cap, without a group toggle", () => {
+    const methods = ["a", "b", "c", "d", "match"].map((name, index) => ({ name, kind: "method" as const, line: index + 1, exported: false, className: "K" }));
+    const { inner } = layout({ ...view(), members: methods }, ui({ open: { "members:method:collapsed": true } }), 800, { members: "match" });
+    expect(inner.members.map((member) => member.name)).toEqual(["match"]);
+    expect(inner.groupHeadings.find((heading) => heading.key === "members:method:collapsed")).toMatchObject({ collapsed: false });
+    expect(inner.groupToggles.filter((toggle) => toggle.key.startsWith("members:"))).toEqual([]);
+  });
+
+  it("says no match when the search text matches no card in the column", () => {
+    const { inner } = layout({ ...view(), members: documentServiceMembers }, ui(), 800, { members: "zzz" });
+    expect(inner.members).toEqual([]);
+    expect(inner.groupHeadings.filter((heading) => heading.key.startsWith("members:"))).toEqual([]);
+    expect(inner.floors.find((floor) => floor.key === "members")).toMatchObject({ title: "Members (6)", emptyText: 'No match for "zzz".' });
+  });
+
+  it("filters the imported-by-this-file and tests columns by their own search text and drops groups with no match", () => {
+    const { inner } = layout(view(), ui(), 800, { deps: "STORAGE", tests: "spec" });
+    expect(inner.nodes.filter((node) => node.x === NODE_X[0]).map((node) => node.id)).toEqual(["src/integrations/storage/StorageClient.ts"]);
+    expect(inner.groupHeadings.filter((heading) => heading.key.startsWith("deps:")).map((heading) => heading.text)).toEqual(["Dependencies (1)"]);
+    expect(inner.floors.find((floor) => floor.key === "deps")).toMatchObject({ title: "Imported by this file (4)", search: "STORAGE" });
+    expect(inner.nodes.filter((node) => node.x === NODE_X[2])).toHaveLength(1);
+    expect(inner.nodes.filter((node) => node.x === NODE_X[1])).toHaveLength(0);
+  });
+
+  it("says no match in the tests column when no test name contains the search text", () => {
+    const { inner } = layout(view(), ui(), 800, { tests: "nothing" });
+    expect(inner.nodes.filter((node) => node.x === NODE_X[2])).toEqual([]);
+    expect(inner.floors.find((floor) => floor.key === "tests")).toMatchObject({ title: "Tests (1)", emptyText: 'No match for "nothing".' });
+  });
+
   it("brightens the wires of the selected node and fades the rest", () => {
     const wires = layout(view(), ui({ selected: CONTROLLER }), 800).inner.wires;
     expect(wires.filter((wire) => wire.cls.endsWith(" hi"))).toHaveLength(1);

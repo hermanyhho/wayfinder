@@ -11,7 +11,7 @@ Shows where the open file sits in the codebase, in a panel beside the editor. Th
 - **Issues:** files the folder pattern expects but that are missing, and circular imports, listed in the side panel's Checks tab. A circular import also shows on the map as a red card under Imported by this file.
 - **Second layer:** one more step out in both directions.
 
-Cards sort A-Z within each group, and in Tests. Click a group heading to collapse or expand it. Each group, and the Tests column, shows 4 cards, then **Show N more**.
+Cards sort A-Z within each group, and in Tests. Click a group heading to collapse or expand it. Each group, and the Tests column, shows 4 cards, then **Show N more**. Type in the search box of a column to show only the cards whose name contains the text, including cards in collapsed groups and past the first 4.
 
 Everything above comes from the code. **Scan with AI** can add a summary and things worth checking for the open file, from a local Ollama model or from Claude Code or Codex. AI text is shown under the facts from code and never replaces them.
 
