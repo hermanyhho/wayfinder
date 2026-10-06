@@ -2,7 +2,7 @@
   "name": "wayfinder",
   "displayName": "Wayfinder",
   "description": "Shows where the open file sits in the codebase: what imports it, what it imports, its members, its tests and what is missing.",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "publisher": "hermanyhho",
   "private": true,
   "license": "MIT",
@@ -114,8 +114,14 @@
         "properties": {
           "wayfinder.ai.scope": {
             "type": "string",
-            "enum": ["file", "neighbours"],
-            "enumDescriptions": ["Send only the open file.", "Also send the code of the open file's direct imports, callers and tests, cut to fit the model."],
+            "enum": [
+              "file",
+              "neighbours"
+            ],
+            "enumDescriptions": [
+              "Send only the open file.",
+              "Also send the code of the open file's direct imports, callers and tests, cut to fit the model."
+            ],
             "default": "file",
             "description": "What Scan with AI sends to the model."
           }

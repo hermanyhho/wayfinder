@@ -1,7 +1,8 @@
 # Changelog
 
-## 0.1.1
+## 0.2.0
 
+- Cmd+Alt+M (Ctrl+Alt+M) opens or shows the map and moves keyboard focus to the current file card. Press it again from the map to go back to the editor at the same cursor. `wayfinder.shortcut.focusMap` and `wayfinder.shortcut.returnToEditor` turn off each part.
 - Fixed: closing the map left an empty locked editor group, so files opened afterwards only used part of the window.
 
 ## 0.1.0
