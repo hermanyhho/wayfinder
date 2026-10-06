@@ -17,9 +17,9 @@ describe("layout", () => {
     expect(inner.floors.map((floor) => [floor.title, floor.x, floor.y, floor.w, floor.h])).toEqual([
       ["Imports this file", 16, 16, 768, 112],
       ["Same folder", 16, 168, 768, 112],
-      ["Imported by this file", COLUMN_X[0], 320, 245, 334],
-      ["Members", COLUMN_X[1], 320, 245, 334],
-      ["Tests", COLUMN_X[2], 320, 245, 334],
+      ["Imported by this file 4", COLUMN_X[0], 320, 245, 386],
+      ["Members", COLUMN_X[1], 320, 245, 386],
+      ["Tests 1", COLUMN_X[2], 320, 245, 386],
     ]);
     const at = (id: string) => {
       const node = inner.nodes.find((candidate) => candidate.id === id);
@@ -27,9 +27,10 @@ describe("layout", () => {
     };
     expect([at(CONTROLLER), at("src/jobs/SendReminderJob.ts")]).toEqual([[240, 50], [408, 50]]);
     expect(inner.nodes.find((node) => node.id === DOCUMENT_SERVICE)).toMatchObject({ x: 290, y: 202, w: 220 });
-    expect(["src/db/repositories/DocumentRepository.ts", "src/integrations/storage/StorageClient.ts", "src/auth/PermissionPolicy.ts", "src/types/document.types.ts"].map(at)).toEqual([
-      [NODE_X[0], 354], [NODE_X[0], 428], [NODE_X[0], 502], [NODE_X[0], 576],
+    expect(["src/db/repositories/DocumentRepository.ts", "src/auth/PermissionPolicy.ts", "src/integrations/storage/StorageClient.ts", "src/types/document.types.ts"].map(at)).toEqual([
+      [NODE_X[0], 380], [NODE_X[0], 454], [NODE_X[0], 528], [NODE_X[0], 628],
     ]);
+    expect(inner.groupHeadings.map((heading) => [heading.text, heading.y])).toEqual([["Dependencies (3)", 354], ["Types (1)", 602]]);
     expect(at("test/services/DocumentService.spec.ts")).toEqual([NODE_X[2], 354]);
     expect(at("expected:src/services/IDocumentService.ts")).toBeUndefined();
   });
@@ -142,42 +143,88 @@ describe("layout", () => {
     expect(opened.inner.nodes.filter((node) => node.id.startsWith("src/c/"))).toHaveLength(6);
   });
 
-  it("caps a column at four nodes with a footer toggle and gives every column the same height", () => {
+  it("caps a group at four cards with its own toggle and gives every column the same height", () => {
     const dependencies = Array.from({ length: 6 }, (_, index) => `src/d/D${index}.ts`);
     const crowded = buildViewData(graphOf([analysisOf("src/x.ts", dependencies), ...dependencies.map((path) => analysisOf(path))]), "src/x.ts");
     const closed = layout(crowded, ui({ selected: "src/x.ts" }), 800).inner;
-    expect(closed.floors.find((floor) => floor.key === "deps")).toMatchObject({ y: 272, h: 364, toggle: { text: "Show 2 more", icon: "plus", y: 606 } });
+    expect(closed.floors.find((floor) => floor.key === "deps")).toMatchObject({ y: 272, h: 388, toggle: null });
+    expect(closed.groupToggles).toEqual([{ key: "deps:dependency:more", x: NODE_X[0], y: 622, text: "Show 2 more", icon: "plus" }]);
     expect(closed.nodes.filter((node) => node.id.startsWith("src/d/"))).toHaveLength(4);
-    expect(closed.floors.find((floor) => floor.key === "tests")?.h).toBe(364);
-    const opened = layout(crowded, ui({ selected: "src/x.ts", open: { deps: true } }), 800).inner;
-    expect(opened.floors.find((floor) => floor.key === "deps")).toMatchObject({ h: 512, toggle: { text: "Show fewer", icon: "minus" } });
-    expect(opened.nodes.filter((node) => node.id.startsWith("src/d/")).map((node) => node.y)).toEqual([306, 380, 454, 528, 602, 676]);
+    expect(closed.floors.find((floor) => floor.key === "tests")?.h).toBe(388);
+    const opened = layout(crowded, ui({ selected: "src/x.ts", open: { "deps:dependency:more": true } }), 800).inner;
+    expect(opened.floors.find((floor) => floor.key === "deps")?.h).toBe(536);
+    expect(opened.groupToggles).toMatchObject([{ text: "Show fewer", icon: "minus" }]);
+    expect(opened.nodes.filter((node) => node.id.startsWith("src/d/")).map((node) => node.y)).toEqual([332, 406, 480, 554, 628, 702]);
   });
 
-  it("lists the open file's members in source order in the middle column, with kind, class and exported mark", () => {
-    const withMembers = { ...view(), members: [
-      { name: "DocumentService", kind: "class" as const, line: 3, exported: true },
-      { name: "upload", kind: "method" as const, line: 7, exported: true, className: "DocumentService" },
-      { name: "cache", kind: "property" as const, line: 5, exported: false, className: "DocumentService" },
-    ] };
-    const { inner } = layout(withMembers, ui(), 800);
-    expect(inner.floors.find((floor) => floor.key === "members")).toMatchObject({ cls: "", emptyText: "", toggle: null });
+  const documentServiceMembers = [
+    { name: "DocumentService", kind: "class" as const, line: 6, exported: true },
+    { name: "documents", kind: "property" as const, line: 8, exported: false, className: "DocumentService" },
+    { name: "storage", kind: "property" as const, line: 9, exported: false, className: "DocumentService" },
+    { name: "permissions", kind: "property" as const, line: 10, exported: false, className: "DocumentService" },
+    { name: "upload", kind: "method" as const, line: 18, exported: true, className: "DocumentService" },
+    { name: "listForEmployee", kind: "method" as const, line: 13, exported: true, className: "DocumentService" },
+  ];
+
+  it("groups members by kind in a fixed order, sorts each group A-Z and keeps kind, class and exported mark", () => {
+    const { inner } = layout({ ...view(), members: documentServiceMembers }, ui(), 800);
+    expect(inner.floors.find((floor) => floor.key === "members")).toMatchObject({ title: "Members 6", cls: "", emptyText: "", toggle: null });
+    expect(inner.groupHeadings.filter((heading) => heading.key.startsWith("members:")).map((heading) => [heading.text, heading.kind, heading.y])).toEqual([
+      ["Classes (1)", "class", 354], ["Properties (3)", "property", 454], ["Methods (2)", "method", 702],
+    ]);
     expect(inner.members.map((member) => [member.x, member.y, member.w, member.tag, member.name, member.path, member.line])).toEqual([
-      [NODE_X[1], 354, COLUMN_NODE_W, "class", "DocumentService", "exported", 3],
-      [NODE_X[1], 428, COLUMN_NODE_W, "method", "upload", "DocumentService, exported", 7],
-      [NODE_X[1], 502, COLUMN_NODE_W, "property", "cache", "DocumentService", 5],
+      [NODE_X[1], 380, COLUMN_NODE_W, "class", "DocumentService", "exported", 6],
+      [NODE_X[1], 480, COLUMN_NODE_W, "property", "documents", "DocumentService", 8],
+      [NODE_X[1], 554, COLUMN_NODE_W, "property", "permissions", "DocumentService", 10],
+      [NODE_X[1], 628, COLUMN_NODE_W, "property", "storage", "DocumentService", 9],
+      [NODE_X[1], 728, COLUMN_NODE_W, "method", "listForEmployee", "DocumentService, exported", 13],
+      [NODE_X[1], 802, COLUMN_NODE_W, "method", "upload", "DocumentService, exported", 18],
     ]);
     expect(inner.nodes.some((node) => node.id.startsWith("member:"))).toBe(false);
   });
 
-  it("caps the members column at four cards with a footer toggle", () => {
-    const members = Array.from({ length: 6 }, (_, index) => ({ name: `step${index}`, kind: "function" as const, line: index + 1, exported: false }));
-    const closed = layout({ ...view(), members }, ui(), 800).inner;
-    expect(closed.members.map((member) => member.name)).toEqual(["step0", "step1", "step2", "step3"]);
-    expect(closed.floors.find((floor) => floor.key === "members")?.toggle).toMatchObject({ text: "Show 2 more", icon: "plus" });
-    const opened = layout({ ...view(), members }, ui({ open: { members: true } }), 800).inner;
-    expect(opened.members).toHaveLength(6);
-    expect(opened.floors.find((floor) => floor.key === "members")?.toggle).toMatchObject({ text: "Show fewer", icon: "minus" });
+  it("lists tests in one ungrouped column sorted A-Z", () => {
+    const tests = ["test/c.spec.ts", "test/a.spec.ts", "test/b.spec.ts"];
+    const graph = graphOf([analysisOf("src/x.ts"), ...tests.map((path) => analysisOf(path, ["src/x.ts"]))]);
+    const { inner } = layout(buildViewData(graph, "src/x.ts"), ui({ selected: "src/x.ts" }), 800);
+    expect(inner.floors.find((floor) => floor.key === "tests")?.title).toBe("Tests 3");
+    expect(inner.groupHeadings.filter((heading) => heading.key.startsWith("tests"))).toEqual([]);
+    expect(tests.map((path) => inner.nodes.find((node) => node.id === path)!).sort((left, right) => left.y - right.y).map((node) => node.id)).toEqual([
+      "test/a.spec.ts", "test/b.spec.ts", "test/c.spec.ts",
+    ]);
+  });
+
+  it("caps a members group at four cards with its own toggle", () => {
+    const methods = ["a", "b", "c", "d", "e"].map((name, index) => ({ name, kind: "method" as const, line: index + 1, exported: false, className: "K" }));
+    const closed = layout({ ...view(), members: methods }, ui(), 800).inner;
+    expect(closed.members).toHaveLength(4);
+    expect(closed.groupToggles.filter((toggle) => toggle.key === "members:method:more")).toMatchObject([{ text: "Show 1 more" }]);
+    const opened = layout({ ...view(), members: methods }, ui({ open: { "members:method:more": true } }), 800).inner;
+    expect(opened.members).toHaveLength(5);
+  });
+
+  it("shows member groups in the same order whatever the source order", () => {
+    const groupOrder = (members: typeof documentServiceMembers) =>
+      layout({ ...view(), members }, ui(), 800).inner.groupHeadings.filter((heading) => heading.key.startsWith("members:")).map((heading) => heading.text);
+    expect(groupOrder([...documentServiceMembers].reverse())).toEqual(groupOrder(documentServiceMembers));
+  });
+
+  it("groups imports in the order circular imports, dependencies, types, under test, packages", () => {
+    const spec = "test/a/A.spec.ts";
+    const graph = graphOf([
+      analysisOf(spec, ["pkg:vitest", "src/a/A.ts", "src/a/A.types.ts", "src/a/Z.ts", "test/a/B.ts"]),
+      analysisOf("src/a/A.ts"), analysisOf("src/a/A.types.ts"), analysisOf("src/a/Z.ts"), analysisOf("test/a/B.ts", [spec]),
+    ]);
+    const { inner } = layout(buildViewData(graph, spec), ui({ selected: spec }), 800);
+    expect(inner.groupHeadings.map((heading) => heading.text)).toEqual(["Circular imports (1)", "Dependencies (1)", "Types (1)", "Under test (1)", "Packages (1)"]);
+  });
+
+  it("hides the cards of a collapsed group and shortens the column", () => {
+    const expanded = layout({ ...view(), members: documentServiceMembers }, ui(), 800).inner;
+    const collapsed = layout({ ...view(), members: documentServiceMembers }, ui({ open: { "members:method:collapsed": true } }), 800).inner;
+    expect(collapsed.members.map((member) => member.name)).toEqual(["DocumentService", "documents", "permissions", "storage"]);
+    expect(collapsed.groupHeadings.find((heading) => heading.key === "members:method:collapsed")).toMatchObject({ text: "Methods (2)", collapsed: true });
+    expect(collapsed.floors.find((floor) => floor.key === "members")!.h).toBe(expanded.floors.find((floor) => floor.key === "members")!.h - 2 * 74);
   });
 
   it("brightens the wires of the selected node and fades the rest", () => {
@@ -188,22 +235,23 @@ describe("layout", () => {
 
   it("shrinks the immediate layer into a frame for the second layer", () => {
     const result = layout(view(), ui({ layer: 2 }), 800);
-    expect(result.outer?.frame).toEqual({ x: 166, y: 172, w: 468, h: 399 });
+    expect(result.outer?.frame).toEqual({ x: 166, y: 172, w: 468, h: 428 });
     expect(result.outer?.transform).toBe("translate(176px, 182px) scale(0.56)");
     expect(["src/api/routes.ts", "src/jobs/scheduler.ts"].map((id) => result.outer?.nodes.find((node) => node.id === id)?.x)).toEqual([240, 408]);
     expect(result.outer?.floors.map((floor) => floor.title)).toEqual(["Second layer: imports the callers", "Second layer: imported by the immediate layer"]);
     expect(layout(view(), ui(), 800).outer).toBeNull();
   });
 
-  it("starts each second-layer wire below the frame at the column node it comes through", () => {
-    const startOfHighlightedWire = (selected: string) => {
-      const wire = layout(view(), ui({ layer: 2, selected }), 800).outer?.wires.find((candidate) => candidate.cls.endsWith(" hi"));
+  it("starts each second-layer wire below the frame at the column node it comes through, or its group heading when collapsed", () => {
+    const startOfHighlightedWire = (selected: string, open: Record<string, boolean> = {}) => {
+      const wire = layout(view(), ui({ layer: 2, selected, open }), 800).outer?.wires.find((candidate) => candidate.cls.endsWith(" hi"));
       const [x, y] = wire!.d.slice(1).split(" ").map(Number);
       return { x, y };
     };
     const schema = startOfHighlightedWire("src/db/schema.ts");
     expect(schema.x).toBeCloseTo(176 + (NODE_X[0] + COLUMN_NODE_W / 2) * 0.56);
-    expect(schema.y).toBe(571);
+    expect(schema.y).toBe(600);
+    expect(startOfHighlightedWire("src/db/schema.ts", { "deps:dependency:collapsed": true }).x).toBeCloseTo(176 + (NODE_X[0] + COLUMN_NODE_W / 2) * 0.56);
     expect(startOfHighlightedWire("test/fixtures/documents.fixture.ts").x).toBeCloseTo(176 + (NODE_X[2] + COLUMN_NODE_W / 2) * 0.56);
   });
 });

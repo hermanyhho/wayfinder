@@ -5,11 +5,13 @@ Shows where the open file sits in the codebase, in a panel beside the editor. Th
 ![The Wayfinder map beside DocumentService.ts: the files that import it, the files it imports, its test, a missing interface file, and the side panel with the file's exports and connections](media/map.png)
 
 - **Imports this file:** files that import the open file.
-- **Imported by this file:** project files and packages the open file imports.
-- **Members:** the functions, classes, methods and other names the open file defines, in source order. Click one to move the editor to its line.
+- **Imported by this file:** project files and packages the open file imports, grouped by kind: circular imports, dependencies, types, under test, packages.
+- **Members:** the functions, classes, methods and other names the open file defines, grouped by kind: classes, interfaces, types, enums, functions, constants, variables, properties, methods. Click one to move the editor to its line.
 - **Tests:** test files that import the open file.
 - **Issues:** files the folder pattern expects but that are missing, and circular imports, listed in the side panel's Checks tab. A circular import also shows on the map as a red card under Imported by this file.
 - **Second layer:** one more step out in both directions.
+
+Cards sort A-Z within each group, and in Tests. Click a group heading to collapse or expand it. Each group, and the Tests column, shows 4 cards, then **Show N more**.
 
 Everything above comes from the code. **Scan with AI** can add a summary and things worth checking for the open file, from a local Ollama model or from Claude Code or Codex. AI text is shown under the facts from code and never replaces them.
 

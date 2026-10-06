@@ -74,6 +74,11 @@ body.vscode-light .nd { box-shadow: 0 2px 8px rgba(20, 30, 50, .10); }
 .nd:hover + .ndopen, .nd.sel + .ndopen, .ndopen:hover, .ndopen:focus-visible { opacity: 1; color: var(--strong); }
 .ndopen:hover { background: var(--l2); }
 
+.grh { position: absolute; height: 20px; box-sizing: border-box; display: flex; align-items: center; gap: 6px; padding: 0 4px; font: inherit; font-size: 11.5px; font-weight: 700; color: var(--text2); background: none; border: 0; border-radius: 5px; cursor: pointer; white-space: nowrap; text-align: left; }
+.grh:hover { color: var(--strong); background: var(--l1); }
+.grh .kic { width: 12px; height: 12px; stroke: var(--c); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.grchev { width: 12px; height: 12px; stroke: var(--muted); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; transition: transform .15s; }
+.grh.closed .grchev { transform: rotate(-90deg); }
 .ftog { position: absolute; display: inline-flex; align-items: center; gap: 7px; height: 22px; padding: 0 10px 0 4px; font: inherit; font-size: 11.5px; font-weight: 600; color: var(--text2); background: var(--raise); border: 1px solid var(--l3); border-radius: 999px; cursor: pointer; }
 .ftog:hover { color: var(--strong); border-color: var(--l4); }
 .ftic { position: relative; width: 16px; height: 16px; border-radius: 50%; background: var(--l2); }
