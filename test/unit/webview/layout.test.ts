@@ -17,9 +17,9 @@ describe("layout", () => {
     expect(inner.floors.map((floor) => [floor.title, floor.x, floor.y, floor.w, floor.h])).toEqual([
       ["Imports this file", 16, 16, 768, 112],
       ["Same folder", 16, 168, 768, 112],
-      ["Imported by this file 4", COLUMN_X[0], 320, 245, 386],
+      ["Imported by this file (4)", COLUMN_X[0], 320, 245, 386],
       ["Members", COLUMN_X[1], 320, 245, 386],
-      ["Tests 1", COLUMN_X[2], 320, 245, 386],
+      ["Tests (1)", COLUMN_X[2], 320, 245, 386],
     ]);
     const at = (id: string) => {
       const node = inner.nodes.find((candidate) => candidate.id === id);
@@ -168,7 +168,7 @@ describe("layout", () => {
 
   it("groups members by kind in a fixed order, sorts each group A-Z and keeps kind, class and exported mark", () => {
     const { inner } = layout({ ...view(), members: documentServiceMembers }, ui(), 800);
-    expect(inner.floors.find((floor) => floor.key === "members")).toMatchObject({ title: "Members 6", cls: "", emptyText: "", toggle: null });
+    expect(inner.floors.find((floor) => floor.key === "members")).toMatchObject({ title: "Members (6)", cls: "", emptyText: "", toggle: null });
     expect(inner.groupHeadings.filter((heading) => heading.key.startsWith("members:")).map((heading) => [heading.text, heading.kind, heading.y])).toEqual([
       ["Classes (1)", "class", 354], ["Properties (3)", "property", 454], ["Methods (2)", "method", 702],
     ]);
@@ -187,7 +187,7 @@ describe("layout", () => {
     const tests = ["test/c.spec.ts", "test/a.spec.ts", "test/b.spec.ts"];
     const graph = graphOf([analysisOf("src/x.ts"), ...tests.map((path) => analysisOf(path, ["src/x.ts"]))]);
     const { inner } = layout(buildViewData(graph, "src/x.ts"), ui({ selected: "src/x.ts" }), 800);
-    expect(inner.floors.find((floor) => floor.key === "tests")?.title).toBe("Tests 3");
+    expect(inner.floors.find((floor) => floor.key === "tests")?.title).toBe("Tests (3)");
     expect(inner.groupHeadings.filter((heading) => heading.key.startsWith("tests"))).toEqual([]);
     expect(tests.map((path) => inner.nodes.find((node) => node.id === path)!).sort((left, right) => left.y - right.y).map((node) => node.id)).toEqual([
       "test/a.spec.ts", "test/b.spec.ts", "test/c.spec.ts",

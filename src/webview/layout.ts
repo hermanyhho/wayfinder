@@ -246,7 +246,7 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number): { lay
   COLUMNS.forEach((def, index) => {
     const count = columnIds[index].length;
     floors.push({
-      key: def.key, title: count ? `${def.title} ${count}` : def.title, path: foldersOf(nodesInColumn(def.key)), cls: count ? (def.key === "tests" ? "annex" : "") : "empty",
+      key: def.key, title: count ? `${def.title} (${count})` : def.title, path: foldersOf(nodesInColumn(def.key)), cls: count ? (def.key === "tests" ? "annex" : "") : "empty",
       x: columns.placed[index].x, y, w: columnWidth, h: columns.h, emptyText: count ? "" : def.empty(center.name), toggle: null,
     });
   });
