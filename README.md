@@ -36,7 +36,7 @@ Click **Second layer** to see one more step out: the files that import the calle
 ## AI scan
 
 1. Install [Ollama](https://ollama.com) and pull a model, for example `ollama pull qwen2.5-coder:1.5b`.
-2. Run **Wayfinder: Choose AI model** and pick one of your installed models. The cog next to **Scan with AI** in the side panel opens the same list. The choice is saved as `wayfinder.ai.model` in user settings. `wayfinder.ai.baseUrl` defaults to `http://localhost:11434`.
+2. Run **Wayfinder: Choose AI model** and pick one of your installed models. The list ends with **Turn off AI** (when a model is set) and **Open Wayfinder settings**. The cog next to **Scan with AI** in the side panel opens Wayfinder settings. The choice is saved as `wayfinder.ai.model` in user settings. `wayfinder.ai.baseUrl` defaults to `http://localhost:11434`.
 
    ![The model list: an installed Ollama model, then Claude Code and Codex under Cloud](media/model-picker.png)
 
@@ -52,7 +52,7 @@ Click **Second layer** to see one more step out: the files that import the calle
 - The map and the checks run on your machine and send nothing.
 - With an Ollama model, the scan sends code only to Ollama at `wayfinder.ai.baseUrl`. With the default local address, code stays on your machine.
 - With Claude Code or Codex, the scan sends code to Anthropic or OpenAI. See the next section for what is sent.
-- With `wayfinder.ai.model` empty, AI is off and nothing is sent.
+- With `wayfinder.ai.model` empty, AI is off and nothing is sent. Pick **Turn off AI** in the model list to clear it.
 
 ### Cloud: Claude Code or Codex
 

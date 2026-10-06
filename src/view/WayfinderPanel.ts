@@ -35,16 +35,18 @@ async function installedCloudClis(): Promise<CloudCli[]> {
   return CLOUD_CLIS.filter((_cli, index) => logins[index] !== "missing");
 }
 
+const openWayfinderSettings = () => vscode.commands.executeCommand("workbench.action.openSettings", "wayfinder");
+
 export async function chooseAiModel(): Promise<void> {
-  const { baseUrl } = aiSettings();
+  const { baseUrl, model } = aiSettings();
   const picked = await vscode.window.showQuickPick<ModelPickerItem & vscode.QuickPickItem>(
     Promise.all([listInstalledModels(baseUrl), installedCloudClis()]).then(([installedModels, installedClis]) =>
-      modelPickerItems(installedModels, baseUrl, installedClis).map((item) => (item.separator ? { ...item, kind: vscode.QuickPickItemKind.Separator } : item)),
+      modelPickerItems(installedModels, baseUrl, installedClis, model).map((item) => (item.separator ? { ...item, kind: vscode.QuickPickItemKind.Separator } : item)),
     ),
     { title: "Wayfinder: Choose AI model" },
   );
-  if (picked?.model) await vscode.workspace.getConfiguration("wayfinder.ai").update("model", picked.model, vscode.ConfigurationTarget.Global);
-  else if (picked?.opensSettings) await vscode.commands.executeCommand("workbench.action.openSettings", "wayfinder.ai");
+  if (picked?.model !== undefined) await vscode.workspace.getConfiguration("wayfinder.ai").update("model", picked.model, vscode.ConfigurationTarget.Global);
+  else if (picked?.opensSettings) await openWayfinderSettings();
 }
 
 export async function createAiRulesFile(): Promise<void> {
@@ -234,8 +236,8 @@ export class WayfinderPanel implements vscode.Disposable {
       case "scan":
         await this.scanOpenFile();
         return;
-      case "openAiSettings":
-        await chooseAiModel();
+      case "openSettings":
+        await openWayfinderSettings();
         return;
     }
   }
