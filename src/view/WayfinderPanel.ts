@@ -81,6 +81,7 @@ export class WayfinderPanel implements vscode.Disposable {
   private readonly marks = new EditorMarks();
   private readonly disposables: vscode.Disposable[] = [];
   private openFile: string | undefined;
+  private focusOpenFileWhenReady = false;
   private mapColumn: vscode.ViewColumn | undefined;
   private selected: string | undefined;
   private lastView: ViewData | undefined;
@@ -98,9 +99,12 @@ export class WayfinderPanel implements vscode.Disposable {
   }
 
   static show(context: vscode.ExtensionContext, index: WorkspaceIndex): void {
-    if (WayfinderPanel.current) {
-      WayfinderPanel.current.panel.reveal(undefined, true);
-      WayfinderPanel.current.followEditor(vscode.window.activeTextEditor);
+    const focusMap = vscode.workspace.getConfiguration("wayfinder.shortcut").get<boolean>("focusMap", true);
+    const existing = WayfinderPanel.current;
+    if (existing) {
+      existing.panel.reveal(undefined, !focusMap);
+      existing.followEditor(vscode.window.activeTextEditor);
+      if (focusMap) existing.send({ type: "focusOpenFile" });
       return;
     }
     const panel = vscode.window.createWebviewPanel(
@@ -110,7 +114,8 @@ export class WayfinderPanel implements vscode.Disposable {
       { ...WayfinderPanel.webviewOptions(context), retainContextWhenHidden: true },
     );
     WayfinderPanel.current = new WayfinderPanel(panel, context, index);
-    WayfinderPanel.lockGroupKeepingFocus(panel).catch((error: unknown) => {
+    WayfinderPanel.current.focusOpenFileWhenReady = focusMap;
+    WayfinderPanel.lockGroup(panel, !focusMap).catch((error: unknown) => {
       void vscode.window.showErrorMessage(`Wayfinder could not finish opening the map: ${String(error)}`);
     });
   }
@@ -129,14 +134,25 @@ export class WayfinderPanel implements vscode.Disposable {
 
   // locked here, not via a workbench.editor.autoLockGroups default: an extension default replaces vs code's list,
   // so terminal editors and the simple browser would stop locking their groups.
-  private static async lockGroupKeepingFocus(panel: vscode.WebviewPanel): Promise<void> {
+  private static async lockGroup(panel: vscode.WebviewPanel, keepFocusInEditor: boolean): Promise<void> {
     const previousEditor = vscode.window.activeTextEditor;
     panel.reveal(panel.viewColumn, false);
     await vscode.commands.executeCommand("workbench.action.lockEditorGroup");
-    if (!previousEditor) return;
+    if (!keepFocusInEditor || !previousEditor) return;
     await vscode.window.showTextDocument(previousEditor.document, {
       viewColumn: previousEditor.viewColumn ?? vscode.ViewColumn.One,
       selection: previousEditor.selection,
+      preview: false,
+    });
+  }
+
+  static async returnToEditor(): Promise<void> {
+    const current = WayfinderPanel.current;
+    if (!current?.openFile) return;
+    const editor = current.editorFor(current.openFile);
+    await vscode.window.showTextDocument(editor?.document.uri ?? current.index.uriOf(current.openFile), {
+      viewColumn: current.editorColumn(),
+      selection: editor?.selection,
       preview: false,
     });
   }
@@ -231,6 +247,8 @@ export class WayfinderPanel implements vscode.Disposable {
     switch (message.type) {
       case "ready":
         this.post();
+        if (this.focusOpenFileWhenReady) this.send({ type: "focusOpenFile" });
+        this.focusOpenFileWhenReady = false;
         return;
       case "select": {
         this.selected = message.id;

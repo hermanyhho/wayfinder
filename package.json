@@ -43,6 +43,24 @@
       {
         "command": "wayfinder.createAiRules",
         "title": "Wayfinder: Create AI rules file"
+      },
+      {
+        "command": "wayfinder.returnToEditor",
+        "title": "Wayfinder: Return to the editor from the map"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "wayfinder.showMap",
+        "key": "ctrl+alt+m",
+        "mac": "cmd+alt+m",
+        "when": "activeWebviewPanelId != 'wayfinder.map'"
+      },
+      {
+        "command": "wayfinder.returnToEditor",
+        "key": "ctrl+alt+m",
+        "mac": "cmd+alt+m",
+        "when": "activeWebviewPanelId == 'wayfinder.map' && config.wayfinder.shortcut.returnToEditor"
       }
     ],
     "menus": {
@@ -50,6 +68,12 @@
         {
           "command": "wayfinder.showMap",
           "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "wayfinder.returnToEditor",
+          "when": "activeWebviewPanelId == 'wayfinder.map'"
         }
       ]
     },
@@ -94,6 +118,22 @@
             "enumDescriptions": ["Send only the open file.", "Also send the code of the open file's direct imports, callers and tests, cut to fit the model."],
             "default": "file",
             "description": "What Scan with AI sends to the model."
+          }
+        }
+      },
+      {
+        "title": "Shortcut",
+        "order": 4,
+        "properties": {
+          "wayfinder.shortcut.focusMap": {
+            "type": "boolean",
+            "default": true,
+            "description": "Opening or showing the map moves keyboard focus to the current file card. Turn off to keep focus in the editor."
+          },
+          "wayfinder.shortcut.returnToEditor": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "Pressing the **Wayfinder: Show map for this file** shortcut while the map has focus moves focus back to the open file's editor, at the same cursor position."
           }
         }
       }

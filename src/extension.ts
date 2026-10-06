@@ -26,6 +26,7 @@ export function activate(context: vscode.ExtensionContext) {
     }),
     vscode.commands.registerCommand("wayfinder.chooseAiModel", chooseAiModel),
     vscode.commands.registerCommand("wayfinder.createAiRules", createAiRulesFile),
+    vscode.commands.registerCommand("wayfinder.returnToEditor", () => WayfinderPanel.returnToEditor()),
   );
 }
 
