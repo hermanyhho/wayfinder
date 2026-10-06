@@ -22,4 +22,4 @@ export type HostMessage =
   | { type: "ai"; openFile: string; scan: AiScanState }
   | { type: "cursor"; line: number };
 
-export type WebviewMessage = { type: "ready" } | { type: "select"; id: string } | { type: "open"; id: string } | { type: "reveal"; line: number } | { type: "scan" } | { type: "openAiSettings" };
+export type WebviewMessage = { type: "ready" } | { type: "select"; id: string } | { type: "open"; id: string } | { type: "reveal"; line: number } | { type: "scan" } | { type: "openSettings" };

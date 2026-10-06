@@ -53,34 +53,51 @@
         }
       ]
     },
-    "configuration": {
-      "title": "Wayfinder",
-      "properties": {
-        "wayfinder.ai.baseUrl": {
-          "type": "string",
-          "default": "http://localhost:11434",
-          "description": "Where Ollama runs."
-        },
-        "wayfinder.ai.model": {
-          "type": "string",
-          "default": "",
-          "description": "Model for Scan with AI: an Ollama model such as qwen2.5-coder:1.5b, or claude-code or codex to scan through that CLI in the cloud. Leave empty to turn AI off."
-        },
-        "wayfinder.ai.instructions": {
-          "type": "string",
-          "default": "",
-          "editPresentation": "multilineText",
-          "description": "Your own rules for Scan with AI. Added after the built-in rules and the team rules in .wayfinder/rules.md."
-        },
-        "wayfinder.ai.scope": {
-          "type": "string",
-          "enum": ["file", "neighbours"],
-          "enumDescriptions": ["Send only the open file.", "Also send the code of the open file's direct imports, callers and tests, cut to fit the model."],
-          "default": "file",
-          "description": "What Scan with AI sends to the model."
+    "configuration": [
+      {
+        "title": "AI: Instructions",
+        "order": 1,
+        "properties": {
+          "wayfinder.ai.instructions": {
+            "type": "string",
+            "default": "",
+            "editPresentation": "multilineText",
+            "markdownDescription": "**Your rules for Scan with AI.** Type them in the box below, one rule per line. Wayfinder adds them to every scan. Only you get these rules.\n\nExamples:\n- `Flag every function longer than 40 lines.`\n- `Flag any use of the any type.`\n- `Point out functions with no error handling around network calls.`\n\nTo share rules with your team, put them in `.wayfinder/rules.md` and commit it. [Create or open the rules file](command:wayfinder.createAiRules)\n\nWayfinder adds the team rules first, then yours, after its built-in rules. Together they are cut at 2,000 characters."
+          }
+        }
+      },
+      {
+        "title": "AI: Model",
+        "order": 2,
+        "properties": {
+          "wayfinder.ai.model": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "Model for Scan with AI. [Choose a model](command:wayfinder.chooseAiModel)\n\nOr type an Ollama model such as `qwen2.5-coder:1.5b`, or `claude-code` or `codex` to scan through that CLI in the cloud. Leave empty to turn AI off.",
+            "order": 1
+          },
+          "wayfinder.ai.baseUrl": {
+            "type": "string",
+            "default": "http://localhost:11434",
+            "description": "Where Ollama runs.",
+            "order": 2
+          }
+        }
+      },
+      {
+        "title": "AI: Behaviour",
+        "order": 3,
+        "properties": {
+          "wayfinder.ai.scope": {
+            "type": "string",
+            "enum": ["file", "neighbours"],
+            "enumDescriptions": ["Send only the open file.", "Also send the code of the open file's direct imports, callers and tests, cut to fit the model."],
+            "default": "file",
+            "description": "What Scan with AI sends to the model."
+          }
         }
       }
-    }
+    ]
   },
   "scripts": {
     "build": "node esbuild.mjs",
