@@ -98,15 +98,16 @@ function aiStatusLine(ai: PanelAi): string {
 }
 
 function renderAiSettingsButton(status: AiStatus | null): string {
-  const hint = status?.ready ? `AI model: ${status.model}. Click to choose another.` : "Choose an AI model";
-  return `<button class="aicog ${status?.ready ? "ready" : ""}" data-action="ai-settings" data-tip="${escapeHtml(hint)}" aria-label="${escapeHtml(hint)}"><svg viewBox="0 0 24 24" aria-hidden="true">${COG_ICON}</svg></button>`;
+  return `<button class="aicog ${status?.ready ? "ready" : ""}" data-action="ai-settings" data-tip="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" aria-hidden="true">${COG_ICON}</svg></button>`;
 }
 
 function renderAiBar(ai: PanelAi): string {
   const loading = ai.scan.state === "loading";
   const disabled = loading || !ai.status?.ready;
   const label = loading ? "Scanning" : ai.scan.state === "done" ? "Scan again" : "Scan with AI";
-  return `<div class="aibar"><button class="aibtn ${loading ? "busy" : disabled ? "off" : ""}" data-action="scan" ${disabled ? "disabled" : ""}><svg viewBox="0 0 24 24" aria-hidden="true">${SCAN_ICON}</svg>${label}</button>${renderAiSettingsButton(ai.status)}<span class="aistatus">${aiStatusLine(ai)}</span></div>`;
+  const scanTip = ai.status?.ready ? `Scans with ${ai.status.model}` : "Choose an AI model in Settings first";
+  // the tip sits on a wrapper because a disabled button gets no hover events
+  return `<div class="aibar"><span class="aiscan" data-tip="${escapeHtml(scanTip)}"><button class="aibtn ${loading ? "busy" : disabled ? "off" : ""}" data-action="scan" ${disabled ? "disabled" : ""}><svg viewBox="0 0 24 24" aria-hidden="true">${SCAN_ICON}</svg>${label}</button></span>${renderAiSettingsButton(ai.status)}<span class="aistatus">${aiStatusLine(ai)}</span></div>`;
 }
 
 function renderAiSummary(ai: PanelAi | null): string {

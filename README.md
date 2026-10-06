@@ -34,7 +34,7 @@ Click **Second layer** to see one more step out: the files that import the calle
 
    ![The model list: an installed Ollama model, then Claude Code and Codex under Cloud](media/model-picker.png)
 
-3. Hover the cog to see which model the scan uses. Press **Scan with AI** to scan the open file. The summary appears under Why, the findings under Checks.
+3. Hover **Scan with AI** to see which model the scan uses. Press **Scan with AI** to scan the open file. The summary appears under Why, the findings under Checks.
 
 <p>
   <img src="media/ai-summary.png" width="300" alt="The Why tab: who imports the file, then an AI summary of what DocumentService does and who uses it">

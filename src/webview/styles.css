@@ -147,8 +147,9 @@ button:focus-visible { outline: 2px solid var(--strong); outline-offset: 2px; }
 .aicog { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 32px; height: 32px; background: none; border: 1px solid var(--l2); border-radius: 8px; color: var(--muted); cursor: pointer; }
 .aicog svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .aicog:hover { border-color: var(--l4); color: var(--text2); }
-.aicog { position: relative; }
-.aicog:hover::after, .aicog:focus-visible::after { content: attr(data-tip); position: absolute; top: calc(100% + 6px); left: 0; z-index: 10; width: max-content; max-width: 200px; overflow-wrap: anywhere; text-align: left; font-size: 11.5px; font-weight: 600; line-height: 15px; color: var(--strong); background: var(--raise); border: 1px solid var(--l3); border-radius: 6px; padding: 6px 8px; box-shadow: 0 6px 16px rgba(0, 0, 0, .35); pointer-events: none; }
+.aicog, .aiscan { position: relative; }
+.aiscan { display: inline-flex; flex: none; }
+.aicog:hover::after, .aicog:focus-visible::after, .aiscan:hover::after, .aiscan:focus-within::after { content: attr(data-tip); position: absolute; top: calc(100% + 6px); left: 0; z-index: 10; width: max-content; max-width: 200px; overflow-wrap: anywhere; text-align: left; font-size: 11.5px; font-weight: 600; line-height: 15px; color: var(--strong); background: var(--raise); border: 1px solid var(--l3); border-radius: 6px; padding: 6px 8px; box-shadow: 0 6px 16px rgba(0, 0, 0, .35); pointer-events: none; }
 .aicog.ready { color: var(--goldtext); border-color: rgba(242, 179, 61, .45); }
 .aistatus { font-size: 11.5px; line-height: 15px; color: var(--muted); }
 .aiblock { margin-top: 12px; border: 1px solid rgba(242, 179, 61, .45); background: rgba(242, 179, 61, .06); border-radius: 10px; padding: 10px 12px; animation: pop .35s ease-out both; }
