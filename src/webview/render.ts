@@ -32,8 +32,10 @@ function countLabel(view: ViewData): string {
 
 const renderFloor = (floor: FloorView) =>
   `<div class="fl ${floor.cls}" style="left:${floor.x}px;top:${floor.y}px;width:${floor.w}px;height:${floor.h}px">${floor.emptyText ? `<span class="phtext">${escapeHtml(floor.emptyText)}</span>` : ""}</div>`;
+const renderColumnSearch = (floor: FloorView) =>
+  floor.search === undefined ? "" : `<input class="colsearch" style="left:${floor.x + 14}px;top:${floor.y + 34}px;width:${floor.w - 28}px" type="search" data-search="${floor.key}" value="${escapeHtml(floor.search)}" placeholder="Search" aria-label="Search ${escapeHtml(floor.title)}" spellcheck="false">`;
 const renderFloorHeader = (floor: FloorView) =>
-  `<div class="flh ${floor.cls}" style="left:${floor.x + 14}px;top:${floor.y + 9}px;max-width:${floor.w - 28}px"><span class="ti">${escapeHtml(floor.title)}</span><span class="fp">${escapeHtml(floor.path)}</span></div>`;
+  `<div class="flh ${floor.cls}" style="left:${floor.x + 14}px;top:${floor.y + 9}px;max-width:${floor.w - 28}px"><span class="ti">${escapeHtml(floor.title)}</span><span class="fp">${escapeHtml(floor.path)}</span></div>${renderColumnSearch(floor)}`;
 const renderWires = (wires: WireView[]) => `<svg class="wires" aria-hidden="true">${wires.map((wire) => `<path class="w ${wire.cls}" d="${wire.d}"></path>`).join("")}</svg>`;
 const OPEN_ICON = '<path d="M14 4h6v6"></path><path d="m20 4-9 9"></path><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"></path>';
 const MEMBER_KIND_ICONS: Record<MemberKind, string> = {
