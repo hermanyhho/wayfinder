@@ -28,7 +28,7 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
     view = message.data;
     if (openFileChanged) {
       vscode.setState({ openFile: message.data.openFile });
-      ui = { selected: view.openFile, layer: 1, open: {} };
+      ui = { ...ui, selected: view.openFile };
       action = "context";
       lastTransform = IDENTITY;
     } else if (!view.nodes.some((node) => node.id === ui.selected)) {
