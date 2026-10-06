@@ -1,6 +1,6 @@
 import type { AiScanState, AiStatus } from "../shared/messages";
 import type { Fact, MemberKind, NodeKind, ViewData } from "../shared/viewData";
-import type { BannerView, FloorView, LayerView, Layout, MemberView, NodeView, PortView, SecondLayerView, UiState, WireView } from "./layout";
+import type { BannerView, FloorView, GroupHeadingView, GroupKind, GroupToggleView, LayerView, Layout, MemberView, NodeView, PortView, SecondLayerView, UiState, WireView } from "./layout";
 import { groupChecks, panelFor, type Action, type PanelModel } from "./panelModel";
 
 const HTML_ESCAPES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
@@ -65,6 +65,12 @@ const renderNode = (node: NodeView, canOpen: (id: string) => boolean) =>
   `<button class="nd ${node.cls}" style="left:${node.x}px;top:${node.y}px;width:${node.w}px" data-action="select" data-id="${escapeHtml(node.id)}" title="${escapeHtml(node.id)}"><span class="nh"><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${NODE_KIND_ICONS[node.kind]}</svg>${escapeHtml(node.tag)}</span><span class="nn">${escapeHtml(node.name)}</span><span class="np">${escapeHtml(node.path)}</span></button>${canOpen(node.id) ? renderOpenIcon(node) : ""}`;
 const renderMember = (member: MemberView) =>
   `<button class="nd ${member.cls}" style="left:${member.x}px;top:${member.y}px;width:${member.w}px" data-action="reveal" data-value="${member.line}" title="Go to line ${member.line}"><span class="nh"><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${MEMBER_KIND_ICONS[member.kind]}</svg>${escapeHtml(member.tag)}</span><span class="nn">${escapeHtml(member.name)}</span><span class="np">${escapeHtml(member.path)}</span></button>`;
+const GROUP_ICONS: Record<GroupKind, string> = { ...NODE_KIND_ICONS, ...MEMBER_KIND_ICONS };
+const CHEVRON_ICON = '<path d="m6 9 6 6 6-6"></path>';
+const renderGroupHeading = (heading: GroupHeadingView) =>
+  `<button class="grh ${heading.cls}${heading.collapsed ? " closed" : ""}" style="left:${heading.x}px;top:${heading.y}px;width:${heading.w}px" data-action="toggle" data-value="${escapeHtml(heading.key)}" aria-expanded="${!heading.collapsed}"><svg class="grchev" viewBox="0 0 24 24" aria-hidden="true">${CHEVRON_ICON}</svg><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${GROUP_ICONS[heading.kind]}</svg>${escapeHtml(heading.text)}</button>`;
+const renderGroupToggle = (toggle: GroupToggleView) =>
+  `<button class="ftog" style="left:${toggle.x}px;top:${toggle.y}px" data-action="toggle" data-value="${escapeHtml(toggle.key)}"><span class="ftic ${toggle.icon}"></span>${escapeHtml(toggle.text)}</button>`;
 const renderPort = (port: PortView) => `<span class="port ${port.cls}${port.incoming ? " in" : ""}" style="left:${port.x}px;top:${port.y}px"></span>`;
 const renderToggles = (floors: FloorView[]) =>
   floors
@@ -142,6 +148,8 @@ function renderLayer(layer: LayerView, canOpen: (id: string) => boolean): string
     layer.floors.map(renderFloorHeader).join(""),
     layer.nodes.map((node) => renderNode(node, canOpen)).join(""),
     layer.members.map(renderMember).join(""),
+    layer.groupHeadings.map(renderGroupHeading).join(""),
+    layer.groupToggles.map(renderGroupToggle).join(""),
     layer.ports.map(renderPort).join(""),
     renderToggles(layer.floors),
   ].join("");

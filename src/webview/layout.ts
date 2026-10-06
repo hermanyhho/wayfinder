@@ -8,7 +8,10 @@ export const COL_GAP = 16;
 export const FLOOR_GAP = 40;
 export const ROW_H = 74;
 export const MAX_PER_ROW = 4;
-export const MAX_PER_COLUMN = 4;
+export const MAX_PER_GROUP = 4;
+const GROUP_HEADING_H = 26;
+const GROUP_TOGGLE_H = 28;
+const GROUP_GAP = 14;
 export const FLOOR_LEFT = 16;
 export const MIN_CANVAS_W = 800;
 export const MAX_CANVAS_W = 1280;
@@ -23,13 +26,16 @@ export interface UiState {
 
 export interface Box { x: number; y: number; w: number; h: number; floor: number; }
 export interface FloorToggle { text: string; icon: "plus" | "minus"; y: number; }
+export type GroupKind = MemberKind | NodeKind;
+export interface GroupHeadingView { key: string; x: number; y: number; w: number; cls: string; kind: GroupKind; text: string; collapsed: boolean; }
+export interface GroupToggleView extends FloorToggle { key: string; x: number; }
 export interface FloorView { key: string; title: string; path: string; cls: string; x: number; y: number; w: number; h: number; emptyText: string; toggle: FloorToggle | null; }
 export interface NodeView { id: string; x: number; y: number; w: number; cls: string; kind: NodeKind; tag: string; name: string; path: string; }
 export interface MemberView extends Omit<NodeView, "kind"> { kind: MemberKind; line: number; }
 export interface WireView { cls: string; d: string; }
 export interface PortView { cls: string; x: number; y: number; incoming: boolean; }
 export interface BannerView { y: number; title: string; items: Fact[]; progress: number | null; }
-export interface LayerView { floors: FloorView[]; nodes: NodeView[]; members: MemberView[]; wires: WireView[]; ports: PortView[]; banners: BannerView[]; height: number; }
+export interface LayerView { floors: FloorView[]; nodes: NodeView[]; members: MemberView[]; groupHeadings: GroupHeadingView[]; groupToggles: GroupToggleView[]; wires: WireView[]; ports: PortView[]; banners: BannerView[]; height: number; }
 export interface SecondLayerView extends LayerView { frame: { x: number; y: number; w: number; h: number }; transform: string; }
 export interface Layout { width: number; inner: LayerView; outer: SecondLayerView | null; }
 
@@ -57,7 +63,30 @@ const COLUMNS: { key: ColumnKey; title: string; color: string; empty: (name: str
   { key: "tests", title: "Tests", color: "pink", empty: (name) => `No test imports ${name}.` },
 ];
 
+const DEPENDENCY_GROUPS: { kind: Exclude<NodeKind, "here" | "caller" | "expected" | "test">; title: string }[] = [
+  { kind: "cycle", title: "Circular imports" },
+  { kind: "dependency", title: "Dependencies" },
+  { kind: "types", title: "Types" },
+  { kind: "subject", title: "Under test" },
+  { kind: "package", title: "Packages" },
+];
+const MEMBER_GROUPS: { kind: MemberKind; title: string }[] = [
+  { kind: "class", title: "Classes" },
+  { kind: "interface", title: "Interfaces" },
+  { kind: "type", title: "Types" },
+  { kind: "enum", title: "Enums" },
+  { kind: "function", title: "Functions" },
+  { kind: "const", title: "Constants" },
+  { kind: "let", title: "Variables" },
+  { kind: "property", title: "Properties" },
+  { kind: "method", title: "Methods" },
+];
+
+interface ColumnGroup { key: string; heading: { kind: GroupKind; title: string; cls: string } | null; ids: string[]; }
+
 const memberIdOf = (index: number) => `member:${index}`;
+const idsByName = (entries: { id: string; name: string }[]) =>
+  [...entries].sort((left, right) => left.name.localeCompare(right.name)).map((entry) => entry.id);
 
 const CALLERS_FLOOR = 0;
 const OPEN_FILE_FLOOR = 1;
@@ -126,23 +155,44 @@ export function routeWire(from: Box, to: Box) {
   return { d: `M${x1} ${y1} C${x1} ${y1 + k}, ${x2} ${y2 - k}, ${x2} ${y2}`, x1, y1, x2, y2 };
 }
 
-function layoutColumns(columns: { key: string; ids: string[] }[], ui: UiState, top: number, columnWidth: number) {
-  const shownCounts = columns.map((column) => (ui.open[column.key] ? column.ids.length : Math.min(MAX_PER_COLUMN, column.ids.length)));
-  const anyCollapsible = columns.some((column) => column.ids.length > MAX_PER_COLUMN);
-  const h = 34 + Math.max(1, ...shownCounts) * ROW_H + 4 + (anyCollapsible ? 30 : 0);
+function layoutColumns(columns: ColumnGroup[][], ui: UiState, top: number, columnWidth: number) {
   const boxes: Record<string, Box> = {};
-  const placed = columns.map((column, columnIndex) => {
+  const hiddenCardAnchors: Record<string, Box> = {};
+  const groupHeadings: GroupHeadingView[] = [];
+  const groupToggles: GroupToggleView[] = [];
+  const placed = columns.map((groups, columnIndex) => {
     const x = FLOOR_LEFT + columnIndex * (columnWidth + COL_GAP);
-    column.ids.slice(0, shownCounts[columnIndex]).forEach((id, index) => {
-      boxes[id] = { x: x + COLUMN_PADDING, y: top + 34 + index * ROW_H, w: columnWidth - 2 * COLUMN_PADDING, h: NODE_H, floor: COLUMNS_FLOOR };
-    });
-    const open = !!ui.open[column.key];
-    const toggle: FloorToggle | null = column.ids.length > MAX_PER_COLUMN
-      ? { text: open ? "Show fewer" : `Show ${column.ids.length - shownCounts[columnIndex]} more`, icon: open ? "minus" : "plus", y: top + h - 30 }
-      : null;
-    return { x, toggle };
+    const cardX = x + COLUMN_PADDING;
+    const cardW = columnWidth - 2 * COLUMN_PADDING;
+    let cursor = top + 34;
+    for (const group of groups) {
+      if (group !== groups[0]) cursor += GROUP_GAP;
+      const collapseKey = `${group.key}:collapsed`;
+      const moreKey = `${group.key}:more`;
+      const collapsed = !!ui.open[collapseKey];
+      const showAll = !!ui.open[moreKey];
+      const headingBox: Box = { x: cardX, y: cursor, w: cardW, h: GROUP_HEADING_H, floor: COLUMNS_FLOOR };
+      if (group.heading) {
+        groupHeadings.push({ key: collapseKey, x: cardX, y: cursor, w: cardW, cls: group.heading.cls, kind: group.heading.kind, text: `${group.heading.title} (${group.ids.length})`, collapsed });
+        cursor += GROUP_HEADING_H;
+      }
+      let shownCount = Math.min(MAX_PER_GROUP, group.ids.length);
+      if (collapsed) shownCount = 0;
+      else if (showAll) shownCount = group.ids.length;
+      group.ids.forEach((id, index) => {
+        if (index < shownCount) boxes[id] = { x: cardX, y: cursor + index * ROW_H, w: cardW, h: NODE_H, floor: COLUMNS_FLOOR };
+        else hiddenCardAnchors[id] = headingBox;
+      });
+      cursor += shownCount * ROW_H;
+      if (!collapsed && group.ids.length > MAX_PER_GROUP) {
+        groupToggles.push({ key: moreKey, x: cardX, y: cursor - 6, text: showAll ? "Show fewer" : `Show ${group.ids.length - shownCount} more`, icon: showAll ? "minus" : "plus" });
+        cursor += GROUP_TOGGLE_H;
+      }
+    }
+    return { x, bottom: cursor };
   });
-  return { boxes, h, placed };
+  const h = Math.max(top + 34 + ROW_H, ...placed.map((column) => column.bottom)) - top + 4;
+  return { boxes, hiddenCardAnchors, groupHeadings, groupToggles, h, placed };
 }
 
 function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number): { layer: LayerView; boxes: Record<string, Box> } {
@@ -175,20 +225,31 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number): { lay
   boxes[center.id] = { x: FLOOR_LEFT + Math.round((floorWidth - HERE_W) / 2), y: y + 34, w: HERE_W, h: HERE_H, floor: OPEN_FILE_FLOOR };
   y += 112 + FLOOR_GAP;
 
-  const cyclesFirst = [...immediate].sort((left, right) => Number(right.kind === "cycle") - Number(left.kind === "cycle"));
-  const columnNodes = COLUMNS.map((def) => cyclesFirst.filter((node) => columnOf(node) === def.key));
+  const nodesInColumn = (key: ColumnKey) => immediate.filter((node) => columnOf(node) === key);
+  const dependencyNodes = nodesInColumn("deps");
   const memberIds = view.members.map((_member, index) => memberIdOf(index));
-  const columnIds = COLUMNS.map((def, index) => (def.key === "members" ? memberIds : columnNodes[index].map((node) => node.id)));
+  const groupsByColumn: Record<ColumnKey, ColumnGroup[]> = {
+    deps: DEPENDENCY_GROUPS.map((group) => ({
+      key: `deps:${group.kind}`, heading: { kind: group.kind, title: group.title, cls: KIND_COLOR[group.kind] },
+      ids: idsByName(dependencyNodes.filter((node) => node.kind === group.kind)),
+    })),
+    members: MEMBER_GROUPS.map((group) => ({
+      key: `members:${group.kind}`, heading: { kind: group.kind, title: group.title, cls: "green" },
+      ids: idsByName(view.members.flatMap((member, index) => (member.kind === group.kind ? [{ id: memberIds[index], name: member.name }] : []))),
+    })),
+    tests: [{ key: "tests", heading: null, ids: idsByName(nodesInColumn("tests")) }],
+  };
+  const columnGroups = COLUMNS.map((def) => groupsByColumn[def.key].filter((group) => group.ids.length > 0));
+  const columnIds = columnGroups.map((groups) => groups.flatMap((group) => group.ids));
   const columnsTop = y;
   const columnWidth = Math.floor((floorWidth - (COLUMNS.length - 1) * COL_GAP) / COLUMNS.length);
-  const columns = layoutColumns(COLUMNS.map((def, index) => ({ key: def.key, ids: columnIds[index] })), ui, y, columnWidth);
+  const columns = layoutColumns(columnGroups, ui, y, columnWidth);
   Object.assign(boxes, columns.boxes);
   COLUMNS.forEach((def, index) => {
-    const filled = columnIds[index].length > 0;
-    const { x, toggle } = columns.placed[index];
+    const count = columnIds[index].length;
     floors.push({
-      key: def.key, title: def.title, path: foldersOf(columnNodes[index]), cls: filled ? (def.key === "tests" ? "annex" : "") : "empty",
-      x, y, w: columnWidth, h: columns.h, emptyText: filled ? "" : def.empty(center.name), toggle,
+      key: def.key, title: count ? `${def.title} (${count})` : def.title, path: foldersOf(nodesInColumn(def.key)), cls: count ? (def.key === "tests" ? "annex" : "") : "empty",
+      x: columns.placed[index].x, y, w: columnWidth, h: columns.h, emptyText: count ? "" : def.empty(center.name), toggle: null,
     });
   });
   y += columns.h + 14;
@@ -219,11 +280,10 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number): { lay
   ports.push({ cls: colorOf(center), x: openFileBox.x + openFileBox.w / 2, y: openFileBox.y + openFileBox.h, incoming: false });
 
   const nodes = immediate.filter((node) => boxes[node.id]).map((node) => nodeView(node, boxes[node.id], ui));
-  const members = view.members.flatMap((member, index) => {
-    const box = boxes[memberIds[index]];
-    return box ? [memberView(member, memberIds[index], box)] : [];
-  });
-  return { layer: { floors, nodes, members, wires, ports, banners, height: Math.max(y + 8, 600) }, boxes };
+  const memberById = new Map(view.members.map((member, index) => [memberIds[index], member]));
+  const members = groupsByColumn.members.flatMap((group) => group.ids).filter((id) => boxes[id]).map((id) => memberView(memberById.get(id)!, id, boxes[id]));
+  const layer = { floors, nodes, members, groupHeadings: columns.groupHeadings, groupToggles: columns.groupToggles, wires, ports, banners, height: Math.max(y + 8, 600) };
+  return { layer, boxes: { ...columns.hiddenCardAnchors, ...boxes } };
 }
 
 function layoutSecond(view: ViewData, ui: UiState, inner: { layer: LayerView; boxes: Record<string, Box> }, width: number): SecondLayerView | null {
@@ -280,5 +340,5 @@ function layoutSecond(view: ViewData, ui: UiState, inner: { layer: LayerView; bo
   }
 
   const nodes = second.filter((node) => boxes[node.id]).map((node) => nodeView(node, boxes[node.id], ui));
-  return { floors, nodes, members: [], wires, ports, banners: [], height: y + 8, frame, transform: `translate(${ox}px, ${oy}px) scale(${CLUSTER_SCALE})` };
+  return { floors, nodes, members: [], groupHeadings: [], groupToggles: [], wires, ports, banners: [], height: y + 8, frame, transform: `translate(${ox}px, ${oy}px) scale(${CLUSTER_SCALE})` };
 }
