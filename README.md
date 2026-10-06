@@ -2,7 +2,7 @@
 
 Shows where the open file sits in the codebase, in a panel beside the editor. The map's editor group is locked, so files you open from the explorer open in the other group.
 
-![The Wayfinder map beside DocumentService.ts: the files that import it, the files it imports, its test, a missing interface file, and the side panel with the file's exports and connections](media/map.png)
+![The Wayfinder map beside DocumentService.ts: three callers above, then the files it imports grouped by kind, its members and its test, and the side panel with the file's exports and connections](media/map.png)
 
 - **Imports this file:** files that import the open file.
 - **Imported by this file:** project files and packages the open file imports, grouped by kind: circular imports, dependencies, types, under test, packages.
@@ -10,6 +10,15 @@ Shows where the open file sits in the codebase, in a panel beside the editor. Th
 - **Tests:** test files that import the open file.
 - **Issues:** files the folder pattern expects but that are missing, and circular imports, listed in the side panel's Checks tab. A circular import also shows on the map as a red card under Imported by this file.
 - **Second layer:** one more step out in both directions.
+
+![The Imported by this file column with EmployeeService.ts as a red circular import card above the dependencies and types](media/circular-import.png)
+
+The side panel describes the open file in four tabs:
+
+- **Context:** exports, public methods, size, imports and connections.
+- **Why:** the files that import it and its git history.
+- **Where:** where it is defined and how it connects to other files.
+- **Checks:** missing files and circular imports.
 
 Cards sort A-Z within each group, and in Tests. Click a group heading to collapse or expand it. Each group, and the Tests column, shows 4 cards, then **Show N more**. Type in the search box of a column to show only the cards whose name contains the text, including cards in collapsed groups and past the first 4.
 
@@ -27,24 +36,22 @@ To use the map with the keyboard:
 - Enter selects a file card, moves the editor to a member's line, or collapses and expands a group. Cmd+Enter (Ctrl+Enter) opens the file.
 - `/` moves to the search box of the column you are in, or Members. Esc clears the search and moves back to the first card.
 
-![StorageClient.ts selected on the map, and the three lines in DocumentService.ts that use it highlighted](media/selected-card.png)
-
 Click **Second layer** to see one more step out: the files that import the callers, and the files the imports use.
 
-![The second layer: the immediate map in the middle, the callers' importers above it and the dependencies' imports below it](media/second-layer.png)
+![The second layer: the immediate layer shrunk in the middle, the files that import the callers above it and the files the imports use below it](media/second-layer.png)
 
 ## AI scan
 
 1. Install [Ollama](https://ollama.com) and pull a model, for example `ollama pull qwen2.5-coder:1.5b`.
 2. Run **Wayfinder: Choose AI model** and pick one of your installed models. The list ends with **Turn off AI** (when a model is set) and **Open Wayfinder settings**. The cog next to **Scan with AI** in the side panel opens Wayfinder settings. The choice is saved as `wayfinder.ai.model` in user settings. `wayfinder.ai.baseUrl` defaults to `http://localhost:11434`.
 
-   ![The model list: an installed Ollama model, then Claude Code and Codex under Cloud](media/model-picker.png)
+   ![Wayfinder settings: AI instructions, model, base URL and scope](media/settings.png)
 
 3. Hover **Scan with AI** to see which model the scan uses. Press **Scan with AI** to scan the open file. The summary appears under Why, the findings under Checks.
 
 <p>
-  <img src="media/ai-summary.png" width="300" alt="The Why tab: who imports the file, then an AI summary of what DocumentService does and who uses it">
-  <img src="media/ai-checks.png" width="300" alt="The Checks tab: a missing interface file from code, then AI findings with file and line, such as a missing error check after storage.put">
+  <img src="media/scanning.png" width="290" alt="The side panel while scanning, with the tooltip Scans with qwen2.5-coder:1.5b">
+  <img src="media/ai-summary.png" width="290" alt="The Why tab after a scan: who imports the file, then an AI summary of what DocumentService does">
 </p>
 
 ### Privacy
@@ -65,9 +72,7 @@ Findings that name a file or line outside the import map are dropped. Results ar
 ### Rules and scope
 
 - The scan sends the built-in rules, then the team rules in `.wayfinder/rules.md`, then your rules in `wayfinder.ai.instructions`. Team and user rules are added to the built-in rules. They do not replace them.
-- Run **Wayfinder: Create AI rules file** to write a starter `.wayfinder/rules.md` and open it. An existing file is opened, not overwritten.
-
-  ![A .wayfinder/rules.md file with three team rules about function, class and method length](media/rules-file.png)
+- Run **Wayfinder: Create AI rules file**, or click **Create or open the rules file** in settings, to write a starter `.wayfinder/rules.md` and open it. An existing file is opened, not overwritten.
 
 - Team and user rules together are cut at 2,000 characters to fit the model. The side panel then shows "Rules were cut to fit the model".
 - `wayfinder.ai.scope`: `file` (default) sends only the open file. `neighbours` also sends the code of its direct imports, tests and callers, cut to fit. Neighbours are cut before the open file.
