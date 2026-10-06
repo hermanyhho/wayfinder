@@ -16,6 +16,7 @@ export const FLOOR_LEFT = 16;
 export const MIN_CANVAS_W = 800;
 export const MAX_CANVAS_W = 1280;
 const COLUMN_PADDING = 14;
+const COLUMN_SEARCH_ROW_H = 28;
 export const CLUSTER_SCALE = 0.56;
 
 export interface UiState {
@@ -166,7 +167,7 @@ function layoutColumns(columns: ColumnGroup[][], searchingColumns: boolean[], ui
     const cardX = x + COLUMN_PADDING;
     const cardW = columnWidth - 2 * COLUMN_PADDING;
     const searching = searchingColumns[columnIndex];
-    let cursor = top + 34;
+    let cursor = top + 34 + COLUMN_SEARCH_ROW_H;
     for (const group of groups) {
       if (group !== groups[0]) cursor += GROUP_GAP;
       const collapseKey = `${group.key}:collapsed`;
@@ -193,7 +194,7 @@ function layoutColumns(columns: ColumnGroup[][], searchingColumns: boolean[], ui
     }
     return { x, bottom: cursor };
   });
-  const h = Math.max(top + 34 + ROW_H, ...placed.map((column) => column.bottom)) - top + 4;
+  const h = Math.max(top + 34 + COLUMN_SEARCH_ROW_H + ROW_H, ...placed.map((column) => column.bottom)) - top + 4;
   return { boxes, hiddenCardAnchors, groupHeadings, groupToggles, h, placed };
 }
 
