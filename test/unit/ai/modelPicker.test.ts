@@ -68,7 +68,7 @@ describe("modelPickerItems", () => {
 describe("wayfinder.ai.instructions setting", () => {
   it("states the same rules limit that scans apply", () => {
     const manifest = JSON.parse(readFileSync(join(__dirname, "../../../package.json"), "utf8"));
-    const description: string = manifest.contributes.configuration.properties["wayfinder.ai.instructions"].markdownDescription;
+    const description: string = manifest.contributes.configuration.find((category: { properties: Record<string, unknown> }) => "wayfinder.ai.instructions" in category.properties).properties["wayfinder.ai.instructions"].markdownDescription;
     expect(description).toContain(`cut at ${MAX_RULES_CHARS.toLocaleString("en-US")} characters`);
   });
 });
