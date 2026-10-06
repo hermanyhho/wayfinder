@@ -77,6 +77,14 @@ export function panelFor(view: ViewData, id: string): PanelModel {
   };
 }
 
+// the labels come from the checks in src/graph/neighbourhood.ts, so renaming one there moves it out of Issues
+const ISSUE_LABELS = ["Missing", "Circular import", "Cycle"];
+
+export function groupChecks(checks: Fact[]): { issues: Fact[]; others: Fact[] } {
+  const isIssue = (fact: Fact) => ISSUE_LABELS.includes(fact.label);
+  return { issues: checks.filter(isIssue), others: checks.filter((fact) => !isIssue(fact)) };
+}
+
 export function answerFor(view: ViewData, id: string, action: Action, git: Fact[] = []): Fact[] {
   const node = findNode(view, id);
   switch (action) {

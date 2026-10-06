@@ -7,7 +7,7 @@ Shows where the open file sits in the codebase, in a panel beside the editor. Th
 - **Imports this file:** files that import the open file.
 - **Imported by this file:** project files and packages the open file imports.
 - **Tests:** test files that import the open file.
-- **Issues:** files the folder pattern expects but that are missing, and circular imports.
+- **Issues:** files the folder pattern expects but that are missing, and circular imports, listed in the side panel's Checks tab. A circular import also shows on the map as a red card under Imported by this file.
 - **Second layer:** one more step out in both directions.
 
 Everything above comes from the code. **Scan with AI** can add a summary and things worth checking for the open file, from a local Ollama model or from Claude Code or Codex. AI text is shown under the facts from code and never replaces them.
