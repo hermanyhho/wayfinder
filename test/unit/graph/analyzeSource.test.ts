@@ -116,4 +116,87 @@ describe("analyzeSource", () => {
     expect(result.publicMethods).toEqual(["run"]);
     expect(lines(result.usage.Clock)).toEqual([3, 4]);
   });
+
+  it("lists the class, its constructor properties and its methods with their lines", () => {
+    expect(analysis.members).toEqual([
+      { name: "DocumentService", kind: "class", line: 6, exported: true },
+      { name: "documents", kind: "property", line: 8, exported: false, className: "DocumentService" },
+      { name: "storage", kind: "property", line: 9, exported: false, className: "DocumentService" },
+      { name: "permissions", kind: "property", line: 10, exported: false, className: "DocumentService" },
+      { name: "listForEmployee", kind: "method", line: 13, exported: true, className: "DocumentService" },
+      { name: "upload", kind: "method", line: 18, exported: true, className: "DocumentService" },
+      { name: "remindUnsigned", kind: "method", line: 24, exported: true, className: "DocumentService" },
+    ]);
+  });
+
+  it("lists top-level functions, arrow function consts, types and enums, and whether each is exported", () => {
+    const text = [
+      "export function formatDate() {}",
+      "function helper() {}",
+      "export const toUpper = (value: string) => value.toUpperCase()",
+      "let counter = 0",
+      "export interface Options {}",
+      "type Mode = 'a' | 'b'",
+      "export enum Color { Red }",
+      "const LIMIT = 10",
+      "export { helper, LIMIT as MAX }",
+    ].join("\n");
+    expect(analyzeSource("src/utils.ts", text).members).toEqual([
+      { name: "formatDate", kind: "function", line: 1, exported: true },
+      { name: "helper", kind: "function", line: 2, exported: true },
+      { name: "toUpper", kind: "function", line: 3, exported: true },
+      { name: "counter", kind: "let", line: 4, exported: false },
+      { name: "Options", kind: "interface", line: 5, exported: true },
+      { name: "Mode", kind: "type", line: 6, exported: false },
+      { name: "Color", kind: "enum", line: 7, exported: true },
+      { name: "LIMIT", kind: "const", line: 8, exported: true },
+    ]);
+  });
+
+  it("marks default exports and members of a class that is not exported", () => {
+    const text = [
+      "class Internal {",
+      "  public count = 0",
+      "  run() {}",
+      "}",
+      "export default function main() {}",
+    ].join("\n");
+    expect(analyzeSource("src/main.ts", text).members).toEqual([
+      { name: "Internal", kind: "class", line: 1, exported: false },
+      { name: "count", kind: "property", line: 2, exported: false, className: "Internal" },
+      { name: "run", kind: "method", line: 3, exported: false, className: "Internal" },
+      { name: "main", kind: "function", line: 5, exported: true },
+    ]);
+  });
+
+  it("marks a const exported when export default names it later", () => {
+    const text = ["const fallback = 1", "export default fallback"].join("\n");
+    expect(analyzeSource("src/fallback.ts", text).members).toEqual([{ name: "fallback", kind: "const", line: 1, exported: true }]);
+  });
+
+  it("names an anonymous default class default and marks its public members exported", () => {
+    const text = ["export default class {", "  protected hidden = 1", "  open() {}", "}"].join("\n");
+    expect(analyzeSource("src/anonymous.ts", text).members).toEqual([
+      { name: "default", kind: "class", line: 1, exported: true },
+      { name: "hidden", kind: "property", line: 2, exported: false, className: "default" },
+      { name: "open", kind: "method", line: 3, exported: true, className: "default" },
+    ]);
+  });
+
+  it("marks a public constructor parameter property of an exported class as exported", () => {
+    const text = ["export class Box {", "  constructor(public readonly size: number, private secret: string, plain: string) {}", "}"].join("\n");
+    expect(analyzeSource("src/box.ts", text).members).toEqual([
+      { name: "Box", kind: "class", line: 1, exported: true },
+      { name: "size", kind: "property", line: 2, exported: true, className: "Box" },
+      { name: "secret", kind: "property", line: 2, exported: false, className: "Box" },
+    ]);
+  });
+
+  it("marks public methods exported when their class is exported by a later export list", () => {
+    const text = ["class A { run() {} }", "export { A }"].join("\n");
+    expect(analyzeSource("src/a.ts", text).members).toEqual([
+      { name: "A", kind: "class", line: 1, exported: true },
+      { name: "run", kind: "method", line: 1, exported: true, className: "A" },
+    ]);
+  });
 });

@@ -1,4 +1,6 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { analyzeSource } from "../../../src/graph/analyzeSource";
 import { buildViewData } from "../../../src/graph/neighbourhood";
 import { DOCUMENT_SERVICE, analysisOf, graphOf, serviceGraph } from "../helpers/fixtures";
 
@@ -89,5 +91,18 @@ describe("buildViewData", () => {
     expect(lonely.nodes[0].checks).toContainEqual({ label: "Tests", value: "No test imports this file." });
     const service = buildViewData(serviceGraph(), DOCUMENT_SERVICE);
     expect(service.nodes[0].checks.map((check) => check.label)).not.toContain("Tests");
+  });
+
+  it("lists the members of the open sample DocumentService with their lines", () => {
+    const text = readFileSync("test/sample-project/src/services/DocumentService.ts", "utf8");
+    const view = buildViewData(graphOf([analyzeSource(DOCUMENT_SERVICE, text)]), DOCUMENT_SERVICE);
+    expect(view.members.map(({ name, kind, line, exported }) => `${kind} ${name} line ${line}${exported ? " exported" : ""}`)).toEqual([
+      "class DocumentService line 6 exported",
+      "property documents line 8",
+      "property storage line 9",
+      "property permissions line 10",
+      "method listForEmployee line 13 exported",
+      "method upload line 18 exported",
+    ]);
   });
 });

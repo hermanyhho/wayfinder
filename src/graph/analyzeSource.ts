@@ -1,5 +1,5 @@
 import ts from "typescript";
-import type { CallSite } from "../shared/viewData";
+import type { CallSite, Member, MemberKind } from "../shared/viewData";
 
 export interface ImportRecord {
   specifier: string;
@@ -18,6 +18,7 @@ export interface SourceAnalysis {
   imports: ImportRecord[];
   exports: string[];
   publicMethods: string[];
+  members: Member[];
   hasDocComment: boolean;
   /** imported name -> lines in this file that use it */
   usage: Record<string, CallSite[]>;
@@ -70,7 +71,8 @@ export function analyzeSource(path: string, text: string): SourceAnalysis {
   };
   visit(source);
 
-  return { path, lineCount: sourceLines.length, imports, exports, publicMethods, hasDocComment, usage };
+  const members = collectMembers(source, lineOf);
+  return { path, lineCount: sourceLines.length, imports, exports, publicMethods, members, hasDocComment, usage };
 }
 
 function scriptKindFor(path: string): ts.ScriptKind {
@@ -102,6 +104,10 @@ function hasModifier(node: ts.Node, kind: ts.SyntaxKind): boolean {
   return ts.canHaveModifiers(node) && (ts.getModifiers(node) ?? []).some((modifier) => modifier.kind === kind);
 }
 
+function isPublic(member: ts.Node): boolean {
+  return !hasModifier(member, ts.SyntaxKind.PrivateKeyword) && !hasModifier(member, ts.SyntaxKind.ProtectedKeyword);
+}
+
 function isExported(statement: ts.Statement): boolean {
   return hasModifier(statement, ts.SyntaxKind.ExportKeyword);
 }
@@ -119,8 +125,7 @@ function collectExports(statement: ts.Statement, exports: string[], methods: str
   if (ts.isClassDeclaration(statement)) {
     exports.push(`class ${statement.name?.text ?? "default"}`);
     for (const member of statement.members) {
-      const isPublic = !hasModifier(member, ts.SyntaxKind.PrivateKeyword) && !hasModifier(member, ts.SyntaxKind.ProtectedKeyword);
-      if (ts.isMethodDeclaration(member) && ts.isIdentifier(member.name) && isPublic) methods.push(member.name.text);
+      if (ts.isMethodDeclaration(member) && ts.isIdentifier(member.name) && isPublic(member)) methods.push(member.name.text);
     }
   } else if (ts.isFunctionDeclaration(statement)) exports.push(`function ${statement.name?.text ?? "default"}`);
   else if (ts.isInterfaceDeclaration(statement)) exports.push(`interface ${statement.name.text}`);
@@ -132,6 +137,58 @@ function collectExports(statement: ts.Statement, exports: string[], methods: str
       if (ts.isIdentifier(declaration.name)) exports.push(`${keyword} ${declaration.name.text}`);
     }
   }
+}
+
+function collectMembers(source: ts.SourceFile, lineOf: (node: ts.Node) => number): Member[] {
+  const members: Member[] = [];
+  const add = (name: string, kind: MemberKind, node: ts.Node, exported: boolean, className?: string) =>
+    members.push({ name, kind, line: lineOf(node), exported, ...(className ? { className } : {}) });
+  const exportedByName = localNamesExportedSeparately(source);
+
+  for (const statement of source.statements) {
+    const isExportedName = (name: string) => isExported(statement) || exportedByName.has(name);
+    if (ts.isFunctionDeclaration(statement)) {
+      const name = statement.name?.text ?? "default";
+      add(name, "function", statement.name ?? statement, isExportedName(name));
+    } else if (ts.isInterfaceDeclaration(statement)) add(statement.name.text, "interface", statement.name, isExportedName(statement.name.text));
+    else if (ts.isTypeAliasDeclaration(statement)) add(statement.name.text, "type", statement.name, isExportedName(statement.name.text));
+    else if (ts.isEnumDeclaration(statement)) add(statement.name.text, "enum", statement.name, isExportedName(statement.name.text));
+    else if (ts.isVariableStatement(statement)) {
+      const keyword = statement.declarationList.flags & ts.NodeFlags.Const ? "const" : "let";
+      for (const declaration of statement.declarationList.declarations) {
+        if (!ts.isIdentifier(declaration.name)) continue;
+        const holdsFunction = declaration.initializer && (ts.isArrowFunction(declaration.initializer) || ts.isFunctionExpression(declaration.initializer));
+        add(declaration.name.text, holdsFunction ? "function" : keyword, declaration.name, isExportedName(declaration.name.text));
+      }
+    } else if (ts.isClassDeclaration(statement)) {
+      const className = statement.name?.text ?? "default";
+      const classExported = isExportedName(className);
+      add(className, "class", statement.name ?? statement, classExported);
+      const addClassMember = (name: ts.Identifier, kind: MemberKind, declaration: ts.Node) =>
+        add(name.text, kind, name, classExported && isPublic(declaration), className);
+      for (const member of statement.members) {
+        if (ts.isConstructorDeclaration(member)) {
+          for (const parameter of member.parameters) {
+            if (ts.isParameterPropertyDeclaration(parameter, member) && ts.isIdentifier(parameter.name)) addClassMember(parameter.name, "property", parameter);
+          }
+        } else if (ts.isMethodDeclaration(member) && ts.isIdentifier(member.name)) addClassMember(member.name, "method", member);
+        else if (ts.isPropertyDeclaration(member) && ts.isIdentifier(member.name)) addClassMember(member.name, "property", member);
+      }
+    }
+  }
+
+  return members;
+}
+
+function localNamesExportedSeparately(source: ts.SourceFile): Set<string> {
+  const names = new Set<string>();
+  for (const statement of source.statements) {
+    if (ts.isExportAssignment(statement) && ts.isIdentifier(statement.expression)) names.add(statement.expression.text);
+    else if (ts.isExportDeclaration(statement) && !statement.moduleSpecifier && statement.exportClause && ts.isNamedExports(statement.exportClause)) {
+      for (const element of statement.exportClause.elements) names.add((element.propertyName ?? element.name).text);
+    }
+  }
+  return names;
 }
 
 /** class fields whose type is an imported name, e.g. `private readonly documents: DocumentRepository` */

@@ -17,6 +17,7 @@ export function analysisOf(path: string, imports: string[] = [], extra: Partial<
     }),
     exports: [],
     publicMethods: [],
+    members: [],
     hasDocComment: false,
     usage: {},
     ...extra,
