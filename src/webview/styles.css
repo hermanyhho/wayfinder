@@ -42,7 +42,7 @@ body.vscode-light .green { --c: #17924B; } body.vscode-light .red { --c: #D23A3A
 .flh .ti { flex: none; font-size: 12px; font-weight: 700; color: var(--text); }
 .flh.mine .ti { color: var(--strong); }
 .flh .fp { overflow: hidden; text-overflow: ellipsis; font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
-.colsearch { position: absolute; box-sizing: border-box; height: 24px; padding: 0 8px; font: inherit; font-size: 12px; color: var(--text); background: var(--raise); border: 1px solid var(--l3); border-radius: 6px; outline: none; }
+.colsearch { position: absolute; box-sizing: border-box; height: 26px; padding: 0 8px; font: inherit; font-size: 12px; color: var(--text); background: var(--raise); border: 1px solid var(--l3); border-radius: 6px; outline: none; }
 .colsearch:focus { border-color: var(--l4); }
 .colsearch::placeholder { color: var(--faint); }
 .wires { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; fill: none; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }

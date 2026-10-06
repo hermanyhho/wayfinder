@@ -16,7 +16,7 @@ export const FLOOR_LEFT = 16;
 export const MIN_CANVAS_W = 800;
 export const MAX_CANVAS_W = 1280;
 const COLUMN_PADDING = 14;
-const COLUMN_SEARCH_ROW_H = 32;
+const COLUMN_SEARCH_ROW_H = 34;
 export const CLUSTER_SCALE = 0.56;
 
 export interface UiState {
