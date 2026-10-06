@@ -87,7 +87,7 @@ document.addEventListener("dblclick", (event) => {
 function render(remeasured = false): void {
   if (!view) return;
   renderedWidth = canvasWidth();
-  const result = layout(view, ui, renderedWidth);
+  const result = layout(view, ui, renderedWidth, searchByColumn);
   const map = document.getElementById("map")!;
   // every render replaces the html, so without these classes all nodes pop in again on each click
   map.classList.toggle("keep-nodes", view === renderedView);
