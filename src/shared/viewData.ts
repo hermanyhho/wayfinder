@@ -10,6 +10,18 @@ export interface CallSite {
   text: string;
 }
 
+export type MemberKind = "function" | "class" | "method" | "property" | "const" | "let" | "interface" | "type" | "enum";
+
+export interface Member {
+  name: string;
+  kind: MemberKind;
+  line: number;
+  /** for methods and properties: the class is exported and the member is not private or protected */
+  exported: boolean;
+  /** the class a method or property belongs to */
+  className?: string;
+}
+
 export interface ViewNode {
   /** workspace-relative path, "package:<name>" or "expected:<path>" */
   id: string;
@@ -40,6 +52,8 @@ export interface ViewData {
   nodes: ViewNode[];
   edges: ViewEdge[];
   lineMarks: { line: number; nodeId: string }[];
+  /** what the open file defines, in source order */
+  members: Member[];
   orphanChecks: Fact[] | null;
   scan: { done: number; total: number } | null;
 }

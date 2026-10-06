@@ -103,6 +103,7 @@ export function buildViewData(graph: Graph, path: string, options: ViewOptions =
     nodes: [...nodes.values()],
     edges,
     lineMarks,
+    members: center?.members ?? [],
     orphanChecks: nodes.size === 1 + countExpected(nodes) ? orphanChecks(path, options.packageJsonText ?? "") : null,
     scan: options.scan ?? null,
   };
