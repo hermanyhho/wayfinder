@@ -4,7 +4,7 @@ import { MAX_CANVAS_W, MIN_CANVAS_W, layout, type UiState } from "./layout";
 import { answerFor, panelFor, type Action } from "./panelModel";
 import { renderMap, renderPanel } from "./render";
 
-declare function acquireVsCodeApi(): { postMessage(message: WebviewMessage): void };
+declare function acquireVsCodeApi(): { postMessage(message: WebviewMessage): void; setState(state: { openFile: string }): void };
 
 const vscode = acquireVsCodeApi();
 const IDENTITY = "translate(0px, 0px) scale(1)";
@@ -27,6 +27,7 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
     const openFileChanged = view?.openFile !== message.data.openFile;
     view = message.data;
     if (openFileChanged) {
+      vscode.setState({ openFile: message.data.openFile });
       ui = { selected: view.openFile, layer: 1, open: {} };
       action = "context";
       lastTransform = IDENTITY;

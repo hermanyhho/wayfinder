@@ -26,7 +26,9 @@
     "Visualization"
   ],
   "main": "./out/extension.js",
-  "activationEvents": [],
+  "activationEvents": [
+    "onWebviewPanel:wayfinder.map"
+  ],
   "contributes": {
     "commands": [
       {
