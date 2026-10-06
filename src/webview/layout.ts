@@ -24,8 +24,8 @@ export interface UiState {
 export interface Box { x: number; y: number; w: number; h: number; floor: number; }
 export interface FloorToggle { text: string; icon: "plus" | "minus"; y: number; }
 export interface FloorView { key: string; title: string; path: string; cls: string; x: number; y: number; w: number; h: number; emptyText: string; toggle: FloorToggle | null; }
-export interface NodeView { id: string; x: number; y: number; w: number; cls: string; tag: string; name: string; path: string; }
-export interface MemberView extends NodeView { kind: MemberKind; line: number; }
+export interface NodeView { id: string; x: number; y: number; w: number; cls: string; kind: NodeKind; tag: string; name: string; path: string; }
+export interface MemberView extends Omit<NodeView, "kind"> { kind: MemberKind; line: number; }
 export interface WireView { cls: string; d: string; }
 export interface PortView { cls: string; x: number; y: number; incoming: boolean; }
 export interface BannerView { y: number; title: string; items: Fact[]; progress: number | null; }
@@ -98,7 +98,7 @@ function nodeView(node: ViewNode, box: Box, ui: UiState): NodeView {
     .filter(Boolean)
     .join(" ");
   return {
-    id: node.id, x: box.x, y: box.y, w: box.w, cls,
+    id: node.id, x: box.x, y: box.y, w: box.w, cls, kind: node.kind,
     tag: node.secondLayer ? "Second layer" : KIND_TAG[node.kind],
     name: node.name,
     path: node.kind === "package" ? "npm package" : node.dir,
