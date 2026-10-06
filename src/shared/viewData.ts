@@ -16,6 +16,8 @@ export interface Member {
   name: string;
   kind: MemberKind;
   line: number;
+  /** last line of the declaration, so the editor cursor can be matched to the member it is in */
+  endLine: number;
   /** for methods and properties: the class is exported and the member is not private or protected */
   exported: boolean;
   /** the class a method or property belongs to */

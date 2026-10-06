@@ -23,6 +23,8 @@ export interface UiState {
   selected: string;
   layer: 1 | 2;
   open: Record<string, boolean>;
+  /** 1-based line of the editor cursor in the open file */
+  cursorLine?: number;
 }
 
 export type ColumnKey = "deps" | "members" | "tests";
@@ -136,9 +138,20 @@ function nodeView(node: ViewNode, box: Box, ui: UiState): NodeView {
   };
 }
 
-function memberView(member: Member, id: string, box: Box): MemberView {
+export function memberAtLine(members: Member[], line: number): number {
+  const span = (member: Member) => member.endLine - member.line;
+  let innermost = -1;
+  members.forEach((member, index) => {
+    if (line < member.line || line > member.endLine) return;
+    // members are in source order, so on equal spans the later one is the method inside the class
+    if (innermost === -1 || span(member) <= span(members[innermost])) innermost = index;
+  });
+  return innermost;
+}
+
+function memberView(member: Member, id: string, box: Box, atCursor: boolean): MemberView {
   return {
-    id, x: box.x, y: box.y, w: box.w, cls: "green", tag: member.kind, kind: member.kind, name: member.name, line: member.line,
+    id, x: box.x, y: box.y, w: box.w, cls: atCursor ? "green cur" : "green", tag: member.kind, kind: member.kind, name: member.name, line: member.line,
     path: [member.className, member.exported ? "exported" : ""].filter(Boolean).join(", "),
   };
 }
@@ -294,8 +307,13 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
 
   const nodes = immediate.filter((node) => boxes[node.id]).map((node) => nodeView(node, boxes[node.id], ui));
   const memberById = new Map(view.members.map((member, index) => [memberIds[index], member]));
-  const members = groupsByColumn.members.flatMap((group) => group.ids).filter((id) => boxes[id]).map((id) => memberView(memberById.get(id)!, id, boxes[id]));
-  const layer = { floors, nodes, members, groupHeadings: columns.groupHeadings, groupToggles: columns.groupToggles, wires, ports, banners, height: Math.max(y + 8, 600) };
+  const cursorIndex = ui.cursorLine === undefined ? -1 : memberAtLine(view.members, ui.cursorLine);
+  const cursorMemberId = cursorIndex === -1 ? undefined : memberIds[cursorIndex];
+  const members = groupsByColumn.members.flatMap((group) => group.ids).filter((id) => boxes[id]).map((id) => memberView(memberById.get(id)!, id, boxes[id], id === cursorMemberId));
+  const hiddenCursorGroup = cursorMemberId && !boxes[cursorMemberId] ? groupsByColumn.members.find((group) => group.ids.includes(cursorMemberId)) : undefined;
+  const cursorHeadingKey = hiddenCursorGroup && `${hiddenCursorGroup.key}:collapsed`;
+  const groupHeadings = columns.groupHeadings.map((heading) => (heading.key === cursorHeadingKey ? { ...heading, cls: `${heading.cls} cur` } : heading));
+  const layer = { floors, nodes, members, groupHeadings, groupToggles: columns.groupToggles, wires, ports, banners, height: Math.max(y + 8, 600) };
   return { layer, boxes: { ...columns.hiddenCardAnchors, ...boxes } };
 }
 

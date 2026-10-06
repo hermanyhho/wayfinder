@@ -19,6 +19,7 @@ export type HostMessage =
   | { type: "view"; data: ViewData }
   | { type: "git"; id: string; facts: Fact[] }
   | { type: "aiStatus"; status: AiStatus }
-  | { type: "ai"; openFile: string; scan: AiScanState };
+  | { type: "ai"; openFile: string; scan: AiScanState }
+  | { type: "cursor"; line: number };
 
 export type WebviewMessage = { type: "ready" } | { type: "select"; id: string } | { type: "open"; id: string } | { type: "reveal"; line: number } | { type: "scan" } | { type: "openAiSettings" };

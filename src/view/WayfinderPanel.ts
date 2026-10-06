@@ -17,6 +17,7 @@ const SOURCE_FILE = /\.[cm]?[jt]sx?$/;
 const NUM_CTX = 8192;
 const SCAN_TIMEOUT_MS = 120_000;
 const STATUS_TIMEOUT_MS = 3_000;
+const CURSOR_THROTTLE_MS = 100;
 
 const hashOf = (text: string) => createHash("sha1").update(text).digest("hex");
 
@@ -69,6 +70,7 @@ export class WayfinderPanel implements vscode.Disposable {
   private selected: string | undefined;
   private lastView: ViewData | undefined;
   private refreshTimer: NodeJS.Timeout | undefined;
+  private cursorTimer: NodeJS.Timeout | undefined;
   private disposed = false;
   private aiStatus: AiStatus = { ready: false, reason: "checking Ollama" };
   private readonly scans = new Map<string, { textHash: string; scan: AiScanState }>();
@@ -142,6 +144,7 @@ export class WayfinderPanel implements vscode.Disposable {
         }),
       ),
       vscode.window.onDidChangeActiveTextEditor((editor) => this.followEditor(editor)),
+      vscode.window.onDidChangeTextEditorSelection((event) => this.scheduleCursor(event.textEditor)),
       index.onDidChange(() => this.scheduleRefresh()),
       vscode.workspace.onDidChangeConfiguration((event) => {
         if (event.affectsConfiguration("wayfinder.ai.instructions") || event.affectsConfiguration("wayfinder.ai.scope")) this.dropStoredScans();
@@ -161,6 +164,7 @@ export class WayfinderPanel implements vscode.Disposable {
     this.stopScansOnClose.abort();
     WayfinderPanel.current = undefined;
     clearTimeout(this.refreshTimer);
+    clearTimeout(this.cursorTimer);
     this.marks.dispose();
     for (const disposable of this.disposables) disposable.dispose();
   }
@@ -178,11 +182,29 @@ export class WayfinderPanel implements vscode.Disposable {
     this.refreshTimer = setTimeout(() => this.post(), 150);
   }
 
+  private scheduleCursor(editor: vscode.TextEditor): void {
+    if (this.cursorTimer || !this.isOpenFileEditor(editor)) return;
+    this.cursorTimer = setTimeout(() => {
+      this.cursorTimer = undefined;
+      this.sendCursor(editor);
+    }, CURSOR_THROTTLE_MS);
+  }
+
+  // the open file can change while a throttled cursor update waits, and the line would then mark a member of the new file
+  private sendCursor(editor: vscode.TextEditor | undefined): void {
+    if (editor && this.isOpenFileEditor(editor)) this.send({ type: "cursor", line: editor.selection.active.line + 1 });
+  }
+
+  private isOpenFileEditor(editor: vscode.TextEditor): boolean {
+    return !!this.openFile && this.index.relativePath(editor.document.uri) === this.openFile;
+  }
+
   private post(): void {
     if (!this.openFile) return;
     this.lastView = buildViewData(this.index.graph, this.openFile, { scan: this.index.progress, packageJsonText: this.index.packageJsonText });
     this.send({ type: "view", data: this.lastView });
     this.send({ type: "aiStatus", status: this.aiStatus });
+    this.sendCursor(this.editorFor(this.openFile));
     this.marks.apply(this.editorFor(this.openFile), this.lastView, this.selected ?? this.openFile);
     this.sendScanState(this.openFile).catch(() => undefined);
   }

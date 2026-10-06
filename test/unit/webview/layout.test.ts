@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildViewData } from "../../../src/graph/neighbourhood";
-import { layout, type UiState } from "../../../src/webview/layout";
+import { layout, memberAtLine, type UiState } from "../../../src/webview/layout";
 import { DOCUMENT_SERVICE, analysisOf, graphOf, serviceGraph } from "../helpers/fixtures";
 
 const ui = (patch: Partial<UiState> = {}): UiState => ({ selected: DOCUMENT_SERVICE, layer: 1, open: {}, ...patch });
@@ -158,12 +158,12 @@ describe("layout", () => {
   });
 
   const documentServiceMembers = [
-    { name: "DocumentService", kind: "class" as const, line: 6, exported: true },
-    { name: "documents", kind: "property" as const, line: 8, exported: false, className: "DocumentService" },
-    { name: "storage", kind: "property" as const, line: 9, exported: false, className: "DocumentService" },
-    { name: "permissions", kind: "property" as const, line: 10, exported: false, className: "DocumentService" },
-    { name: "upload", kind: "method" as const, line: 18, exported: true, className: "DocumentService" },
-    { name: "listForEmployee", kind: "method" as const, line: 13, exported: true, className: "DocumentService" },
+    { name: "DocumentService", kind: "class" as const, line: 6, endLine: 23, exported: true },
+    { name: "documents", kind: "property" as const, line: 8, endLine: 8, exported: false, className: "DocumentService" },
+    { name: "storage", kind: "property" as const, line: 9, endLine: 9, exported: false, className: "DocumentService" },
+    { name: "permissions", kind: "property" as const, line: 10, endLine: 10, exported: false, className: "DocumentService" },
+    { name: "upload", kind: "method" as const, line: 18, endLine: 22, exported: true, className: "DocumentService" },
+    { name: "listForEmployee", kind: "method" as const, line: 13, endLine: 16, exported: true, className: "DocumentService" },
   ];
 
   it("groups members by kind in a fixed order, sorts each group A-Z and keeps kind, class and exported mark", () => {
@@ -195,7 +195,7 @@ describe("layout", () => {
   });
 
   it("caps a members group at four cards with its own toggle", () => {
-    const methods = ["a", "b", "c", "d", "e"].map((name, index) => ({ name, kind: "method" as const, line: index + 1, exported: false, className: "K" }));
+    const methods = ["a", "b", "c", "d", "e"].map((name, index) => ({ name, kind: "method" as const, line: index + 1, endLine: index + 1, exported: false, className: "K" }));
     const closed = layout({ ...view(), members: methods }, ui(), 800).inner;
     expect(closed.members).toHaveLength(4);
     expect(closed.groupToggles.filter((toggle) => toggle.key === "members:method:more")).toMatchObject([{ text: "Show 1 more" }]);
@@ -227,6 +227,46 @@ describe("layout", () => {
     expect(collapsed.floors.find((floor) => floor.key === "members")!.h).toBe(expanded.floors.find((floor) => floor.key === "members")!.h - 2 * 74);
   });
 
+  it("finds the innermost member around a line, a method before its class", () => {
+    const nameAt = (line: number) => documentServiceMembers[memberAtLine(documentServiceMembers, line)]?.name;
+    expect([nameAt(20), nameAt(17), nameAt(23), nameAt(2)]).toEqual(["upload", "DocumentService", "DocumentService", undefined]);
+    const oneLine = [
+      { name: "A", kind: "class" as const, line: 1, endLine: 1, exported: false },
+      { name: "run", kind: "method" as const, line: 1, endLine: 1, exported: false, className: "A" },
+    ];
+    expect(memberAtLine(oneLine, 1)).toBe(1);
+  });
+
+  it("includes the first and last line of a member and excludes the lines around it", () => {
+    const method = [{ name: "run", kind: "method" as const, line: 5, endLine: 8, exported: false, className: "K" }];
+    expect([4, 5, 8, 9].map((line) => memberAtLine(method, line))).toEqual([-1, 0, 0, -1]);
+  });
+
+  it("finds no member in an empty list", () => {
+    expect(memberAtLine([], 1)).toBe(-1);
+  });
+
+  it("highlights nothing when the cursor line is unknown", () => {
+    const { inner } = layout({ ...view(), members: documentServiceMembers }, ui(), 800);
+    expect(inner.members.some((member) => member.cls.includes("cur"))).toBe(false);
+  });
+
+  it("marks the member card at the cursor without selecting it", () => {
+    const { inner } = layout({ ...view(), members: documentServiceMembers }, ui({ cursorLine: 20 }), 800);
+    expect(inner.members.filter((member) => member.cls.includes("cur")).map((member) => member.name)).toEqual(["upload"]);
+    expect(inner.groupHeadings.some((heading) => heading.cls.includes("cur"))).toBe(false);
+    expect(inner.nodes.find((node) => node.id === DOCUMENT_SERVICE)?.cls).toContain("sel");
+  });
+
+  it("marks the group heading when the member at the cursor is hidden", () => {
+    const collapsed = layout({ ...view(), members: documentServiceMembers }, ui({ cursorLine: 20, open: { "members:method:collapsed": true } }), 800).inner;
+    expect(collapsed.groupHeadings.filter((heading) => heading.cls.includes("cur")).map((heading) => heading.key)).toEqual(["members:method:collapsed"]);
+    expect(collapsed.members.some((member) => member.cls.includes("cur"))).toBe(false);
+    const methods = ["a", "b", "c", "d", "e"].map((name, index) => ({ name, kind: "method" as const, line: index + 1, endLine: index + 1, exported: false, className: "K" }));
+    const pastShowMore = layout({ ...view(), members: methods }, ui({ cursorLine: 5 }), 800).inner;
+    expect(pastShowMore.groupHeadings.filter((heading) => heading.cls.includes("cur")).map((heading) => heading.key)).toEqual(["members:method:collapsed"]);
+  });
+
   it("shows only the members whose name contains the search text, ignoring case, and leaves other columns unfiltered", () => {
     const { inner } = layout({ ...view(), members: documentServiceMembers }, ui(), 800, { members: "ST" });
     expect(inner.members.map((member) => member.name)).toEqual(["storage", "listForEmployee"]);
@@ -236,7 +276,7 @@ describe("layout", () => {
   });
 
   it("shows a search match that sits in a collapsed group or past the four-card cap, without a group toggle", () => {
-    const methods = ["a", "b", "c", "d", "match"].map((name, index) => ({ name, kind: "method" as const, line: index + 1, exported: false, className: "K" }));
+    const methods = ["a", "b", "c", "d", "match"].map((name, index) => ({ name, kind: "method" as const, line: index + 1, endLine: index + 1, exported: false, className: "K" }));
     const { inner } = layout({ ...view(), members: methods }, ui({ open: { "members:method:collapsed": true } }), 800, { members: "match" });
     expect(inner.members.map((member) => member.name)).toEqual(["match"]);
     expect(inner.groupHeadings.find((heading) => heading.key === "members:method:collapsed")).toMatchObject({ collapsed: false });

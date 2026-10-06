@@ -141,31 +141,32 @@ function collectExports(statement: ts.Statement, exports: string[], methods: str
 
 function collectMembers(source: ts.SourceFile, lineOf: (node: ts.Node) => number): Member[] {
   const members: Member[] = [];
-  const add = (name: string, kind: MemberKind, node: ts.Node, exported: boolean, className?: string) =>
-    members.push({ name, kind, line: lineOf(node), exported, ...(className ? { className } : {}) });
+  const endLineOf = (node: ts.Node) => source.getLineAndCharacterOfPosition(node.getEnd()).line + 1;
+  const add = (name: string, kind: MemberKind, nameNode: ts.Node, declaration: ts.Node, exported: boolean, className?: string) =>
+    members.push({ name, kind, line: lineOf(nameNode), endLine: endLineOf(declaration), exported, ...(className ? { className } : {}) });
   const exportedByName = localNamesExportedSeparately(source);
 
   for (const statement of source.statements) {
     const isExportedName = (name: string) => isExported(statement) || exportedByName.has(name);
     if (ts.isFunctionDeclaration(statement)) {
       const name = statement.name?.text ?? "default";
-      add(name, "function", statement.name ?? statement, isExportedName(name));
-    } else if (ts.isInterfaceDeclaration(statement)) add(statement.name.text, "interface", statement.name, isExportedName(statement.name.text));
-    else if (ts.isTypeAliasDeclaration(statement)) add(statement.name.text, "type", statement.name, isExportedName(statement.name.text));
-    else if (ts.isEnumDeclaration(statement)) add(statement.name.text, "enum", statement.name, isExportedName(statement.name.text));
+      add(name, "function", statement.name ?? statement, statement, isExportedName(name));
+    } else if (ts.isInterfaceDeclaration(statement)) add(statement.name.text, "interface", statement.name, statement, isExportedName(statement.name.text));
+    else if (ts.isTypeAliasDeclaration(statement)) add(statement.name.text, "type", statement.name, statement, isExportedName(statement.name.text));
+    else if (ts.isEnumDeclaration(statement)) add(statement.name.text, "enum", statement.name, statement, isExportedName(statement.name.text));
     else if (ts.isVariableStatement(statement)) {
       const keyword = statement.declarationList.flags & ts.NodeFlags.Const ? "const" : "let";
       for (const declaration of statement.declarationList.declarations) {
         if (!ts.isIdentifier(declaration.name)) continue;
         const holdsFunction = declaration.initializer && (ts.isArrowFunction(declaration.initializer) || ts.isFunctionExpression(declaration.initializer));
-        add(declaration.name.text, holdsFunction ? "function" : keyword, declaration.name, isExportedName(declaration.name.text));
+        add(declaration.name.text, holdsFunction ? "function" : keyword, declaration.name, declaration, isExportedName(declaration.name.text));
       }
     } else if (ts.isClassDeclaration(statement)) {
       const className = statement.name?.text ?? "default";
       const classExported = isExportedName(className);
-      add(className, "class", statement.name ?? statement, classExported);
+      add(className, "class", statement.name ?? statement, statement, classExported);
       const addClassMember = (name: ts.Identifier, kind: MemberKind, declaration: ts.Node) =>
-        add(name.text, kind, name, classExported && isPublic(declaration), className);
+        add(name.text, kind, name, declaration, classExported && isPublic(declaration), className);
       for (const member of statement.members) {
         if (ts.isConstructorDeclaration(member)) {
           for (const parameter of member.parameters) {
