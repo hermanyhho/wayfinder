@@ -90,12 +90,24 @@ export class WayfinderPanel implements vscode.Disposable {
       "wayfinder.map",
       "Wayfinder",
       { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
-      { enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, "out")] },
+      { ...WayfinderPanel.webviewOptions(context), retainContextWhenHidden: true },
     );
     WayfinderPanel.current = new WayfinderPanel(panel, context, index);
     WayfinderPanel.lockGroupKeepingFocus(panel).catch((error: unknown) => {
       void vscode.window.showErrorMessage(`Wayfinder could not finish opening the map: ${String(error)}`);
     });
+  }
+
+  static restore(panel: vscode.WebviewPanel, context: vscode.ExtensionContext, index: WorkspaceIndex, savedState: unknown): void {
+    // the extension folder changes after an update, so the saved resource roots would point at the old one
+    panel.webview.options = WayfinderPanel.webviewOptions(context);
+    const savedFile = (savedState as { openFile?: unknown } | undefined)?.openFile;
+    const restoredFile = typeof savedFile === "string" && SOURCE_FILE.test(savedFile) ? savedFile : undefined;
+    WayfinderPanel.current = new WayfinderPanel(panel, context, index, restoredFile);
+  }
+
+  private static webviewOptions(context: vscode.ExtensionContext): vscode.WebviewOptions {
+    return { enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, "out")] };
   }
 
   // locked here, not via a workbench.editor.autoLockGroups default: an extension default replaces vs code's list,
@@ -112,7 +124,14 @@ export class WayfinderPanel implements vscode.Disposable {
     });
   }
 
-  private constructor(private readonly panel: vscode.WebviewPanel, private readonly context: vscode.ExtensionContext, private readonly index: WorkspaceIndex) {
+  private constructor(
+    private readonly panel: vscode.WebviewPanel,
+    private readonly context: vscode.ExtensionContext,
+    private readonly index: WorkspaceIndex,
+    restoredFile?: string,
+  ) {
+    this.openFile = restoredFile;
+    this.selected = restoredFile;
     panel.webview.html = this.html(context);
     const rulesWatcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(index.root, RULES_FILE));
     this.disposables.push(
