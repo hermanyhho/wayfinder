@@ -18,6 +18,7 @@ let renderedLayer: UiState["layer"] = 1;
 let renderedWidth = MIN_CANVAS_W;
 let renderedAiKey = "";
 const gitFactsById = new Map<string, Fact[]>();
+const savedUiByFile = new Map<string, Pick<UiState, "layer" | "open">>();
 const IDLE_SCAN: AiScanState = { state: "idle" };
 let aiStatus: AiStatus | null = null;
 let aiScan: { openFile: string; scan: AiScanState } | null = null;
@@ -25,11 +26,13 @@ let aiScan: { openFile: string; scan: AiScanState } | null = null;
 window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
   const message = event.data;
   if (message.type === "view") {
-    const openFileChanged = view?.openFile !== message.data.openFile;
+    const previousFile = view?.openFile;
+    const openFileChanged = previousFile !== message.data.openFile;
     view = message.data;
     if (openFileChanged) {
       vscode.setState({ openFile: message.data.openFile });
-      ui = { selected: view.openFile, layer: 1, open: {} };
+      if (previousFile !== undefined) savedUiByFile.set(previousFile, { layer: ui.layer, open: ui.open });
+      ui = { layer: 1, open: {}, ...savedUiByFile.get(view.openFile), selected: view.openFile };
       searchByColumn = {};
       action = "context";
       lastTransform = IDENTITY;
