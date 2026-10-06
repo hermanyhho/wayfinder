@@ -110,11 +110,7 @@ Then: issue count and ranks, suggested order, duplicates or rejections, and anyt
 
 End with: **`Create these issues now? [Y/n]`** and wait.
 
-- `Y`, `yes` or empty: run the commands exactly as shown, then add each new issue to the Wayfinder project:
-  ```
-  gh project item-add <project-number> --owner hermanyhho --url <issue-url>
-  ```
-  Report each URL with title and rank.
+- `Y`, `yes` or empty: run the commands exactly as shown. Report each URL with title and rank.
 - `N`: ask what to change, revise, show again, ask again.
 - Anything else: treat it as a change request, not approval.
 

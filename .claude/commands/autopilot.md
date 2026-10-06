@@ -125,7 +125,6 @@ For each batch:
    - Section 5: fast path or full path per worktree, review chains in parallel.
    - Section 6: up to **2 retries** per issue, then escalate.
    - Section 7: commit, push and open the PR from inside each worktree, `Closes #<N>`, then `git worktree remove`.
-   - After a PR opens, move the issue to "In review" on the Wayfinder project if the board does not do it automatically.
 3. **Record per issue:** PR URL and number, issue it closes, fast or full path, retries and why, escalation and why, primary files.
 4. **Append one telemetry line, MANDATORY:**
 

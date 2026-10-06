@@ -18,7 +18,6 @@ Wayfinder is a VS Code extension. It shows where the open file sits in the codeb
 ## Task tracking: GitHub Issues
 
 - Issues: https://github.com/hermanyhho/wayfinder/issues
-- Status view: the GitHub Project "Wayfinder" (owner `hermanyhho`). Columns follow issue state: Todo, In progress, In review (PR open), Done.
 - Look there first. `gh issue list` from the terminal.
 - Pick an open issue, reference `#<n>` in the commit and PR, close it with `Closes #<n>` in the PR body.
 - New ideas, even rough ones, go straight into Issues. Use the `discussion` label when the idea is not scoped yet.
@@ -39,7 +38,7 @@ Wayfinder is a VS Code extension. It shows where the open file sits in the codeb
 
 When picking up more than one issue, run non-overlapping issues in parallel.
 
-1. Pick candidate issues from the board.
+1. Pick candidate issues from the open issues.
 2. Map each issue to the files it will touch. Start from `Overlap risk:`, then confirm in the code.
 3. Batch at most 3 issues. No two issues in a batch may share a primary file.
 4. Give each agent an explicit file allowlist and denylist.
