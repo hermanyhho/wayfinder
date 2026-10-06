@@ -6,6 +6,7 @@ Shows where the open file sits in the codebase, in a panel beside the editor. Th
 
 - **Imports this file:** files that import the open file.
 - **Imported by this file:** project files and packages the open file imports.
+- **Members:** the functions, classes, methods and other names the open file defines, in source order. Click one to move the editor to its line.
 - **Tests:** test files that import the open file.
 - **Issues:** files the folder pattern expects but that are missing, and circular imports, listed in the side panel's Checks tab. A circular import also shows on the map as a red card under Imported by this file.
 - **Second layer:** one more step out in both directions.

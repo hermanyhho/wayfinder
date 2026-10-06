@@ -206,6 +206,9 @@ export class WayfinderPanel implements vscode.Disposable {
         await vscode.window.showTextDocument(document, { viewColumn: this.editorColumn(), preview: false });
         return;
       }
+      case "reveal":
+        await this.revealLineInOpenFile(message.line);
+        return;
       case "scan":
         await this.scanOpenFile();
         return;
@@ -213,6 +216,14 @@ export class WayfinderPanel implements vscode.Disposable {
         await chooseAiModel();
         return;
     }
+  }
+
+  private async revealLineInOpenFile(line: number): Promise<void> {
+    if (!this.openFile || !Number.isInteger(line)) return;
+    const document = await vscode.workspace.openTextDocument(this.index.uriOf(this.openFile));
+    if (line < 1 || line > document.lineCount) return;
+    const start = document.lineAt(line - 1).range.start;
+    await vscode.window.showTextDocument(document, { viewColumn: this.editorColumn(), preview: false, selection: new vscode.Range(start, start) });
   }
 
   private async refreshAiStatus(): Promise<void> {
