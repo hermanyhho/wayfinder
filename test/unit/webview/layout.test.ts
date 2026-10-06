@@ -17,9 +17,9 @@ describe("layout", () => {
     expect(inner.floors.map((floor) => [floor.title, floor.x, floor.y, floor.w, floor.h])).toEqual([
       ["Imports this file", 16, 16, 768, 112],
       ["Same folder", 16, 168, 768, 112],
-      ["Imported by this file (4)", COLUMN_X[0], 320, 245, 386],
-      ["Members", COLUMN_X[1], 320, 245, 386],
-      ["Tests (1)", COLUMN_X[2], 320, 245, 386],
+      ["Imported by this file (4)", COLUMN_X[0], 320, 245, 400],
+      ["Members", COLUMN_X[1], 320, 245, 400],
+      ["Tests (1)", COLUMN_X[2], 320, 245, 400],
     ]);
     const at = (id: string) => {
       const node = inner.nodes.find((candidate) => candidate.id === id);
@@ -28,9 +28,9 @@ describe("layout", () => {
     expect([at(CONTROLLER), at("src/jobs/SendReminderJob.ts")]).toEqual([[240, 50], [408, 50]]);
     expect(inner.nodes.find((node) => node.id === DOCUMENT_SERVICE)).toMatchObject({ x: 290, y: 202, w: 220 });
     expect(["src/db/repositories/DocumentRepository.ts", "src/auth/PermissionPolicy.ts", "src/integrations/storage/StorageClient.ts", "src/types/document.types.ts"].map(at)).toEqual([
-      [NODE_X[0], 380], [NODE_X[0], 454], [NODE_X[0], 528], [NODE_X[0], 628],
+      [NODE_X[0], 380], [NODE_X[0], 454], [NODE_X[0], 528], [NODE_X[0], 642],
     ]);
-    expect(inner.groupHeadings.map((heading) => [heading.text, heading.y])).toEqual([["Dependencies (3)", 354], ["Types (1)", 602]]);
+    expect(inner.groupHeadings.map((heading) => [heading.text, heading.y])).toEqual([["Dependencies (3)", 354], ["Types (1)", 616]]);
     expect(at("test/services/DocumentService.spec.ts")).toEqual([NODE_X[2], 354]);
     expect(at("expected:src/services/IDocumentService.ts")).toBeUndefined();
   });
@@ -170,15 +170,15 @@ describe("layout", () => {
     const { inner } = layout({ ...view(), members: documentServiceMembers }, ui(), 800);
     expect(inner.floors.find((floor) => floor.key === "members")).toMatchObject({ title: "Members (6)", cls: "", emptyText: "", toggle: null });
     expect(inner.groupHeadings.filter((heading) => heading.key.startsWith("members:")).map((heading) => [heading.text, heading.kind, heading.y])).toEqual([
-      ["Classes (1)", "class", 354], ["Properties (3)", "property", 454], ["Methods (2)", "method", 702],
+      ["Classes (1)", "class", 354], ["Properties (3)", "property", 468], ["Methods (2)", "method", 730],
     ]);
     expect(inner.members.map((member) => [member.x, member.y, member.w, member.tag, member.name, member.path, member.line])).toEqual([
       [NODE_X[1], 380, COLUMN_NODE_W, "class", "DocumentService", "exported", 6],
-      [NODE_X[1], 480, COLUMN_NODE_W, "property", "documents", "DocumentService", 8],
-      [NODE_X[1], 554, COLUMN_NODE_W, "property", "permissions", "DocumentService", 10],
-      [NODE_X[1], 628, COLUMN_NODE_W, "property", "storage", "DocumentService", 9],
-      [NODE_X[1], 728, COLUMN_NODE_W, "method", "listForEmployee", "DocumentService, exported", 13],
-      [NODE_X[1], 802, COLUMN_NODE_W, "method", "upload", "DocumentService, exported", 18],
+      [NODE_X[1], 494, COLUMN_NODE_W, "property", "documents", "DocumentService", 8],
+      [NODE_X[1], 568, COLUMN_NODE_W, "property", "permissions", "DocumentService", 10],
+      [NODE_X[1], 642, COLUMN_NODE_W, "property", "storage", "DocumentService", 9],
+      [NODE_X[1], 756, COLUMN_NODE_W, "method", "listForEmployee", "DocumentService, exported", 13],
+      [NODE_X[1], 830, COLUMN_NODE_W, "method", "upload", "DocumentService, exported", 18],
     ]);
     expect(inner.nodes.some((node) => node.id.startsWith("member:"))).toBe(false);
   });
@@ -235,7 +235,7 @@ describe("layout", () => {
 
   it("shrinks the immediate layer into a frame for the second layer", () => {
     const result = layout(view(), ui({ layer: 2 }), 800);
-    expect(result.outer?.frame).toEqual({ x: 166, y: 172, w: 468, h: 428 });
+    expect(result.outer?.frame).toEqual({ x: 166, y: 172, w: 468, h: 436 });
     expect(result.outer?.transform).toBe("translate(176px, 182px) scale(0.56)");
     expect(["src/api/routes.ts", "src/jobs/scheduler.ts"].map((id) => result.outer?.nodes.find((node) => node.id === id)?.x)).toEqual([240, 408]);
     expect(result.outer?.floors.map((floor) => floor.title)).toEqual(["Second layer: imports the callers", "Second layer: imported by the immediate layer"]);
@@ -250,7 +250,7 @@ describe("layout", () => {
     };
     const schema = startOfHighlightedWire("src/db/schema.ts");
     expect(schema.x).toBeCloseTo(176 + (NODE_X[0] + COLUMN_NODE_W / 2) * 0.56);
-    expect(schema.y).toBe(600);
+    expect(schema.y).toBe(608);
     expect(startOfHighlightedWire("src/db/schema.ts", { "deps:dependency:collapsed": true }).x).toBeCloseTo(176 + (NODE_X[0] + COLUMN_NODE_W / 2) * 0.56);
     expect(startOfHighlightedWire("test/fixtures/documents.fixture.ts").x).toBeCloseTo(176 + (NODE_X[2] + COLUMN_NODE_W / 2) * 0.56);
   });

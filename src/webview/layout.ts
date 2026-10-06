@@ -11,6 +11,7 @@ export const MAX_PER_ROW = 4;
 export const MAX_PER_GROUP = 4;
 const GROUP_HEADING_H = 26;
 const GROUP_TOGGLE_H = 28;
+const GROUP_GAP = 14;
 export const FLOOR_LEFT = 16;
 export const MIN_CANVAS_W = 800;
 export const MAX_CANVAS_W = 1280;
@@ -165,6 +166,7 @@ function layoutColumns(columns: ColumnGroup[][], ui: UiState, top: number, colum
     const cardW = columnWidth - 2 * COLUMN_PADDING;
     let cursor = top + 34;
     for (const group of groups) {
+      if (group !== groups[0]) cursor += GROUP_GAP;
       const collapseKey = `${group.key}:collapsed`;
       const moreKey = `${group.key}:more`;
       const collapsed = !!ui.open[collapseKey];
