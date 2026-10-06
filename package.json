@@ -62,7 +62,7 @@
             "type": "string",
             "default": "",
             "editPresentation": "multilineText",
-            "markdownDescription": "Your own rules for Scan with AI, one per line, for example `Flag every function longer than 40 lines.` Only you get these rules.\n\nTo share rules with your team, put them in `.wayfinder/rules.md` and commit it. [Create or open the rules file](command:wayfinder.createAiRules)\n\nWayfinder adds the team rules first, then yours, after its built-in rules. Together they are cut at 2,000 characters."
+            "markdownDescription": "**Your rules for Scan with AI.** Type them in the box below, one rule per line. Wayfinder adds them to every scan. Only you get these rules.\n\nExamples:\n- `Flag every function longer than 40 lines.`\n- `Flag any use of the any type.`\n- `Point out functions with no error handling around network calls.`\n\nTo share rules with your team, put them in `.wayfinder/rules.md` and commit it. [Create or open the rules file](command:wayfinder.createAiRules)\n\nWayfinder adds the team rules first, then yours, after its built-in rules. Together they are cut at 2,000 characters."
           }
         }
       },
