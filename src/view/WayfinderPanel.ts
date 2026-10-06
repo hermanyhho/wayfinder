@@ -64,11 +64,24 @@ export async function createAiRulesFile(): Promise<void> {
   await vscode.window.showTextDocument(rulesFile, { preview: false });
 }
 
+// vs code keeps a locked group open when its last tab closes, so files opened later skip that empty space.
+// the map's own tab can still be listed while it closes.
+function closeGroupIfOnlyMapLeft(mapColumn: vscode.ViewColumn | undefined): void {
+  const mapGroup = vscode.window.tabGroups.all.find((group) => group.viewColumn === mapColumn);
+  if (!mapGroup || !mapGroup.tabs.every(isMapTab)) return;
+  void vscode.window.tabGroups.close(mapGroup);
+}
+
+function isMapTab(tab: vscode.Tab): boolean {
+  return tab.input instanceof vscode.TabInputWebview && tab.input.viewType.endsWith("wayfinder.map");
+}
+
 export class WayfinderPanel implements vscode.Disposable {
   private static current: WayfinderPanel | undefined;
   private readonly marks = new EditorMarks();
   private readonly disposables: vscode.Disposable[] = [];
   private openFile: string | undefined;
+  private mapColumn: vscode.ViewColumn | undefined;
   private selected: string | undefined;
   private lastView: ViewData | undefined;
   private refreshTimer: NodeJS.Timeout | undefined;
@@ -136,10 +149,12 @@ export class WayfinderPanel implements vscode.Disposable {
   ) {
     this.openFile = restoredFile;
     this.selected = restoredFile;
+    this.mapColumn = panel.viewColumn;
     panel.webview.html = this.html(context);
     const rulesWatcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(index.root, RULES_FILE));
     this.disposables.push(
       panel.onDidDispose(() => this.dispose()),
+      panel.onDidChangeViewState((event) => (this.mapColumn = event.webviewPanel.viewColumn)),
       panel.webview.onDidReceiveMessage((message: WebviewMessage) =>
         this.onMessage(message).catch((error: unknown) => {
           void vscode.window.showErrorMessage(`Wayfinder could not handle that action: ${String(error)}`);
@@ -169,6 +184,7 @@ export class WayfinderPanel implements vscode.Disposable {
     clearTimeout(this.cursorTimer);
     this.marks.dispose();
     for (const disposable of this.disposables) disposable.dispose();
+    closeGroupIfOnlyMapLeft(this.mapColumn);
   }
 
   private followEditor(editor: vscode.TextEditor | undefined): void {
