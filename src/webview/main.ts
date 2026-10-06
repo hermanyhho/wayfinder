@@ -48,6 +48,7 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
   if (message.type === "ai") aiScan = { openFile: message.openFile, scan: message.scan };
   if (message.type === "cursor") ui = { ...ui, cursorLine: message.line };
   render();
+  if (message.type === "focusOpenFile" && view) focusCard(view.openFile);
 });
 
 document.addEventListener("click", (event) => {

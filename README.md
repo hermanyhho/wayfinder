@@ -26,7 +26,14 @@ Everything above comes from the code. **Scan with AI** can add a summary and thi
 
 ## Use
 
-Open a TypeScript or JavaScript file and run **Wayfinder: Show map for this file**, or click the map button in the editor title bar.
+Open a TypeScript or JavaScript file and run **Wayfinder: Show map for this file**, or click the map button in the editor title bar, or press Cmd+Alt+M (Ctrl+Alt+M on Windows and Linux).
+
+The shortcut opens or shows the map and moves keyboard focus to the current file card. Press it again while the map has focus to go back to the editor, with the cursor where it was. Two settings change this:
+
+- `wayfinder.shortcut.focusMap` (default on): turn off to keep focus in the editor when the map opens or shows.
+- `wayfinder.shortcut.returnToEditor` (default on): turn off and the shortcut does nothing while the map has focus.
+
+To use another key, open Keyboard Shortcuts (Cmd+K Cmd+S, or Ctrl+K Ctrl+S), search for `Wayfinder` and change **Wayfinder: Show map for this file**. To go back to the editor with the same key, change **Wayfinder: Return to the editor from the map** too.
 
 Click a card to select it. The lines in the open file that use that file are highlighted. Coloured dots in the gutter mark the lines that use a file on the map, in that file's colour. Cmd+click (Ctrl+click on Windows and Linux) opens the file.
 

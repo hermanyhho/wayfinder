@@ -20,6 +20,7 @@ export type HostMessage =
   | { type: "git"; id: string; facts: Fact[] }
   | { type: "aiStatus"; status: AiStatus }
   | { type: "ai"; openFile: string; scan: AiScanState }
-  | { type: "cursor"; line: number };
+  | { type: "cursor"; line: number }
+  | { type: "focusOpenFile" };
 
 export type WebviewMessage = { type: "ready" } | { type: "select"; id: string } | { type: "open"; id: string } | { type: "reveal"; line: number } | { type: "scan" } | { type: "openSettings" };
