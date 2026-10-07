@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { removeFile } from "../../../src/graph/buildGraph";
-import { circularWith, expectedFiles, isTestFile, sizeOutlier, subjectOf, testsOf } from "../../../src/graph/patterns";
+import { circularWith, expectedFiles, isTestFile, sizeOutlier, subjectByFileNameOf, subjectOf, testsOf } from "../../../src/graph/patterns";
 import { DOCUMENT_SERVICE, analysisOf, graphOf, serviceGraph } from "../helpers/fixtures";
 
 describe("pattern rules", () => {
@@ -69,5 +69,67 @@ describe("pattern rules", () => {
     const graph = graphOf(sizes.map((lineCount, index) => analysisOf(`src/s/F${index}.ts`, [], { lineCount })));
     expect(sizeOutlier(graph, "src/s/F0.ts")).toEqual({ lines: 1240, median: 120 });
     expect(sizeOutlier(graph, "src/s/F1.ts")).toBeNull();
+  });
+});
+
+describe("when a test name has extra dotted parts before .test or .spec", () => {
+  it("should find the imported subject of an integration test in __tests__", () => {
+    const graph = graphOf([analysisOf("src/a/Foo.ts"), analysisOf("src/a/__tests__/Foo.int.test.ts", ["src/a/Foo.ts"])]);
+
+    const subject = subjectOf(graph, "src/a/__tests__/Foo.int.test.ts");
+
+    expect(subject).toBe("src/a/Foo.ts");
+  });
+
+  it("should prefer an exact base name match over a shorter one", () => {
+    const graph = graphOf([analysisOf("src/a/Foo.ts"), analysisOf("src/a/Foo.types.ts"), analysisOf("src/a/Foo.types.test.ts", ["src/a/Foo.ts", "src/a/Foo.types.ts"])]);
+
+    const subject = subjectOf(graph, "src/a/Foo.types.test.ts");
+
+    expect(subject).toBe("src/a/Foo.types.ts");
+  });
+});
+
+describe("when a test does not import the file it tests", () => {
+  it("should find the subject one folder up when the test is in __tests__", () => {
+    const graph = graphOf([analysisOf("src/a/Foo.ts"), analysisOf("src/a/__tests__/Foo.int.test.ts")]);
+
+    const subject = subjectByFileNameOf(graph, "src/a/__tests__/Foo.int.test.ts");
+
+    expect(subject).toBe("src/a/Foo.ts");
+  });
+
+  it("should find the subject next to an e2e spec", () => {
+    const graph = graphOf([analysisOf("src/a/Foo.ts"), analysisOf("src/a/Foo.e2e.spec.ts")]);
+
+    const subject = subjectByFileNameOf(graph, "src/a/Foo.e2e.spec.ts");
+
+    expect(subject).toBe("src/a/Foo.ts");
+  });
+
+  it("should find nothing when no file nearby has the same base name", () => {
+    const graph = graphOf([analysisOf("src/a/Bar.ts"), analysisOf("src/Foo.ts"), analysisOf("src/a/b/__tests__/Foo.int.test.ts")]);
+
+    const subject = subjectByFileNameOf(graph, "src/a/b/__tests__/Foo.int.test.ts");
+
+    expect(subject).toBeNull();
+  });
+});
+
+describe("when several files nearby could be the subject by name", () => {
+  it("should prefer the exact base name over a shorter prefix match", () => {
+    const graph = graphOf([analysisOf("src/a/Foo.ts"), analysisOf("src/a/Foo.types.ts"), analysisOf("src/a/Foo.types.test.ts")]);
+
+    const subject = subjectByFileNameOf(graph, "src/a/Foo.types.test.ts");
+
+    expect(subject).toBe("src/a/Foo.types.ts");
+  });
+
+  it("should ignore other test files with the same base name", () => {
+    const graph = graphOf([analysisOf("src/a/Foo.test.ts"), analysisOf("src/a/Foo.e2e.spec.ts")]);
+
+    const subject = subjectByFileNameOf(graph, "src/a/Foo.e2e.spec.ts");
+
+    expect(subject).toBeNull();
   });
 });

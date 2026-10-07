@@ -106,3 +106,34 @@ describe("buildViewData", () => {
     ]);
   });
 });
+
+describe("when a test file is open", () => {
+  const subjectNodeOf = (view: ReturnType<typeof buildViewData>) => view.nodes.find((node) => node.kind === "subject");
+
+  it("should show the imported subject of an integration test with a solid edge", () => {
+    const graph = graphOf([analysisOf("src/a/Foo.ts"), analysisOf("src/a/__tests__/Foo.int.test.ts", ["src/a/Foo.ts"])]);
+
+    const view = buildViewData(graph, "src/a/__tests__/Foo.int.test.ts");
+
+    expect(subjectNodeOf(view)?.id).toBe("src/a/Foo.ts");
+    expect(view.edges).toContainEqual({ from: "src/a/__tests__/Foo.int.test.ts", to: "src/a/Foo.ts", style: "solid" });
+  });
+
+  it("should show a subject matched by file name with a dashed edge and a fact saying so", () => {
+    const graph = graphOf([analysisOf("src/a/Foo.ts"), analysisOf("src/a/__tests__/Foo.int.test.ts")]);
+
+    const view = buildViewData(graph, "src/a/__tests__/Foo.int.test.ts");
+
+    expect(subjectNodeOf(view)?.id).toBe("src/a/Foo.ts");
+    expect(subjectNodeOf(view)?.facts).toContainEqual({ label: "Link", value: "Matched by file name, not imported" });
+    expect(view.edges).toContainEqual({ from: "src/a/__tests__/Foo.int.test.ts", to: "src/a/Foo.ts", style: "dashed" });
+  });
+
+  it("should show no subject when no file matches the test name", () => {
+    const graph = graphOf([analysisOf("src/a/Bar.ts"), analysisOf("src/a/__tests__/Foo.int.test.ts")]);
+
+    const view = buildViewData(graph, "src/a/__tests__/Foo.int.test.ts");
+
+    expect(subjectNodeOf(view)).toBeUndefined();
+  });
+});
