@@ -37,7 +37,7 @@ export interface GroupHeadingView { key: string; x: number; y: number; w: number
 export interface GroupToggleView extends FloorToggle { key: string; x: number; }
 export interface FloorView { key: string; title: string; path: string; cls: string; x: number; y: number; w: number; h: number; emptyText: string; toggle: FloorToggle | null; search?: string; }
 export interface NodeView { id: string; x: number; y: number; w: number; cls: string; kind: NodeKind; tag: string; name: string; path: string; }
-export interface MemberView extends Omit<NodeView, "kind"> { kind: MemberKind; line: number; }
+export interface MemberView extends Omit<NodeView, "kind"> { kind: MemberKind; line: number; focus?: Member["focus"]; }
 export interface WireView { cls: string; d: string; }
 export interface PortView { cls: string; x: number; y: number; incoming: boolean; }
 export interface BannerView { y: number; title: string; items: Fact[]; progress: number | null; }
@@ -84,13 +84,19 @@ const MEMBER_GROUPS: { kind: MemberKind; title: string }[] = [
   { kind: "let", title: "Variables" },
   { kind: "property", title: "Properties" },
   { kind: "method", title: "Methods" },
+  { kind: "suite", title: "Suites" },
+  { kind: "test", title: "Tests" },
 ];
+const SOURCE_ORDER_KINDS: MemberKind[] = ["suite", "test"];
 
 interface ColumnGroup { key: string; heading: { kind: GroupKind; title: string; cls: string } | null; ids: string[]; }
 
 const memberIdOf = (index: number) => `member:${index}`;
 const idsByName = (entries: { id: string; name: string }[]) =>
   [...entries].sort((left, right) => left.name.localeCompare(right.name)).map((entry) => entry.id);
+
+const membersInGroupOrder = (entries: { id: string; name: string }[], kind: MemberKind) =>
+  SOURCE_ORDER_KINDS.includes(kind) ? entries.map((entry) => entry.id) : idsByName(entries);
 
 const CALLERS_FLOOR = 0;
 const OPEN_FILE_FLOOR = 1;
@@ -152,7 +158,8 @@ export function memberAtLine(members: Member[], line: number): number {
 function memberView(member: Member, id: string, box: Box, atCursor: boolean): MemberView {
   return {
     id, x: box.x, y: box.y, w: box.w, cls: atCursor ? "green cur" : "green", tag: member.kind, kind: member.kind, name: member.name, line: member.line,
-    path: [member.className, member.exported ? "exported" : ""].filter(Boolean).join(", "),
+    path: [member.className ?? member.suiteTitle, member.exported ? "exported" : ""].filter(Boolean).join(", "),
+    ...(member.focus ? { focus: member.focus } : {}),
   };
 }
 
@@ -251,7 +258,7 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
     })),
     members: MEMBER_GROUPS.map((group) => ({
       key: `members:${group.kind}`, heading: { kind: group.kind, title: group.title, cls: "green" },
-      ids: idsByName(view.members.flatMap((member, index) => (member.kind === group.kind ? [{ id: memberIds[index], name: member.name }] : []))),
+      ids: membersInGroupOrder(view.members.flatMap((member, index) => (member.kind === group.kind ? [{ id: memberIds[index], name: member.name }] : [])), group.kind),
     })),
     tests: [{ key: "tests", heading: null, ids: idsByName(nodesInColumn("tests")) }],
   };

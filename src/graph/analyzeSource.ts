@@ -1,5 +1,6 @@
 import ts from "typescript";
 import type { CallSite, Member, MemberKind } from "../shared/viewData";
+import { isTestFile } from "./patterns";
 
 export interface ImportRecord {
   specifier: string;
@@ -72,6 +73,10 @@ export function analyzeSource(path: string, text: string): SourceAnalysis {
   visit(source);
 
   const members = collectMembers(source, lineOf);
+  if (isTestFile(path)) {
+    members.push(...collectTestCases(source, lineOf));
+    members.sort((left, right) => left.line - right.line);
+  }
   return { path, lineCount: sourceLines.length, imports, exports, publicMethods, members, hasDocComment, usage };
 }
 
@@ -179,6 +184,41 @@ function collectMembers(source: ts.SourceFile, lineOf: (node: ts.Node) => number
   }
 
   return members;
+}
+
+const TEST_CALLS: Record<string, { kind: MemberKind; skipped: boolean }> = {
+  describe: { kind: "suite", skipped: false },
+  xdescribe: { kind: "suite", skipped: true },
+  it: { kind: "test", skipped: false },
+  test: { kind: "test", skipped: false },
+  xit: { kind: "test", skipped: true },
+};
+
+function collectTestCases(source: ts.SourceFile, lineOf: (node: ts.Node) => number): Member[] {
+  const testCases: Member[] = [];
+  const visit = (node: ts.Node, suiteTitle: string | undefined) => {
+    const testCase = ts.isCallExpression(node) ? testCaseOf(node) : undefined;
+    if (testCase) {
+      const endLine = source.getLineAndCharacterOfPosition(node.getEnd()).line + 1;
+      testCases.push({ name: testCase.title, kind: testCase.kind, line: lineOf(node), endLine, exported: false, ...(suiteTitle ? { suiteTitle } : {}), ...(testCase.focus ? { focus: testCase.focus } : {}) });
+    }
+    const innerSuiteTitle = testCase?.kind === "suite" ? testCase.title : suiteTitle;
+    ts.forEachChild(node, (child) => visit(child, innerSuiteTitle));
+  };
+  visit(source, undefined);
+  return testCases;
+}
+
+function testCaseOf(call: ts.CallExpression): { title: string; kind: MemberKind; focus?: "only" | "skip" } | undefined {
+  const [firstArgument] = call.arguments;
+  if (!firstArgument || !ts.isStringLiteralLike(firstArgument)) return undefined;
+  const callee = call.expression;
+  const [calleeName, modifier] = ts.isPropertyAccessExpression(callee) ? [callee.expression, callee.name.text] : [callee, undefined];
+  if (!ts.isIdentifier(calleeName) || !Object.hasOwn(TEST_CALLS, calleeName.text)) return undefined;
+  const focusModifier = modifier === "only" || modifier === "skip" ? modifier : undefined;
+  if (modifier !== undefined && focusModifier === undefined) return undefined;
+  const { kind, skipped } = TEST_CALLS[calleeName.text];
+  return { title: firstArgument.text, kind, focus: skipped ? "skip" : focusModifier };
 }
 
 function localNamesExportedSeparately(source: ts.SourceFile): Set<string> {
