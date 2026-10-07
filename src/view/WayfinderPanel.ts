@@ -258,14 +258,11 @@ export class WayfinderPanel implements vscode.Disposable {
         this.send({ type: "git", id: message.id, facts });
         return;
       }
-      case "open": {
-        if (!this.index.graph.files.has(message.id)) return;
-        const document = await vscode.workspace.openTextDocument(this.index.uriOf(message.id));
-        await vscode.window.showTextDocument(document, { viewColumn: this.editorColumn(), preview: false });
+      case "open":
+        if (this.index.graph.files.has(message.id)) await this.showFile(message.id, message.line);
         return;
-      }
       case "reveal":
-        await this.revealLineInOpenFile(message.line);
+        if (this.openFile) await this.showFile(this.openFile, message.line);
         return;
       case "scan":
         await this.scanOpenFile();
@@ -276,12 +273,12 @@ export class WayfinderPanel implements vscode.Disposable {
     }
   }
 
-  private async revealLineInOpenFile(line: number): Promise<void> {
-    if (!this.openFile || !Number.isInteger(line)) return;
-    const document = await vscode.workspace.openTextDocument(this.index.uriOf(this.openFile));
-    if (line < 1 || line > document.lineCount) return;
-    const start = document.lineAt(line - 1).range.start;
-    await vscode.window.showTextDocument(document, { viewColumn: this.editorColumn(), preview: false, selection: new vscode.Range(start, start) });
+  private async showFile(path: string, line?: number): Promise<void> {
+    if (line !== undefined && !Number.isInteger(line)) return;
+    const document = await vscode.workspace.openTextDocument(this.index.uriOf(path));
+    // the file can be shorter than when it was scanned, so a line past the end goes to the last line
+    const start = line === undefined ? undefined : document.lineAt(Math.min(Math.max(line, 1), document.lineCount) - 1).range.start;
+    await vscode.window.showTextDocument(document, { viewColumn: this.editorColumn(), preview: false, ...(start ? { selection: new vscode.Range(start, start) } : {}) });
   }
 
   private async refreshAiStatus(): Promise<void> {

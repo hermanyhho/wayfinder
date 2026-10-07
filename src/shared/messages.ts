@@ -23,4 +23,4 @@ export type HostMessage =
   | { type: "cursor"; line: number }
   | { type: "focusOpenFile" };
 
-export type WebviewMessage = { type: "ready" } | { type: "select"; id: string } | { type: "open"; id: string } | { type: "reveal"; line: number } | { type: "scan" } | { type: "openSettings" };
+export type WebviewMessage = { type: "ready" } | { type: "select"; id: string } | { type: "open"; id: string; line?: number } | { type: "reveal"; line: number } | { type: "scan" } | { type: "openSettings" };
