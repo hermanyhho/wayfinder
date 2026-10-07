@@ -1,6 +1,6 @@
 import type { AiScanState, AiStatus } from "../shared/messages";
 import type { Fact, MemberKind, NodeKind, ViewData } from "../shared/viewData";
-import type { BannerView, FloorView, GroupHeadingView, GroupKind, GroupToggleView, LayerView, Layout, MemberView, NodeView, PortView, SecondLayerView, UiState, WireView } from "./layout";
+import type { BannerView, FloorView, GroupHeadingView, GroupKind, GroupToggleView, LayerView, Layout, MemberView, NodeView, PortView, SecondLayerView, UiState, UsesListView, WireView } from "./layout";
 import { groupChecks, panelFor, type Action, type PanelModel } from "./panelModel";
 
 const HTML_ESCAPES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
@@ -67,8 +67,22 @@ const renderOpenIcon = (node: NodeView) =>
   `<button class="ndopen" style="left:${node.x + node.w - 22}px;top:${node.y + 1}px" data-action="open" data-id="${escapeHtml(node.id)}" title="Open file (or ⌘/Ctrl+click the node)" aria-label="Open ${escapeHtml(node.name)}"><svg viewBox="0 0 24 24" aria-hidden="true">${OPEN_ICON}</svg></button>`;
 const renderNode = (node: NodeView, canOpen: (id: string) => boolean) =>
   `<button class="nd ${node.cls}" style="left:${node.x}px;top:${node.y}px;width:${node.w}px" data-action="select" data-id="${escapeHtml(node.id)}" data-nav="${escapeHtml(node.id)}" title="${escapeHtml(node.id)}"><span class="nh"><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${NODE_KIND_ICONS[node.kind]}</svg>${escapeHtml(node.tag)}</span><span class="nn">${escapeHtml(node.name)}</span><span class="np">${escapeHtml(node.path)}</span></button>${canOpen(node.id) ? renderOpenIcon(node) : ""}`;
+const fileNameOf = (path: string) => path.slice(path.lastIndexOf("/") + 1);
+const renderUsesList = (list: UsesListView) =>
+  `<div class="uses" style="left:${list.x}px;top:${list.y}px;width:${list.w}px">${list.uses
+    .map((use) => `<button class="use" data-action="open" data-id="${escapeHtml(use.file)}" data-value="${use.line}" title="${escapeHtml(use.file)}:${use.line}"><span class="usef">${escapeHtml(fileNameOf(use.file))}</span><span class="usel">line ${use.line}</span></button>`)
+    .join("")}</div>`;
+// the usage row is a sibling of the card, because a button inside the card button is invalid html
+function renderMemberUsage(member: MemberView): string {
+  const usage = member.usage;
+  if (!usage) return "";
+  const count = usage.listKey
+    ? `<button class="nucount" data-action="toggle" data-value="${escapeHtml(usage.listKey)}" aria-expanded="${!!usage.list}">${escapeHtml(usage.text)}</button>`
+    : `<span class="nunone">${escapeHtml(usage.text)}</span>`;
+  return `<div class="nu" style="left:${member.x + 8}px;top:${member.y + 53}px;width:${member.w - 16}px">line ${member.line}<span class="nusep">|</span>${count}</div>${usage.list ? renderUsesList(usage.list) : ""}`;
+}
 const renderMember = (member: MemberView) =>
-  `<button class="nd ${member.cls}" style="left:${member.x}px;top:${member.y}px;width:${member.w}px" data-action="reveal" data-value="${member.line}" data-nav="${member.id}" title="Go to line ${member.line}"><span class="nh"><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${MEMBER_KIND_ICONS[member.kind]}</svg>${escapeHtml(member.tag)}${member.focus ? `<span class="chip">${member.focus}</span>` : ""}</span><span class="nn">${escapeHtml(member.name)}</span><span class="np">${escapeHtml(member.path)}</span></button>`;
+  `<button class="nd ${member.cls}${member.usage ? " withusage" : ""}" style="left:${member.x}px;top:${member.y}px;width:${member.w}px" data-action="reveal" data-value="${member.line}" data-nav="${member.id}" title="Go to line ${member.line}"><span class="nh"><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${MEMBER_KIND_ICONS[member.kind]}</svg>${escapeHtml(member.tag)}${member.focus ? `<span class="chip">${member.focus}</span>` : ""}</span><span class="nn">${escapeHtml(member.name)}</span><span class="np">${escapeHtml(member.path)}</span></button>${renderMemberUsage(member)}`;
 const GROUP_ICONS: Record<GroupKind, string> = { ...NODE_KIND_ICONS, ...MEMBER_KIND_ICONS };
 const CHEVRON_ICON = '<path d="m6 9 6 6 6-6"></path>';
 const renderGroupHeading = (heading: GroupHeadingView) =>
@@ -126,7 +140,7 @@ function renderAiFindings(ai: PanelAi | null): string {
   if (!ai || ai.scan.state !== "done") return "";
   if (!ai.scan.result.findings.length) return `<div class="aiblock">${aiHead("Worth checking")}<div class="based">The model found nothing worth checking.</div></div>`;
   const items = ai.scan.result.findings
-    .map((finding) => `<li><span class="mono">${escapeHtml(finding.file.slice(finding.file.lastIndexOf("/") + 1))}:${finding.line}</span> ${escapeHtml(finding.text)}</li>`)
+    .map((finding) => `<li><span class="mono">${escapeHtml(fileNameOf(finding.file))}:${finding.line}</span> ${escapeHtml(finding.text)}</li>`)
     .join("");
   return `<div class="aiblock">${aiHead("Worth checking")}<ul class="findings">${items}</ul><div class="based">Every file and line named here exists in the import map.</div></div>`;
 }

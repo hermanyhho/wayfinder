@@ -66,7 +66,7 @@ document.addEventListener("click", (event) => {
   if (kind === "toggle" && value) ui = { ...ui, open: { ...ui.open, [value]: !ui.open[value] } };
   if (kind === "layer" && value) ui = { ...ui, layer: value === "2" ? 2 : 1 };
   if (kind === "ask" && value) action = value as Action;
-  if (kind === "open" && id) vscode.postMessage({ type: "open", id });
+  if (kind === "open" && id) vscode.postMessage({ type: "open", id, ...(value ? { line: Number(value) } : {}) });
   if (kind === "reveal" && value) vscode.postMessage({ type: "reveal", line: Number(value) });
   if (kind === "ai-settings") vscode.postMessage({ type: "openSettings" });
   if (kind === "scan") {

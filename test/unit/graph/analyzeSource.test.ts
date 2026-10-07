@@ -294,3 +294,41 @@ describe("when a test file has an xdescribe", () => {
     expect(suite?.focus).toBe("skip");
   });
 });
+
+describe("when a file declares and uses names", () => {
+  const source = [
+    'import { Gadget } from "./Gadget"',
+    'export { Gadget as Widget } from "./Gadget"',
+    "export function build() {",
+    "  const local = 1",
+    "  return local + other",
+    "}",
+    "class Box { size = 1 }",
+    "service.remove(1)",
+    "service.remove(2)",
+  ].join("\n");
+  const analysis = analyzeSource("src/build.ts", source);
+
+  it("should list names that are read", () => {
+    expect(analysis.referencedNames.has("other")).toBe(true);
+    expect(analysis.referencedNames.has("local")).toBe(true);
+    expect(analysis.referencedNames.has("service")).toBe(true);
+  });
+
+  it("should not list names that are only declared", () => {
+    expect(analysis.referencedNames.has("build")).toBe(false);
+    expect(analysis.referencedNames.has("Box")).toBe(false);
+    expect(analysis.referencedNames.has("size")).toBe(false);
+  });
+
+  it("should list a name passed in a shorthand object property", () => {
+    const shorthand = analyzeSource("src/helpers.ts", ["function helper() {}", "module.exports = { helper }"].join("\n"));
+
+    expect(shorthand.referencedNames.has("helper")).toBe(true);
+  });
+
+  it("should record the first line of each property access", () => {
+    expect(analysis.firstPropertyAccessLine.get("remove")).toBe(8);
+    expect(analysis.firstPropertyAccessLine.has("missing")).toBe(false);
+  });
+});
