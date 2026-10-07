@@ -1,7 +1,7 @@
 import type { CallSite, Fact, NodeKind, ViewData, ViewEdge, ViewNode } from "../shared/viewData";
 import type { SourceAnalysis } from "./analyzeSource";
 import { dependenciesOf, dependentsOf, type Dependency, type Graph } from "./buildGraph";
-import { baseNameOf, circularWith, expectedFiles, fileNameOf, folderOf, isTestFile, sizeOutlier, subjectOf, testsOf } from "./patterns";
+import { baseNameOf, circularWith, expectedFiles, fileNameOf, folderOf, isTestFile, sizeOutlier, subjectByFileNameOf, subjectOf, testsOf } from "./patterns";
 
 export interface ViewOptions {
   packageJsonText?: string;
@@ -51,6 +51,11 @@ export function buildViewData(graph: Graph, path: string, options: ViewOptions =
     const cycleText = `${fileNameOf(path)} imports it on line ${dependency.line}. It imports ${fileNameOf(path)} on line ${back.line}.`;
     node.checks.push({ label: "Cycle", value: cycleText });
     here.checks.push({ label: "Circular import", value: `${fileNameOf(dependency.to)}: ${cycleText}` });
+  }
+
+  const subjectByFileName = isTestFile(path) && !subject ? subjectByFileNameOf(graph, path) : null;
+  if (subjectByFileName) {
+    add({ ...fileNode(graph, subjectByFileName, "subject", false), matchedByFileName: true });
   }
 
   for (const use of graph.packages.get(path) ?? []) {
@@ -104,6 +109,7 @@ export function buildViewData(graph: Graph, path: string, options: ViewOptions =
 
   return {
     openFile: path,
+    openFileIsTest: isTestFile(path),
     nodes: [...nodes.values()],
     edges,
     lineMarks,

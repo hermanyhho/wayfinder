@@ -39,9 +39,24 @@ export function testsOf(graph: Graph, path: string): string[] {
   return dependentsOf(graph, path).map((dependency) => dependency.from).filter(isTestFile);
 }
 
+function bestSubjectByName(testPath: string, candidates: string[]): string | null {
+  const testBase = baseNameOf(testPath);
+  return (
+    candidates.find((candidate) => baseNameOf(candidate) === testBase) ??
+    candidates.find((candidate) => testBase.startsWith(`${baseNameOf(candidate)}.`)) ??
+    null
+  );
+}
+
 export function subjectOf(graph: Graph, testPath: string): string | null {
-  const base = baseNameOf(testPath);
-  return dependenciesOf(graph, testPath).find((dependency) => baseNameOf(dependency.to) === base)?.to ?? null;
+  return bestSubjectByName(testPath, dependenciesOf(graph, testPath).map((dependency) => dependency.to));
+}
+
+export function subjectByFileNameOf(graph: Graph, testPath: string): string | null {
+  const testFolder = folderOf(testPath);
+  const folders = fileNameOf(testFolder) === "__tests__" ? [testFolder, folderOf(testFolder)] : [testFolder];
+  const sourcesNearby = [...graph.files.keys()].filter((file) => folders.includes(folderOf(file)) && !isTestFile(file) && !file.endsWith(".d.ts"));
+  return bestSubjectByName(testPath, sourcesNearby);
 }
 
 function siblingsOf(graph: Graph, path: string): string[] {

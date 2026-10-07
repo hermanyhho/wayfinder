@@ -62,11 +62,12 @@ describe("layout", () => {
     expect(inner.nodes.some((node) => node.id.startsWith("expected:"))).toBe(false);
   });
 
-  it("puts packages and the file under test in the imported-by-this-file column", () => {
+  it("puts packages in the imported-by-this-file column and the tested file in the right column", () => {
     const spec = "test/a/A.spec.ts";
     const graph = graphOf([analysisOf(spec, ["src/a/A.ts", "pkg:vitest"]), analysisOf("src/a/A.ts")]);
     const { inner } = layout(buildViewData(graph, spec), ui({ selected: spec }), 800);
-    expect(inner.nodes.filter((node) => node.x === NODE_X[0]).map((node) => node.tag).sort()).toEqual(["Package", "Under test"]);
+    expect(inner.nodes.filter((node) => node.x === NODE_X[0]).map((node) => node.tag)).toEqual(["Package"]);
+    expect(inner.nodes.filter((node) => node.x === NODE_X[2]).map((node) => node.tag)).toEqual(["Tested file"]);
   });
 
   it("keeps an empty column with its title and an empty text", () => {
@@ -209,14 +210,14 @@ describe("layout", () => {
     expect(groupOrder([...documentServiceMembers].reverse())).toEqual(groupOrder(documentServiceMembers));
   });
 
-  it("groups imports in the order circular imports, dependencies, types, under test, packages", () => {
+  it("groups imports in the order circular imports, dependencies, types, packages", () => {
     const spec = "test/a/A.spec.ts";
     const graph = graphOf([
       analysisOf(spec, ["pkg:vitest", "src/a/A.ts", "src/a/A.types.ts", "src/a/Z.ts", "test/a/B.ts"]),
       analysisOf("src/a/A.ts"), analysisOf("src/a/A.types.ts"), analysisOf("src/a/Z.ts"), analysisOf("test/a/B.ts", [spec]),
     ]);
     const { inner } = layout(buildViewData(graph, spec), ui({ selected: spec }), 800);
-    expect(inner.groupHeadings.map((heading) => heading.text)).toEqual(["Circular imports (1)", "Dependencies (1)", "Types (1)", "Under test (1)", "Packages (1)"]);
+    expect(inner.groupHeadings.map((heading) => heading.text)).toEqual(["Circular imports (1)", "Dependencies (1)", "Types (1)", "Packages (1)"]);
   });
 
   it("hides the cards of a collapsed group and shortens the column", () => {
@@ -361,5 +362,43 @@ describe("when the open file is a test file", () => {
     const inner = layoutTestFile({ cursorLine: 16 });
 
     expect(inner.members.filter((member) => member.cls.includes("cur")).map((member) => member.name)).toEqual(["does nothing"]);
+  });
+});
+
+describe("when a test file is open", () => {
+  const TEST = "src/a/__tests__/Foo.int.test.ts";
+  const testsColumnOf = (graph: ReturnType<typeof graphOf>) => layout(buildViewData(graph, TEST), ui({ selected: TEST }), 800).inner.floors.find((floor) => floor.key === "tests")!;
+  const testedFileCardOf = (graph: ReturnType<typeof graphOf>) => layout(buildViewData(graph, TEST), ui({ selected: TEST }), 800).inner.nodes.find((node) => node.id === "src/a/Foo.ts");
+
+  it("should title the right column Tested file", () => {
+    const graph = graphOf([analysisOf("src/a/Foo.ts"), analysisOf(TEST, ["src/a/Foo.ts"])]);
+
+    const column = testsColumnOf(graph);
+
+    expect(column.title).toBe("Tested file (1)");
+  });
+
+  it("should tag a tested file the test imports as Tested file", () => {
+    const graph = graphOf([analysisOf("src/a/Foo.ts"), analysisOf(TEST, ["src/a/Foo.ts"])]);
+
+    const card = testedFileCardOf(graph);
+
+    expect(card).toMatchObject({ x: NODE_X[2], tag: "Tested file" });
+  });
+
+  it("should tag a tested file found by name only as matched by name", () => {
+    const graph = graphOf([analysisOf("src/a/Foo.ts"), analysisOf(TEST)]);
+
+    const card = testedFileCardOf(graph);
+
+    expect(card).toMatchObject({ x: NODE_X[2], tag: "Tested file, matched by name" });
+  });
+
+  it("should say no file nearby has the same name when nothing matches", () => {
+    const graph = graphOf([analysisOf("src/a/Bar.ts"), analysisOf(TEST)]);
+
+    const column = testsColumnOf(graph);
+
+    expect(column).toMatchObject({ title: "Tested file", emptyText: "No file nearby has the same name as Foo.int.test.ts." });
   });
 });

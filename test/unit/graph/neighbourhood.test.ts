@@ -107,6 +107,36 @@ describe("buildViewData", () => {
   });
 });
 
+describe("when a test file is open", () => {
+  const subjectNodeOf = (view: ReturnType<typeof buildViewData>) => view.nodes.find((node) => node.kind === "subject");
+
+  it("should show the imported subject of an integration test with a solid edge", () => {
+    const graph = graphOf([analysisOf("src/a/Foo.ts"), analysisOf("src/a/__tests__/Foo.int.test.ts", ["src/a/Foo.ts"])]);
+
+    const view = buildViewData(graph, "src/a/__tests__/Foo.int.test.ts");
+
+    expect(subjectNodeOf(view)?.id).toBe("src/a/Foo.ts");
+    expect(view.edges).toContainEqual({ from: "src/a/__tests__/Foo.int.test.ts", to: "src/a/Foo.ts", style: "solid" });
+  });
+
+  it("should mark a subject found by file name only, with no edge from the test", () => {
+    const graph = graphOf([analysisOf("src/a/Foo.ts"), analysisOf("src/a/__tests__/Foo.int.test.ts")]);
+
+    const view = buildViewData(graph, "src/a/__tests__/Foo.int.test.ts");
+
+    expect(subjectNodeOf(view)).toMatchObject({ id: "src/a/Foo.ts", matchedByFileName: true });
+    expect(view.edges.filter((edge) => edge.to === "src/a/Foo.ts")).toEqual([]);
+  });
+
+  it("should show no subject when no file matches the test name", () => {
+    const graph = graphOf([analysisOf("src/a/Bar.ts"), analysisOf("src/a/__tests__/Foo.int.test.ts")]);
+
+    const view = buildViewData(graph, "src/a/__tests__/Foo.int.test.ts");
+
+    expect(subjectNodeOf(view)).toBeUndefined();
+  });
+});
+
 describe("when the open test file has a test marked .only", () => {
   const SPEC = "test/services/DocumentService.spec.ts";
   const specWithOnly = analysisOf(SPEC, [], {

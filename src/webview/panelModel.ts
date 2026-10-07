@@ -35,7 +35,8 @@ const namesOf = (view: ViewData, kinds: NodeKind[]) =>
 function connectionsOf(view: ViewData, node: ViewNode): Fact[] {
   if (node.kind === "here") {
     return [
-      { label: "uses", value: namesOf(view, ["dependency", "types", "subject", "cycle"]) },
+      { label: "uses", value: namesOf(view, ["dependency", "types", "cycle"]) },
+      { label: "tests", value: namesOf(view, ["subject"]) },
       { label: "packages", value: namesOf(view, ["package"]) },
       { label: "used by", value: namesOf(view, ["caller", "cycle"]) },
       { label: "tested by", value: namesOf(view, ["test"]) },
