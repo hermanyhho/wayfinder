@@ -186,12 +186,17 @@ function collectMembers(source: ts.SourceFile, lineOf: (node: ts.Node) => number
   return members;
 }
 
-const TEST_CALLS: Record<string, { kind: MemberKind; skipped: boolean }> = {
-  describe: { kind: "suite", skipped: false },
-  xdescribe: { kind: "suite", skipped: true },
-  it: { kind: "test", skipped: false },
-  test: { kind: "test", skipped: false },
-  xit: { kind: "test", skipped: true },
+const TEST_CALLS: Record<string, { kind: MemberKind; focus?: "only" | "skip" }> = {
+  describe: { kind: "suite" },
+  context: { kind: "suite" },
+  suite: { kind: "suite" },
+  "test.describe": { kind: "suite" },
+  fdescribe: { kind: "suite", focus: "only" },
+  xdescribe: { kind: "suite", focus: "skip" },
+  it: { kind: "test" },
+  test: { kind: "test" },
+  fit: { kind: "test", focus: "only" },
+  xit: { kind: "test", focus: "skip" },
 };
 
 function collectTestCases(source: ts.SourceFile, lineOf: (node: ts.Node) => number): Member[] {
@@ -212,13 +217,20 @@ function collectTestCases(source: ts.SourceFile, lineOf: (node: ts.Node) => numb
 function testCaseOf(call: ts.CallExpression): { title: string; kind: MemberKind; focus?: "only" | "skip" } | undefined {
   const [firstArgument] = call.arguments;
   if (!firstArgument || !ts.isStringLiteralLike(firstArgument)) return undefined;
-  const callee = call.expression;
-  const [calleeName, modifier] = ts.isPropertyAccessExpression(callee) ? [callee.expression, callee.name.text] : [callee, undefined];
-  if (!ts.isIdentifier(calleeName) || !Object.hasOwn(TEST_CALLS, calleeName.text)) return undefined;
-  const focusModifier = modifier === "only" || modifier === "skip" ? modifier : undefined;
-  if (modifier !== undefined && focusModifier === undefined) return undefined;
-  const { kind, skipped } = TEST_CALLS[calleeName.text];
-  return { title: firstArgument.text, kind, focus: skipped ? "skip" : focusModifier };
+  const calleeParts = calleePartsOf(call.expression);
+  const lastPart = calleeParts.at(-1);
+  const modifier = lastPart === "only" || lastPart === "skip" ? lastPart : undefined;
+  const calleeName = (modifier ? calleeParts.slice(0, -1) : calleeParts).join(".");
+  if (!Object.hasOwn(TEST_CALLS, calleeName)) return undefined;
+  const { kind, focus } = TEST_CALLS[calleeName];
+  return { title: firstArgument.text, kind, focus: focus ?? modifier };
+}
+
+function calleePartsOf(callee: ts.Expression): string[] {
+  if (ts.isIdentifier(callee)) return [callee.text];
+  if (!ts.isPropertyAccessExpression(callee)) return [];
+  const objectParts = calleePartsOf(callee.expression);
+  return objectParts.length > 0 ? [...objectParts, callee.name.text] : [];
 }
 
 function localNamesExportedSeparately(source: ts.SourceFile): Set<string> {

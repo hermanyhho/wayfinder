@@ -294,3 +294,74 @@ describe("when a test file has an xdescribe", () => {
     expect(suite?.focus).toBe("skip");
   });
 });
+
+describe("when a test file uses the names of another test framework", () => {
+  const outlineOf = (sourceLines: string[]) =>
+    analyzeSource("test/other.spec.ts", sourceLines.join("\n")).members.map((member) => [member.kind, member.name, member.suiteTitle, member.focus]);
+
+  it("should list Mocha context as a suite", () => {
+    const outline = outlineOf(['describe("cart", () => {', '  context("when empty", () => {', '    it("shows zero", () => {})', "  })", "})"]);
+
+    expect(outline).toEqual([
+      ["suite", "cart", undefined, undefined],
+      ["suite", "when empty", "cart", undefined],
+      ["test", "shows zero", "when empty", undefined],
+    ]);
+  });
+
+  it("should list Mocha TDD suite as a suite and suite.only as only", () => {
+    const outline = outlineOf(['suite.only("cart", () => {', '  test("adds an item", () => {})', "})"]);
+
+    expect(outline).toEqual([
+      ["suite", "cart", undefined, "only"],
+      ["test", "adds an item", "cart", undefined],
+    ]);
+  });
+
+  it("should list Playwright test.describe as a suite and mark .only and .skip", () => {
+    const outline = outlineOf([
+      'test.describe("login", () => {',
+      '  test("signs in", async () => {})',
+      '  test.describe.only("with a wrong password", () => {})',
+      '  test.describe.skip("with two-factor", () => {})',
+      "})",
+    ]);
+
+    expect(outline).toEqual([
+      ["suite", "login", undefined, undefined],
+      ["test", "signs in", "login", undefined],
+      ["suite", "with a wrong password", "login", "only"],
+      ["suite", "with two-factor", "login", "skip"],
+    ]);
+  });
+
+  it("should mark Jasmine fdescribe and fit as only", () => {
+    const outline = outlineOf(['fdescribe("cart", () => {', '  fit("adds an item", () => {})', "})"]);
+
+    expect(outline).toEqual([
+      ["suite", "cart", undefined, "only"],
+      ["test", "adds an item", "cart", "only"],
+    ]);
+  });
+
+  it("should not list test.describe with any other modifier", () => {
+    const outline = outlineOf(['test.describe.serial("checkout", () => {})', 'test.describe.each([1])("runs %s", () => {})']);
+
+    expect(outline).toEqual([]);
+  });
+
+  it("should keep the tag of an x or f call over its modifier", () => {
+    const outline = outlineOf(['xit.only("stays skipped", () => {})', 'fdescribe.skip("stays only", () => {})']);
+
+    expect(outline).toEqual([
+      ["test", "stays skipped", undefined, "skip"],
+      ["suite", "stays only", undefined, "only"],
+    ]);
+  });
+
+  it("should not list calls on other objects that end in a test name", () => {
+    const outline = outlineOf(['helper.describe("a", () => {})', 'this.test.describe("b", () => {})', 'foo.test("c", () => {})']);
+
+    expect(outline).toEqual([]);
+  });
+});
