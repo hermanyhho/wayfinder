@@ -80,9 +80,11 @@ body.vscode-light .nd { box-shadow: 0 2px 8px rgba(20, 30, 50, .10); }
 .nucount { pointer-events: auto; padding: 0; font: inherit; color: var(--text2); background: none; border: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 .nucount:hover, .nucount[aria-expanded="true"] { color: var(--strong); }
 .nunone { color: var(--faint); }
-.uses { position: absolute; box-sizing: border-box; display: flex; flex-direction: column; border-left: 1px solid var(--l4); }
-.use { position: relative; display: flex; align-items: baseline; gap: 8px; height: 22px; box-sizing: border-box; padding: 0 6px 0 14px; font: inherit; font-size: 11.5px; line-height: 22px; color: var(--text2); background: none; border: 0; border-radius: 4px; cursor: pointer; text-align: left; white-space: nowrap; overflow: hidden; }
+.uses { position: absolute; box-sizing: border-box; display: flex; flex-direction: column; }
+.use { position: relative; display: flex; align-items: baseline; gap: 8px; height: 22px; box-sizing: border-box; padding: 0 6px 0 14px; font: inherit; font-size: 11.5px; line-height: 22px; color: var(--text2); background: none; border: 0; border-radius: 4px; cursor: pointer; text-align: left; white-space: nowrap; }
 .use::before { content: ""; position: absolute; left: 0; top: 11px; width: 9px; height: 1px; background: var(--l4); }
+.use::after { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 1px; background: var(--l4); }
+.use:last-child::after { bottom: auto; height: 12px; }
 .use:hover { color: var(--strong); background: var(--l1); }
 .usef { overflow: hidden; text-overflow: ellipsis; }
 .usel { flex: none; font-family: var(--mono); font-size: 10px; color: var(--muted); }
