@@ -1,7 +1,11 @@
-import type { Fact, Member, MemberKind, NodeKind, ViewData, ViewNode } from "../shared/viewData";
+import type { Fact, Member, MemberKind, MemberUse, NodeKind, ViewData, ViewNode } from "../shared/viewData";
 
 export const NODE_W = 152;
 export const NODE_H = 56;
+export const MEMBER_WITH_USAGE_H = 72;
+export const USE_ENTRY_H = 22;
+const USES_LIST_GAP = 6;
+const USES_LIST_INDENT = 14;
 export const HERE_W = 220;
 export const HERE_H = 64;
 export const COL_GAP = 16;
@@ -37,7 +41,9 @@ export interface GroupHeadingView { key: string; x: number; y: number; w: number
 export interface GroupToggleView extends FloorToggle { key: string; x: number; }
 export interface FloorView { key: string; title: string; path: string; cls: string; x: number; y: number; w: number; h: number; emptyText: string; toggle: FloorToggle | null; search?: string; }
 export interface NodeView { id: string; x: number; y: number; w: number; cls: string; kind: NodeKind; tag: string; name: string; path: string; }
-export interface MemberView extends Omit<NodeView, "kind"> { kind: MemberKind; line: number; focus?: Member["focus"]; }
+export interface UsesListView { x: number; y: number; w: number; uses: MemberUse[]; }
+export interface MemberUsageView { text: string; listKey: string | null; list: UsesListView | null; }
+export interface MemberView extends Omit<NodeView, "kind"> { kind: MemberKind; line: number; focus?: Member["focus"]; usage?: MemberUsageView; }
 export interface WireView { cls: string; d: string; }
 export interface PortView { cls: string; x: number; y: number; incoming: boolean; }
 export interface BannerView { y: number; title: string; items: Fact[]; progress: number | null; }
@@ -161,11 +167,25 @@ export function memberAtLine(members: Member[], line: number): number {
   return innermost;
 }
 
-function memberView(member: Member, id: string, box: Box, atCursor: boolean): MemberView {
+const usesListKeyOf = (member: Member) => `uses:${[member.className, member.name].filter(Boolean).join(".")}`;
+const openUsesOf = (member: Member, ui: UiState) => (member.usedIn && ui.open[usesListKeyOf(member)] ? member.usedIn : []);
+
+function memberUsageView(member: Member, box: Box, ui: UiState): MemberUsageView | undefined {
+  const uses = member.usedIn;
+  if (!uses) return undefined;
+  if (!uses.length) return { text: member.usedInOwnFile ? "only used in this file" : "no use in this repo", listKey: null, list: null };
+  const openUses = openUsesOf(member, ui);
+  const list = openUses.length ? { x: box.x + USES_LIST_INDENT, y: box.y + box.h + USES_LIST_GAP, w: box.w - USES_LIST_INDENT, uses: openUses } : null;
+  return { text: `used in ${uses.length} file${uses.length === 1 ? "" : "s"}`, listKey: usesListKeyOf(member), list };
+}
+
+function memberView(member: Member, id: string, box: Box, atCursor: boolean, ui: UiState): MemberView {
+  const usage = memberUsageView(member, box, ui);
   return {
     id, x: box.x, y: box.y, w: box.w, cls: atCursor ? "green cur" : "green", tag: MEMBER_TAGS[member.kind] ?? member.kind, kind: member.kind, name: member.name, line: member.line,
     path: [member.className ?? member.suiteTitle, member.exported ? "exported" : ""].filter(Boolean).join(", "),
     ...(member.focus ? { focus: member.focus } : {}),
+    ...(usage ? { usage } : {}),
   };
 }
 
@@ -183,7 +203,9 @@ export function routeWire(from: Box, to: Box) {
   return { d: `M${x1} ${y1} C${x1} ${y1 + k}, ${x2} ${y2 - k}, ${x2} ${y2}`, x1, y1, x2, y2 };
 }
 
-function layoutColumns(columns: ColumnGroup[][], searchingColumns: boolean[], ui: UiState, top: number, columnWidth: number) {
+interface CardSizes { heightOf: (id: string) => number; spaceBelowOf: (id: string) => number; }
+
+function layoutColumns(columns: ColumnGroup[][], searchingColumns: boolean[], ui: UiState, top: number, columnWidth: number, cardSizes: CardSizes) {
   const boxes: Record<string, Box> = {};
   const hiddenCardAnchors: Record<string, Box> = {};
   const groupHeadings: GroupHeadingView[] = [];
@@ -209,10 +231,14 @@ function layoutColumns(columns: ColumnGroup[][], searchingColumns: boolean[], ui
       if (collapsed) shownCount = 0;
       else if (showAll) shownCount = group.ids.length;
       group.ids.forEach((id, index) => {
-        if (index < shownCount) boxes[id] = { x: cardX, y: cursor + index * ROW_H, w: cardW, h: NODE_H, floor: COLUMNS_FLOOR };
-        else hiddenCardAnchors[id] = headingBox;
+        if (index >= shownCount) {
+          hiddenCardAnchors[id] = headingBox;
+          return;
+        }
+        const height = cardSizes.heightOf(id);
+        boxes[id] = { x: cardX, y: cursor, w: cardW, h: height, floor: COLUMNS_FLOOR };
+        cursor += height + ROW_H - NODE_H + cardSizes.spaceBelowOf(id);
       });
-      cursor += shownCount * ROW_H;
       if (!searching && !collapsed && group.ids.length > MAX_PER_GROUP) {
         groupToggles.push({ key: moreKey, x: cardX, y: cursor - 6, text: showAll ? "Show fewer" : `Show ${group.ids.length - shownCount} more`, icon: showAll ? "minus" : "plus" });
         cursor += GROUP_TOGGLE_H;
@@ -257,6 +283,15 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
   const nodesInColumn = (key: ColumnKey) => immediate.filter((node) => columnOf(node) === key);
   const dependencyNodes = nodesInColumn("deps");
   const memberIds = view.members.map((_member, index) => memberIdOf(index));
+  const memberById = new Map(view.members.map((member, index) => [memberIds[index], member]));
+  const cardSizes: CardSizes = {
+    heightOf: (id) => (memberById.get(id)?.usedIn ? MEMBER_WITH_USAGE_H : NODE_H),
+    spaceBelowOf: (id) => {
+      const member = memberById.get(id);
+      const openUseCount = member ? openUsesOf(member, ui).length : 0;
+      return openUseCount ? USES_LIST_GAP + openUseCount * USE_ENTRY_H : 0;
+    },
+  };
   const groupsByColumn: Record<ColumnKey, ColumnGroup[]> = {
     deps: DEPENDENCY_GROUPS.map((group) => ({
       key: `deps:${group.kind}`, heading: { kind: group.kind, title: group.title, cls: KIND_COLOR[group.kind] },
@@ -285,7 +320,7 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
   });
   const columnsTop = y;
   const columnWidth = Math.floor((floorWidth - (columnDefs.length - 1) * COL_GAP) / columnDefs.length);
-  const columns = layoutColumns(columnGroups, searchTexts.map(Boolean), ui, y, columnWidth);
+  const columns = layoutColumns(columnGroups, searchTexts.map(Boolean), ui, y, columnWidth, cardSizes);
   Object.assign(boxes, columns.boxes);
   columnDefs.forEach((def, index) => {
     const count = columnIds[index].length;
@@ -325,10 +360,9 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
   ports.push({ cls: colorOf(center), x: openFileBox.x + openFileBox.w / 2, y: openFileBox.y + openFileBox.h, incoming: false });
 
   const nodes = immediate.filter((node) => boxes[node.id]).map((node) => nodeView(node, boxes[node.id], ui));
-  const memberById = new Map(view.members.map((member, index) => [memberIds[index], member]));
   const cursorIndex = ui.cursorLine === undefined ? -1 : memberAtLine(view.members, ui.cursorLine);
   const cursorMemberId = cursorIndex === -1 ? undefined : memberIds[cursorIndex];
-  const members = groupsByColumn.members.flatMap((group) => group.ids).filter((id) => boxes[id]).map((id) => memberView(memberById.get(id)!, id, boxes[id], id === cursorMemberId));
+  const members = groupsByColumn.members.flatMap((group) => group.ids).filter((id) => boxes[id]).map((id) => memberView(memberById.get(id)!, id, boxes[id], id === cursorMemberId, ui));
   const hiddenCursorGroup = cursorMemberId && !boxes[cursorMemberId] ? groupsByColumn.members.find((group) => group.ids.includes(cursorMemberId)) : undefined;
   const cursorHeadingKey = hiddenCursorGroup && `${hiddenCursorGroup.key}:collapsed`;
   const groupHeadings = columns.groupHeadings.map((heading) => (heading.key === cursorHeadingKey ? { ...heading, cls: `${heading.cls} cur` } : heading));

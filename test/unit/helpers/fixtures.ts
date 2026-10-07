@@ -20,6 +20,8 @@ export function analysisOf(path: string, imports: string[] = [], extra: Partial<
     members: [],
     hasDocComment: false,
     usage: {},
+    firstPropertyAccessLine: new Map(),
+    referencedNames: new Set(),
     ...extra,
   };
 }

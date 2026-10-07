@@ -74,6 +74,20 @@ body.vscode-light .nd { box-shadow: 0 2px 8px rgba(20, 30, 50, .10); }
 .nd.here .nn { font-size: 15px; line-height: 18px; padding-top: 7px; color: var(--strong); }
 .nd.cur { border-color: var(--c); box-shadow: 0 0 0 2px color-mix(in oklab, var(--c) 45%, transparent); }
 .nd.here.sel { box-shadow: 0 0 0 5px rgba(93, 214, 138, .22), 0 6px 16px rgba(0, 0, 0, .35); }
+.nd.withusage { height: 72px; }
+.nu { position: absolute; display: flex; align-items: baseline; gap: 6px; height: 14px; font-family: var(--mono); font-size: 10px; line-height: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; pointer-events: none; animation: pop .35s ease-out both; }
+.nusep { color: var(--l4); }
+.nucount { pointer-events: auto; padding: 0; font: inherit; color: var(--text2); background: none; border: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.nucount:hover, .nucount[aria-expanded="true"] { color: var(--strong); }
+.nunone { color: var(--faint); }
+.uses { position: absolute; box-sizing: border-box; display: flex; flex-direction: column; }
+.use { position: relative; display: flex; align-items: baseline; gap: 8px; height: 22px; box-sizing: border-box; padding: 0 6px 0 14px; font: inherit; font-size: 11.5px; line-height: 22px; color: var(--text2); background: none; border: 0; border-radius: 4px; cursor: pointer; text-align: left; white-space: nowrap; }
+.use::before { content: ""; position: absolute; left: 0; top: 11px; width: 9px; height: 1px; background: var(--l4); }
+.use::after { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 1px; background: var(--l4); }
+.use:last-child::after { bottom: auto; height: 12px; }
+.use:hover { color: var(--strong); background: var(--l1); }
+.usef { overflow: hidden; text-overflow: ellipsis; }
+.usel { flex: none; font-family: var(--mono); font-size: 10px; color: var(--muted); }
 .ndopen { position: absolute; width: 18px; height: 16px; display: flex; align-items: center; justify-content: center; padding: 0; background: none; border: 0; border-radius: 4px; color: var(--muted); opacity: .6; cursor: pointer; animation: pop .35s ease-out both; }
 .ndopen svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .nd:hover + .ndopen, .nd.sel + .ndopen, .ndopen:hover, .ndopen:focus-visible { opacity: 1; color: var(--strong); }
@@ -104,7 +118,7 @@ body.vscode-light .nd { box-shadow: 0 2px 8px rgba(20, 30, 50, .10); }
 .cluster { position: absolute; left: 0; top: 0; width: 100%; transform-origin: 0 0; transition: transform .6s cubic-bezier(.2, .7, .2, 1); }
 .layer2 { animation: fade .45s ease-out .25s both; }
 .layer2.late { animation-delay: .45s; }
-.keep-nodes .nd, .keep-nodes .ndopen, .keep-layer2 .layer2 { animation: none; }
+.keep-nodes .nd, .keep-nodes .ndopen, .keep-nodes .nu, .keep-layer2 .layer2 { animation: none; }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 .frame { position: absolute; border: 1.5px solid var(--green); border-radius: 18px; box-shadow: 0 0 0 6px rgba(93, 214, 138, .08); pointer-events: none; }
 .framelabel { position: absolute; left: 16px; width: 136px; display: flex; flex-direction: column; gap: 3px; text-align: left; background: none; border: 0; padding: 0; cursor: pointer; font: inherit; color: inherit; }

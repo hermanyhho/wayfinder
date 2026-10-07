@@ -1,4 +1,4 @@
-import type { CallSite, Fact, NodeKind, ViewData, ViewEdge, ViewNode } from "../shared/viewData";
+import type { CallSite, Fact, Member, MemberUse, NodeKind, ViewData, ViewEdge, ViewNode } from "../shared/viewData";
 import type { SourceAnalysis } from "./analyzeSource";
 import { dependenciesOf, dependentsOf, type Dependency, type Graph } from "./buildGraph";
 import { baseNameOf, circularWith, expectedFiles, fileNameOf, folderOf, isTestFile, sizeOutlier, subjectByFileNameOf, subjectOf, testsOf } from "./patterns";
@@ -123,10 +123,32 @@ export function buildViewData(graph: Graph, path: string, options: ViewOptions =
     nodes: [...nodes.values()],
     edges,
     lineMarks,
-    members: center?.members ?? [],
+    members: center ? membersWithUsage(graph, center) : [],
     orphanChecks: nodes.size === 1 + countExpected(nodes) ? orphanChecks(path, options.packageJsonText ?? "") : null,
     scan: options.scan ?? null,
   };
+}
+
+function membersWithUsage(graph: Graph, analysis: SourceAnalysis): Member[] {
+  const importers = dependentsOf(graph, analysis.path);
+  return analysis.members.map((member) => {
+    if (member.kind === "suite" || member.kind === "test") return member;
+    const usedIn = member.exported ? importers.flatMap((dependency) => useInImporter(graph, dependency, member)) : [];
+    return { ...member, usedIn: usedIn.sort((left, right) => left.file.localeCompare(right.file)), usedInOwnFile: analysis.referencedNames.has(member.name) };
+  });
+}
+
+// methods and properties match by name only, because the map does not run the type checker
+function useInImporter(graph: Graph, dependency: Dependency, member: Member): MemberUse[] {
+  const importer = graph.files.get(dependency.from);
+  if (!importer) return [];
+  if (member.className) {
+    if (!dependency.names.includes(member.className)) return [];
+    const line = importer.firstPropertyAccessLine.get(member.name);
+    return line === undefined ? [] : [{ file: dependency.from, line }];
+  }
+  if (!dependency.names.includes(member.name)) return [];
+  return [{ file: dependency.from, line: importer.usage[member.name]?.[0]?.line ?? dependency.line }];
 }
 
 function emptyNode(id: string, kind: NodeKind, name: string, dir: string): ViewNode {
