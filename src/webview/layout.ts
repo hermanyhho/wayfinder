@@ -49,29 +49,30 @@ const KIND_COLOR: Record<NodeKind, string> = {
   here: "green", caller: "blue", dependency: "violet", types: "violet", test: "pink", subject: "pink", expected: "violet", cycle: "red", package: "grey",
 };
 const KIND_TAG: Record<NodeKind, string> = {
-  here: "Current file", caller: "Caller", dependency: "Dependency", types: "Types", test: "Test", subject: "Under test", expected: "Expected, not found", cycle: "Circular import", package: "Package",
+  here: "Current file", caller: "Caller", dependency: "Dependency", types: "Types", test: "Test", subject: "Tested file", expected: "Expected, not found", cycle: "Circular import", package: "Package",
 };
 
 export const colorOf = (node: ViewNode): string => (node.kind === "expected" && node.expectedKind === "test" ? "pink" : KIND_COLOR[node.kind]);
 
 // missing expected files are listed in the Checks tab, so they get no card on the map
 const COLUMN_OF_KIND: Record<Exclude<NodeKind, "here" | "caller" | "expected">, Exclude<ColumnKey, "members">> = {
-  dependency: "deps", types: "deps", subject: "deps", package: "deps", cycle: "deps", test: "tests",
+  dependency: "deps", types: "deps", subject: "tests", package: "deps", cycle: "deps", test: "tests",
 };
 const columnOf = (node: ViewNode): ColumnKey | null =>
   node.kind === "here" || node.kind === "caller" || node.kind === "expected" ? null : COLUMN_OF_KIND[node.kind];
 
-const COLUMNS: { key: ColumnKey; title: string; color: string; empty: (name: string) => string }[] = [
+interface ColumnDef { key: ColumnKey; title: string; color: string; empty: (name: string) => string; }
+const COLUMNS: ColumnDef[] = [
   { key: "deps", title: "Imported by this file", color: "violet", empty: (name) => `${name} imports no project files.` },
   { key: "members", title: "Members", color: "green", empty: (name) => `${name} defines no members.` },
   { key: "tests", title: "Tests", color: "pink", empty: (name) => `No test imports ${name}.` },
 ];
+const TESTED_FILE_COLUMN: ColumnDef = { key: "tests", title: "Tested file", color: "pink", empty: (name) => `No file nearby has the same name as ${name}.` };
 
-const DEPENDENCY_GROUPS: { kind: Exclude<NodeKind, "here" | "caller" | "expected" | "test">; title: string }[] = [
+const DEPENDENCY_GROUPS: { kind: Exclude<NodeKind, "here" | "caller" | "expected" | "test" | "subject">; title: string }[] = [
   { kind: "cycle", title: "Circular imports" },
   { kind: "dependency", title: "Dependencies" },
   { kind: "types", title: "Types" },
-  { kind: "subject", title: "Under test" },
   { kind: "package", title: "Packages" },
 ];
 const MEMBER_GROUPS: { kind: MemberKind; title: string }[] = [
@@ -139,7 +140,7 @@ function nodeView(node: ViewNode, box: Box, ui: UiState): NodeView {
     .join(" ");
   return {
     id: node.id, x: box.x, y: box.y, w: box.w, cls, kind: node.kind,
-    tag: node.secondLayer ? "Second layer" : KIND_TAG[node.kind],
+    tag: node.secondLayer ? "Second layer" : node.matchedByFileName ? "Tested file, matched by name" : KIND_TAG[node.kind],
     name: node.name,
     path: node.kind === "package" ? "npm package" : node.dir,
   };
@@ -263,20 +264,21 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
     })),
     tests: [{ key: "tests", heading: null, ids: idsByName(nodesInColumn("tests")) }],
   };
-  const columnIds = COLUMNS.map((def) => groupsByColumn[def.key].flatMap((group) => group.ids));
+  const columnDefs = view.openFileIsTest ? COLUMNS.map((def) => (def.key === "tests" ? TESTED_FILE_COLUMN : def)) : COLUMNS;
+  const columnIds = columnDefs.map((def) => groupsByColumn[def.key].flatMap((group) => group.ids));
   const nameById = new Map<string, string>([...immediate.map((node) => [node.id, node.name] as const), ...view.members.map((member, index) => [memberIds[index], member.name] as const)]);
-  const searchTexts = COLUMNS.map((def) => search[def.key] ?? "");
-  const columnGroups = COLUMNS.map((def, index) => {
+  const searchTexts = columnDefs.map((def) => search[def.key] ?? "");
+  const columnGroups = columnDefs.map((def, index) => {
     const searchText = searchTexts[index].toLowerCase();
     return groupsByColumn[def.key]
       .map((group) => (searchText ? { ...group, ids: group.ids.filter((id) => nameById.get(id)!.toLowerCase().includes(searchText)) } : group))
       .filter((group) => group.ids.length > 0);
   });
   const columnsTop = y;
-  const columnWidth = Math.floor((floorWidth - (COLUMNS.length - 1) * COL_GAP) / COLUMNS.length);
+  const columnWidth = Math.floor((floorWidth - (columnDefs.length - 1) * COL_GAP) / columnDefs.length);
   const columns = layoutColumns(columnGroups, searchTexts.map(Boolean), ui, y, columnWidth);
   Object.assign(boxes, columns.boxes);
-  COLUMNS.forEach((def, index) => {
+  columnDefs.forEach((def, index) => {
     const count = columnIds[index].length;
     const searchText = searchTexts[index];
     let emptyText = count ? "" : def.empty(center.name);
@@ -305,7 +307,7 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
     ports.push({ cls: color, x: route.x1, y: route.y1, incoming: false }, { cls: color, x: route.x2, y: route.y2, incoming: true });
   }
   const openFileBox = boxes[center.id];
-  COLUMNS.forEach((def, index) => {
+  columnDefs.forEach((def, index) => {
     const columnTop: Box = { x: Math.round(columns.placed[index].x + columnWidth / 2), y: columnsTop, w: 0, h: 0, floor: COLUMNS_FLOOR };
     const route = routeWire(openFileBox, columnTop);
     wires.push({ cls: `${def.color}${wireState(view, ui, columnIds[index])}`, d: route.d });

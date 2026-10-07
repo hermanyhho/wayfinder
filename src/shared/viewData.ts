@@ -44,6 +44,8 @@ export interface ViewNode {
   facts: Fact[];
   checks: Fact[];
   expectedKind?: "test" | "partner";
+  /** for the subject of an open test: found by file name because the test does not import it */
+  matchedByFileName?: boolean;
 }
 
 export interface ViewEdge {
@@ -55,6 +57,7 @@ export interface ViewEdge {
 
 export interface ViewData {
   openFile: string;
+  openFileIsTest: boolean;
   nodes: ViewNode[];
   edges: ViewEdge[];
   lineMarks: { line: number; nodeId: string }[];

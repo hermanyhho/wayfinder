@@ -55,9 +55,7 @@ export function buildViewData(graph: Graph, path: string, options: ViewOptions =
 
   const subjectByFileName = isTestFile(path) && !subject ? subjectByFileNameOf(graph, path) : null;
   if (subjectByFileName) {
-    const node = add(fileNode(graph, subjectByFileName, "subject", false));
-    node.facts.unshift({ label: "Link", value: "Matched by file name, not imported" });
-    connect({ from: path, to: node.id, style: "dashed" });
+    add({ ...fileNode(graph, subjectByFileName, "subject", false), matchedByFileName: true });
   }
 
   for (const use of graph.packages.get(path) ?? []) {
@@ -111,6 +109,7 @@ export function buildViewData(graph: Graph, path: string, options: ViewOptions =
 
   return {
     openFile: path,
+    openFileIsTest: isTestFile(path),
     nodes: [...nodes.values()],
     edges,
     lineMarks,

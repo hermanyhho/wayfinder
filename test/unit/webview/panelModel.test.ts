@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildViewData } from "../../../src/graph/neighbourhood";
 import { answerFor, groupChecks, panelFor } from "../../../src/webview/panelModel";
-import { DOCUMENT_SERVICE, serviceGraph } from "../helpers/fixtures";
+import { DOCUMENT_SERVICE, analysisOf, graphOf, serviceGraph } from "../helpers/fixtures";
 
 const view = () => buildViewData(serviceGraph(), DOCUMENT_SERVICE);
 const CONTROLLER = "src/api/controllers/DocumentController.ts";
@@ -48,5 +48,17 @@ describe("panel content", () => {
     const cycle = { label: "Cycle", value: "A.ts -> B.ts -> A.ts" };
     expect(groupChecks([cycle])).toEqual({ issues: [cycle], others: [] });
     expect(groupChecks([])).toEqual({ issues: [], others: [] });
+  });
+});
+
+describe("when a test file is open", () => {
+  const TEST = "src/a/__tests__/Foo.int.test.ts";
+  const connectionsOfTest = (imports: string[]) => panelFor(buildViewData(graphOf([analysisOf("src/a/Foo.ts"), analysisOf("src/a/Bar.ts"), analysisOf(TEST, imports)]), TEST), TEST).connections;
+
+  it("should list the tested file under tests, not under uses", () => {
+    const connections = connectionsOfTest(["src/a/Foo.ts", "src/a/Bar.ts"]);
+
+    expect(connections).toContainEqual({ label: "uses", value: "Bar.ts" });
+    expect(connections).toContainEqual({ label: "tests", value: "Foo.ts" });
   });
 });
