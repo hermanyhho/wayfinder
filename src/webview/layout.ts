@@ -84,10 +84,11 @@ const MEMBER_GROUPS: { kind: MemberKind; title: string }[] = [
   { kind: "let", title: "Variables" },
   { kind: "property", title: "Properties" },
   { kind: "method", title: "Methods" },
-  { kind: "suite", title: "Suites" },
-  { kind: "test", title: "Tests" },
+  { kind: "suite", title: "Test groups" },
+  { kind: "test", title: "Test cases" },
 ];
 const SOURCE_ORDER_KINDS: MemberKind[] = ["suite", "test"];
+const MEMBER_TAGS: Partial<Record<MemberKind, string>> = { suite: "test group", test: "test case" };
 
 interface ColumnGroup { key: string; heading: { kind: GroupKind; title: string; cls: string } | null; ids: string[]; }
 
@@ -157,7 +158,7 @@ export function memberAtLine(members: Member[], line: number): number {
 
 function memberView(member: Member, id: string, box: Box, atCursor: boolean): MemberView {
   return {
-    id, x: box.x, y: box.y, w: box.w, cls: atCursor ? "green cur" : "green", tag: member.kind, kind: member.kind, name: member.name, line: member.line,
+    id, x: box.x, y: box.y, w: box.w, cls: atCursor ? "green cur" : "green", tag: MEMBER_TAGS[member.kind] ?? member.kind, kind: member.kind, name: member.name, line: member.line,
     path: [member.className ?? member.suiteTitle, member.exported ? "exported" : ""].filter(Boolean).join(", "),
     ...(member.focus ? { focus: member.focus } : {}),
   };

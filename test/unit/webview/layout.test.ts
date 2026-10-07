@@ -347,13 +347,13 @@ describe("when the open file is a test file", () => {
   it("should group suites then tests, each in source order, with the describe title and focus on each card", () => {
     const inner = layoutTestFile();
 
-    expect(inner.groupHeadings.filter((heading) => heading.key.startsWith("members:")).map((heading) => heading.text)).toEqual(["Suites (2)", "Tests (3)"]);
+    expect(inner.groupHeadings.filter((heading) => heading.key.startsWith("members:")).map((heading) => heading.text)).toEqual(["Test groups (2)", "Test cases (3)"]);
     expect(inner.members.map((member) => [member.tag, member.name, member.path, member.line, member.focus])).toEqual([
-      ["suite", "Group/hooks/UnlinkRelated", "", 5, undefined],
-      ["suite", "when nothing is linked", "Group/hooks/UnlinkRelated", 13, undefined],
-      ["test", "unlinks the related group", "Group/hooks/UnlinkRelated", 6, undefined],
-      ["test", "keeps the group", "Group/hooks/UnlinkRelated", 10, "skip"],
-      ["test", "does nothing", "when nothing is linked", 14, "only"],
+      ["test group", "Group/hooks/UnlinkRelated", "", 5, undefined],
+      ["test group", "when nothing is linked", "Group/hooks/UnlinkRelated", 13, undefined],
+      ["test case", "unlinks the related group", "Group/hooks/UnlinkRelated", 6, undefined],
+      ["test case", "keeps the group", "Group/hooks/UnlinkRelated", 10, "skip"],
+      ["test case", "does nothing", "when nothing is linked", 14, "only"],
     ]);
   });
 
