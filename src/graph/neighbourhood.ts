@@ -58,6 +58,16 @@ export function buildViewData(graph: Graph, path: string, options: ViewOptions =
     add({ ...fileNode(graph, subjectByFileName, "subject", false), matchedByFileName: true });
   }
 
+  const testedFile = subject ?? subjectByFileName;
+  if (testedFile) {
+    const otherTests = testsOf(graph, testedFile).filter((test) => test !== path);
+    for (const otherTest of otherTests) {
+      add(fileNode(graph, otherTest, "test", false));
+      connect({ from: otherTest, to: testedFile, style: "solid" });
+    }
+    if (otherTests.length === 0) here.checks.push({ label: "Tests", value: `No other test covers ${fileNameOf(testedFile)}.` });
+  }
+
   for (const use of graph.packages.get(path) ?? []) {
     const node = add({ ...emptyNode(`package:${use.name}`, "package", use.name, ""), facts: [{ label: "Package", value: use.name }] });
     node.usageInOpenFile.push({ line: use.line, text: center?.imports.find((record) => record.line === use.line)?.text ?? "" });

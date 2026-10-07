@@ -217,7 +217,7 @@ describe("layout", () => {
       analysisOf("src/a/A.ts"), analysisOf("src/a/A.types.ts"), analysisOf("src/a/Z.ts"), analysisOf("test/a/B.ts", [spec]),
     ]);
     const { inner } = layout(buildViewData(graph, spec), ui({ selected: spec }), 800);
-    expect(inner.groupHeadings.map((heading) => heading.text)).toEqual(["Circular imports (1)", "Dependencies (1)", "Types (1)", "Packages (1)"]);
+    expect(inner.groupHeadings.filter((heading) => heading.key.startsWith("deps:")).map((heading) => heading.text)).toEqual(["Circular imports (1)", "Dependencies (1)", "Types (1)", "Packages (1)"]);
   });
 
   it("hides the cards of a collapsed group and shortens the column", () => {
@@ -370,12 +370,13 @@ describe("when a test file is open", () => {
   const testsColumnOf = (graph: ReturnType<typeof graphOf>) => layout(buildViewData(graph, TEST), ui({ selected: TEST }), 800).inner.floors.find((floor) => floor.key === "tests")!;
   const testedFileCardOf = (graph: ReturnType<typeof graphOf>) => layout(buildViewData(graph, TEST), ui({ selected: TEST }), 800).inner.nodes.find((node) => node.id === "src/a/Foo.ts");
 
-  it("should title the right column Tested file", () => {
-    const graph = graphOf([analysisOf("src/a/Foo.ts"), analysisOf(TEST, ["src/a/Foo.ts"])]);
+  it("should group the tested file and the other tests of it under their own headings", () => {
+    const graph = graphOf([analysisOf("src/a/Foo.ts"), analysisOf("src/a/Foo.test.ts", ["src/a/Foo.ts"]), analysisOf(TEST, ["src/a/Foo.ts"])]);
 
-    const column = testsColumnOf(graph);
+    const inner = layout(buildViewData(graph, TEST), ui({ selected: TEST }), 800).inner;
 
-    expect(column.title).toBe("Tested file (1)");
+    expect(inner.floors.find((floor) => floor.key === "tests")?.title).toBe("Tests (2)");
+    expect(inner.groupHeadings.filter((heading) => heading.key.startsWith("tests:")).map((heading) => heading.text)).toEqual(["Tested file (1)", "Other tests (1)"]);
   });
 
   it("should tag a tested file the test imports as Tested file", () => {
@@ -394,11 +395,11 @@ describe("when a test file is open", () => {
     expect(card).toMatchObject({ x: NODE_X[2], tag: "Tested file, matched by name" });
   });
 
-  it("should say no file nearby has the same name when nothing matches", () => {
+  it("should say no subject was found when nothing matches", () => {
     const graph = graphOf([analysisOf("src/a/Bar.ts"), analysisOf(TEST)]);
 
     const column = testsColumnOf(graph);
 
-    expect(column).toMatchObject({ title: "Tested file", emptyText: "No file nearby has the same name as Foo.int.test.ts." });
+    expect(column).toMatchObject({ title: "Tests", emptyText: "No subject found for Foo.int.test.ts." });
   });
 });

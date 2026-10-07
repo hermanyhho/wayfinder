@@ -137,6 +137,45 @@ describe("when a test file is open", () => {
   });
 });
 
+describe("when a test file of a subject with other tests is open", () => {
+  const SUBJECT = "src/a/Foo.ts";
+  const INTEGRATION_TEST = "src/a/__tests__/Foo.int.test.ts";
+  const UNIT_TEST = "src/a/Foo.test.ts";
+  const viewOfIntegrationTest = (integrationTestImports: string[]) =>
+    buildViewData(graphOf([analysisOf(SUBJECT), analysisOf(UNIT_TEST, [SUBJECT]), analysisOf(INTEGRATION_TEST, integrationTestImports)]), INTEGRATION_TEST);
+  const testNodeIdsOf = (view: ReturnType<typeof buildViewData>) => view.nodes.filter((node) => node.kind === "test").map((node) => node.id);
+
+  it("should list the other test of the subject with an edge to the subject", () => {
+    const view = viewOfIntegrationTest([SUBJECT]);
+
+    expect(testNodeIdsOf(view)).toEqual([UNIT_TEST]);
+    expect(view.edges).toContainEqual({ from: UNIT_TEST, to: SUBJECT, style: "solid" });
+  });
+
+  it("should list the other test when the subject is found by file name only", () => {
+    const view = viewOfIntegrationTest([]);
+
+    expect(testNodeIdsOf(view)).toEqual([UNIT_TEST]);
+  });
+
+  it("should not add a no-other-test check", () => {
+    const view = viewOfIntegrationTest([SUBJECT]);
+
+    expect(view.nodes[0].checks.map((check) => check.label)).not.toContain("Tests");
+  });
+});
+
+describe("when a test file is the only test of its subject", () => {
+  it("should leave the open test out of the tests and say no other test covers the subject", () => {
+    const graph = graphOf([analysisOf("src/a/Foo.ts"), analysisOf("src/a/Foo.test.ts", ["src/a/Foo.ts"])]);
+
+    const view = buildViewData(graph, "src/a/Foo.test.ts");
+
+    expect(view.nodes.filter((node) => node.kind === "test")).toEqual([]);
+    expect(view.nodes[0].checks).toContainEqual({ label: "Tests", value: "No other test covers Foo.ts." });
+  });
+});
+
 describe("when the open test file has a test marked .only", () => {
   const SPEC = "test/services/DocumentService.spec.ts";
   const specWithOnly = analysisOf(SPEC, [], {
