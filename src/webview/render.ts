@@ -48,6 +48,8 @@ const MEMBER_KIND_ICONS: Record<MemberKind, string> = {
   interface: '<circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="12" r="3"></circle><path d="M9 12h6"></path>',
   type: '<path d="M5 5h14"></path><path d="M12 5v14"></path>',
   enum: '<path d="M9 6h11M9 12h11M9 18h11"></path><path d="M4 6h.01M4 12h.01M4 18h.01"></path>',
+  suite: '<path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"></path>',
+  test: '<path d="M9 3h6"></path><path d="M10 3v6l-5 10a1.5 1.5 0 0 0 1.3 2h11.4a1.5 1.5 0 0 0 1.3-2L14 9V3"></path><path d="M7 15h10"></path>',
 };
 const NODE_KIND_ICONS: Record<NodeKind, string> = {
   here: '<path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path>',
@@ -66,7 +68,7 @@ const renderOpenIcon = (node: NodeView) =>
 const renderNode = (node: NodeView, canOpen: (id: string) => boolean) =>
   `<button class="nd ${node.cls}" style="left:${node.x}px;top:${node.y}px;width:${node.w}px" data-action="select" data-id="${escapeHtml(node.id)}" data-nav="${escapeHtml(node.id)}" title="${escapeHtml(node.id)}"><span class="nh"><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${NODE_KIND_ICONS[node.kind]}</svg>${escapeHtml(node.tag)}</span><span class="nn">${escapeHtml(node.name)}</span><span class="np">${escapeHtml(node.path)}</span></button>${canOpen(node.id) ? renderOpenIcon(node) : ""}`;
 const renderMember = (member: MemberView) =>
-  `<button class="nd ${member.cls}" style="left:${member.x}px;top:${member.y}px;width:${member.w}px" data-action="reveal" data-value="${member.line}" data-nav="${member.id}" title="Go to line ${member.line}"><span class="nh"><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${MEMBER_KIND_ICONS[member.kind]}</svg>${escapeHtml(member.tag)}</span><span class="nn">${escapeHtml(member.name)}</span><span class="np">${escapeHtml(member.path)}</span></button>`;
+  `<button class="nd ${member.cls}" style="left:${member.x}px;top:${member.y}px;width:${member.w}px" data-action="reveal" data-value="${member.line}" data-nav="${member.id}" title="Go to line ${member.line}"><span class="nh"><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${MEMBER_KIND_ICONS[member.kind]}</svg>${escapeHtml(member.tag)}${member.focus ? `<span class="chip">${member.focus}</span>` : ""}</span><span class="nn">${escapeHtml(member.name)}</span><span class="np">${escapeHtml(member.path)}</span></button>`;
 const GROUP_ICONS: Record<GroupKind, string> = { ...NODE_KIND_ICONS, ...MEMBER_KIND_ICONS };
 const CHEVRON_ICON = '<path d="m6 9 6 6 6-6"></path>';
 const renderGroupHeading = (heading: GroupHeadingView) =>

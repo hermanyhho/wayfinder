@@ -81,6 +81,10 @@ export function buildViewData(graph: Graph, path: string, options: ViewOptions =
     here.checks.push({ label: "Tests", value: "No test imports this file." });
   }
 
+  for (const member of center?.members ?? []) {
+    if (member.focus === "only") here.checks.push({ label: "Only", value: `.only on line ${member.line} skips every other test.` });
+  }
+
   const immediate = new Set(nodes.keys());
   const addSecond = (id: string, kind: NodeKind, via: string, direction: "up" | "down") => {
     if (id === path || immediate.has(id)) return;

@@ -333,3 +333,33 @@ describe("layout", () => {
     expect(startOfHighlightedWire("test/fixtures/documents.fixture.ts").x).toBeCloseTo(176 + (NODE_X[2] + COLUMN_NODE_W / 2) * 0.56);
   });
 });
+
+describe("when the open file is a test file", () => {
+  const unlinkRelatedTestCases = [
+    { name: "Group/hooks/UnlinkRelated", kind: "suite" as const, line: 5, endLine: 30, exported: false },
+    { name: "unlinks the related group", kind: "test" as const, line: 6, endLine: 9, exported: false, suiteTitle: "Group/hooks/UnlinkRelated" },
+    { name: "keeps the group", kind: "test" as const, line: 10, endLine: 12, exported: false, suiteTitle: "Group/hooks/UnlinkRelated", focus: "skip" as const },
+    { name: "when nothing is linked", kind: "suite" as const, line: 13, endLine: 29, exported: false, suiteTitle: "Group/hooks/UnlinkRelated" },
+    { name: "does nothing", kind: "test" as const, line: 14, endLine: 20, exported: false, suiteTitle: "when nothing is linked", focus: "only" as const },
+  ];
+  const layoutTestFile = (patch: Partial<UiState> = {}) => layout({ ...view(), members: unlinkRelatedTestCases }, ui(patch), 800).inner;
+
+  it("should group suites then tests, each in source order, with the describe title and focus on each card", () => {
+    const inner = layoutTestFile();
+
+    expect(inner.groupHeadings.filter((heading) => heading.key.startsWith("members:")).map((heading) => heading.text)).toEqual(["Test groups (2)", "Test cases (3)"]);
+    expect(inner.members.map((member) => [member.tag, member.name, member.path, member.line, member.focus])).toEqual([
+      ["test group", "Group/hooks/UnlinkRelated", "", 5, undefined],
+      ["test group", "when nothing is linked", "Group/hooks/UnlinkRelated", 13, undefined],
+      ["test case", "unlinks the related group", "Group/hooks/UnlinkRelated", 6, undefined],
+      ["test case", "keeps the group", "Group/hooks/UnlinkRelated", 10, "skip"],
+      ["test case", "does nothing", "when nothing is linked", 14, "only"],
+    ]);
+  });
+
+  it("should mark the innermost test the cursor is in", () => {
+    const inner = layoutTestFile({ cursorLine: 16 });
+
+    expect(inner.members.filter((member) => member.cls.includes("cur")).map((member) => member.name)).toEqual(["does nothing"]);
+  });
+});

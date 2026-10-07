@@ -225,3 +225,72 @@ describe("analyzeSource", () => {
     ]);
   });
 });
+
+describe("when a test file is analyzed", () => {
+  const unlinkRelatedSpec = [
+    'import { describe, expect, it, test } from "vitest"',
+    "",
+    "const helper = () => 1",
+    "",
+    'describe("Group/hooks/UnlinkRelated", () => {',
+    '  test("unlinks the related group", () => {',
+    "    expect(helper()).toBe(1)",
+    "  })",
+    '  test.skip("keeps the group when the hook fails", () => {})',
+    '  describe("when nothing is linked", () => {',
+    '    it.only("does nothing", () => {})',
+    '    xit("logs a warning", () => {})',
+    "  })",
+    "})",
+    'test.each([1, 2])("runs for %s", () => {})',
+  ].join("\n");
+  const membersOf = (path: string) => analyzeSource(path, unlinkRelatedSpec).members;
+
+  it("should list suites and tests in source order after the declarations before them", () => {
+    const members = membersOf("test/UnlinkRelated.spec.ts");
+
+    expect(members.map((member) => [member.kind, member.name, member.line, member.endLine])).toEqual([
+      ["function", "helper", 3, 3],
+      ["suite", "Group/hooks/UnlinkRelated", 5, 14],
+      ["test", "unlinks the related group", 6, 8],
+      ["test", "keeps the group when the hook fails", 9, 9],
+      ["suite", "when nothing is linked", 10, 13],
+      ["test", "does nothing", 11, 11],
+      ["test", "logs a warning", 12, 12],
+    ]);
+  });
+
+  it("should record the title of the innermost describe each call is in", () => {
+    const members = membersOf("test/UnlinkRelated.spec.ts");
+
+    expect(members.map((member) => member.suiteTitle)).toEqual([
+      undefined, undefined, "Group/hooks/UnlinkRelated", "Group/hooks/UnlinkRelated", "Group/hooks/UnlinkRelated", "when nothing is linked", "when nothing is linked",
+    ]);
+  });
+
+  it("should mark .only as only and .skip or an x prefix as skip", () => {
+    const members = membersOf("test/UnlinkRelated.spec.ts");
+
+    expect(members.filter((member) => member.focus).map((member) => [member.name, member.focus])).toEqual([
+      ["keeps the group when the hook fails", "skip"],
+      ["does nothing", "only"],
+      ["logs a warning", "skip"],
+    ]);
+  });
+
+  it("should not list describe or test calls in a file that is not a test file", () => {
+    const members = membersOf("src/UnlinkRelated.ts");
+
+    expect(members.map((member) => member.name)).toEqual(["helper"]);
+  });
+});
+
+describe("when a test file has an xdescribe", () => {
+  it("should mark the suite as skip", () => {
+    const source = ['xdescribe("legacy", () => {', '  it("still runs", () => {})', "})"].join("\n");
+
+    const suite = analyzeSource("test/legacy.spec.ts", source).members.find((member) => member.kind === "suite");
+
+    expect(suite?.focus).toBe("skip");
+  });
+});

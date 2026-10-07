@@ -137,3 +137,36 @@ describe("when a test file is open", () => {
     expect(subjectNodeOf(view)).toBeUndefined();
   });
 });
+
+describe("when the open test file has a test marked .only", () => {
+  const SPEC = "test/services/DocumentService.spec.ts";
+  const specWithOnly = analysisOf(SPEC, [], {
+    members: [
+      { name: "uploads", kind: "test", line: 4, endLine: 6, exported: false },
+      { name: "lists", kind: "test", line: 8, endLine: 10, exported: false, focus: "only" },
+      { name: "reminds", kind: "test", line: 12, endLine: 14, exported: false, focus: "skip" },
+    ],
+  });
+
+  it("should add one check on the open file naming the line of the .only", () => {
+    const openFile = buildViewData(graphOf([specWithOnly]), SPEC).nodes[0];
+
+    expect(openFile.checks.filter((check) => check.label === "Only")).toEqual([{ label: "Only", value: ".only on line 8 skips every other test." }]);
+  });
+});
+
+describe("when the open test file has two tests marked .only", () => {
+  const SPEC = "test/services/DocumentService.spec.ts";
+  const specWithTwoOnly = analysisOf(SPEC, [], {
+    members: [
+      { name: "uploads", kind: "test", line: 4, endLine: 6, exported: false, focus: "only" },
+      { name: "lists", kind: "test", line: 8, endLine: 10, exported: false, focus: "only" },
+    ],
+  });
+
+  it("should add one check per .only", () => {
+    const openFile = buildViewData(graphOf([specWithTwoOnly]), SPEC).nodes[0];
+
+    expect(openFile.checks.filter((check) => check.label === "Only")).toHaveLength(2);
+  });
+});

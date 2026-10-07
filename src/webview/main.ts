@@ -141,11 +141,17 @@ function render(remeasured = false): void {
   // every render replaces the html, so without these classes all nodes pop in again on each click
   map.classList.toggle("keep-nodes", view === renderedView);
   map.classList.toggle("keep-layer2", view === renderedView && ui.layer === renderedLayer);
+  // the host sends a new view object for the same file after a save, so comparing views would reset the scroll
+  const sameOpenFile = view.openFile === renderedView?.openFile;
   renderedView = view;
   renderedLayer = ui.layer;
   const focusedSearch = document.activeElement instanceof HTMLInputElement && document.activeElement.dataset.search ? document.activeElement : null;
   const focusedCardKey = document.activeElement instanceof HTMLElement ? document.activeElement.dataset.nav : undefined;
+  const previousScroller = sameOpenFile ? map.querySelector<HTMLElement>(".ne") : null;
+  const scrollLeft = previousScroller?.scrollLeft ?? 0;
+  const scrollTop = previousScroller?.scrollTop ?? 0;
   map.innerHTML = renderMap(result, view, ui);
+  map.querySelector<HTMLElement>(".ne")?.scrollTo(scrollLeft, scrollTop);
   cards = navigationCards(result.inner);
   if (focusedSearch) restoreSearchFocus(map, focusedSearch);
   if (focusedCardKey) focusCard(focusedCardKey, { preventScroll: true });

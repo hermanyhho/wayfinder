@@ -10,7 +10,7 @@ export interface CallSite {
   text: string;
 }
 
-export type MemberKind = "function" | "class" | "method" | "property" | "const" | "let" | "interface" | "type" | "enum";
+export type MemberKind = "function" | "class" | "method" | "property" | "const" | "let" | "interface" | "type" | "enum" | "suite" | "test";
 
 export interface Member {
   name: string;
@@ -22,6 +22,10 @@ export interface Member {
   exported: boolean;
   /** the class a method or property belongs to */
   className?: string;
+  /** for suites and tests: the title of the describe it is in */
+  suiteTitle?: string;
+  /** for suites and tests: marked with .only, or skipped with .skip or an x prefix */
+  focus?: "only" | "skip";
 }
 
 export interface ViewNode {
