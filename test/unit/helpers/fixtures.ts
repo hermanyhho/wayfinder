@@ -22,6 +22,8 @@ export function analysisOf(path: string, imports: string[] = [], extra: Partial<
     usage: {},
     firstPropertyAccessLine: new Map(),
     referencedNames: new Set(),
+    rendersJsx: false,
+    renderedComponents: [],
     ...extra,
   };
 }

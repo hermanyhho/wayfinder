@@ -1,6 +1,6 @@
 import type { AiScanState, AiStatus } from "../shared/messages";
 import type { Fact, MemberKind, NodeKind, ViewData } from "../shared/viewData";
-import type { BannerView, FloorView, GroupHeadingView, GroupKind, GroupToggleView, LayerView, Layout, MemberView, NodeView, PortView, SecondLayerView, UiState, UsesListView, WireView } from "./layout";
+import { TREE_INDENT, type BannerView, type FloorView, type GroupHeadingView, type GroupKind, type GroupToggleView, type LayerView, type Layout, type MemberView, type NodeView, type PortView, type SecondLayerView, type TreeRowView, type UiState, type UsesListView, type WireView } from "./layout";
 import { groupChecks, panelFor, type Action, type PanelModel } from "./panelModel";
 
 const HTML_ESCAPES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
@@ -34,8 +34,12 @@ const renderFloor = (floor: FloorView) =>
   `<div class="fl ${floor.cls}" style="left:${floor.x}px;top:${floor.y}px;width:${floor.w}px;height:${floor.h}px">${floor.emptyText ? `<span class="phtext">${escapeHtml(floor.emptyText)}</span>` : ""}</div>`;
 const renderColumnSearch = (floor: FloorView) =>
   floor.search === undefined ? "" : `<input class="colsearch" style="left:${floor.x + 14}px;top:${floor.y + 34}px;width:${floor.w - 28}px" type="search" data-search="${floor.key}" value="${escapeHtml(floor.search)}" placeholder="Search" aria-label="Search ${escapeHtml(floor.title)}" spellcheck="false">`;
+const renderColumnTabs = (floor: FloorView) =>
+  `<div class="seg coltabs" style="left:${floor.x + 14}px;top:${floor.y + 5}px" role="group" aria-label="${escapeHtml(floor.title)}">${floor.tabs!
+    .map((tab) => (tab.active ? `<button class="on" aria-pressed="true">${escapeHtml(tab.text)}</button>` : `<button data-action="toggle" data-value="${escapeHtml(tab.toggleKey)}" aria-pressed="false">${escapeHtml(tab.text)}</button>`))
+    .join("")}</div>`;
 const renderFloorHeader = (floor: FloorView) =>
-  `<div class="flh ${floor.cls}" style="left:${floor.x + 14}px;top:${floor.y + 9}px;max-width:${floor.w - 28}px"><span class="ti">${escapeHtml(floor.title)}</span><span class="fp">${escapeHtml(floor.path)}</span></div>${renderColumnSearch(floor)}`;
+  `${floor.tabs ? renderColumnTabs(floor) : `<div class="flh ${floor.cls}" style="left:${floor.x + 14}px;top:${floor.y + 9}px;max-width:${floor.w - 28}px"><span class="ti">${escapeHtml(floor.title)}</span><span class="fp">${escapeHtml(floor.path)}</span></div>`}${renderColumnSearch(floor)}`;
 const renderWires = (wires: WireView[]) => `<svg class="wires" aria-hidden="true">${wires.map((wire) => `<path class="w ${wire.cls}" d="${wire.d}"></path>`).join("")}</svg>`;
 const OPEN_ICON = '<path d="M14 4h6v6"></path><path d="m20 4-9 9"></path><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"></path>';
 const MEMBER_KIND_ICONS: Record<MemberKind, string> = {
@@ -50,6 +54,7 @@ const MEMBER_KIND_ICONS: Record<MemberKind, string> = {
   enum: '<path d="M9 6h11M9 12h11M9 18h11"></path><path d="M4 6h.01M4 12h.01M4 18h.01"></path>',
   suite: '<path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"></path>',
   test: '<path d="M9 3h6"></path><path d="M10 3v6l-5 10a1.5 1.5 0 0 0 1.3 2h11.4a1.5 1.5 0 0 0 1.3-2L14 9V3"></path><path d="M7 15h10"></path>',
+  prop: '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"></path><circle cx="15" cy="7" r="2"></circle><circle cx="9" cy="17" r="2"></circle>',
 };
 const NODE_KIND_ICONS: Record<NodeKind, string> = {
   here: '<path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path>',
@@ -87,6 +92,16 @@ const GROUP_ICONS: Record<GroupKind, string> = { ...NODE_KIND_ICONS, ...MEMBER_K
 const CHEVRON_ICON = '<path d="m6 9 6 6 6-6"></path>';
 const renderGroupHeading = (heading: GroupHeadingView) =>
   `<button class="grh ${heading.cls}${heading.collapsed ? " closed" : ""}" style="left:${heading.x}px;top:${heading.y}px;width:${heading.w}px" data-action="toggle" data-value="${escapeHtml(heading.key)}" data-nav="${escapeHtml(heading.key)}" aria-expanded="${!heading.collapsed}"><svg class="grchev" viewBox="0 0 24 24" aria-hidden="true">${CHEVRON_ICON}</svg><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${GROUP_ICONS[heading.kind]}</svg>${escapeHtml(heading.text)}</button>`;
+function renderTreeRow(row: TreeRowView): string {
+  const toggle = row.toggleKey
+    ? `<button class="trtog${row.expanded ? " open" : ""}" style="left:${row.x}px;top:${row.y}px" data-action="toggle" data-value="${escapeHtml(row.toggleKey)}" aria-expanded="${row.expanded}" aria-label="Expand ${escapeHtml(row.name)}"><svg viewBox="0 0 24 24" aria-hidden="true">${CHEVRON_ICON}</svg></button>`
+    : "";
+  const style = `left:${row.x + TREE_INDENT}px;top:${row.y}px;width:${row.w - TREE_INDENT}px`;
+  const content = `<span class="trn">${escapeHtml(row.name)}</span><span class="trl">${escapeHtml(row.lineText)}</span>`;
+  if (!row.open) return `${toggle}<div class="tr ${row.cls}" style="${style}">${content}</div>`;
+  const lineAttribute = row.open.line === undefined ? "" : ` data-value="${row.open.line}"`;
+  return `${toggle}<button class="tr ${row.cls}" style="${style}" data-action="open" data-id="${escapeHtml(row.open.file)}"${lineAttribute} title="${escapeHtml(row.open.file)}">${content}</button>`;
+}
 const renderGroupToggle = (toggle: GroupToggleView) =>
   `<button class="ftog" style="left:${toggle.x}px;top:${toggle.y}px" data-action="toggle" data-value="${escapeHtml(toggle.key)}"><span class="ftic ${toggle.icon}"></span>${escapeHtml(toggle.text)}</button>`;
 const renderPort = (port: PortView) => `<span class="port ${port.cls}${port.incoming ? " in" : ""}" style="left:${port.x}px;top:${port.y}px"></span>`;
@@ -166,6 +181,7 @@ function renderLayer(layer: LayerView, canOpen: (id: string) => boolean): string
     layer.floors.map(renderFloorHeader).join(""),
     layer.nodes.map((node) => renderNode(node, canOpen)).join(""),
     layer.members.map(renderMember).join(""),
+    layer.treeRows.map(renderTreeRow).join(""),
     layer.groupHeadings.map(renderGroupHeading).join(""),
     layer.groupToggles.map(renderGroupToggle).join(""),
     layer.ports.map(renderPort).join(""),

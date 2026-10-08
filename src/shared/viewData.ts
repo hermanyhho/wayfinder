@@ -15,7 +15,7 @@ export interface MemberUse {
   line: number;
 }
 
-export type MemberKind = "function" | "class" | "method" | "property" | "const" | "let" | "interface" | "type" | "enum" | "suite" | "test";
+export type MemberKind = "function" | "class" | "method" | "property" | "const" | "let" | "interface" | "type" | "enum" | "suite" | "test" | "prop";
 
 export interface Member {
   name: string;
@@ -31,6 +31,8 @@ export interface Member {
   suiteTitle?: string;
   /** for suites and tests: marked with .only, or skipped with .skip or an x prefix */
   focus?: "only" | "skip";
+  /** for component props: marked with a question mark in the props type */
+  optional?: boolean;
   /** for members of the open file that are not tests: the first line in each other file that uses it, matched by name */
   usedIn?: MemberUse[];
   usedInOwnFile?: boolean;
@@ -63,6 +65,21 @@ export interface ViewEdge {
   label?: string;
 }
 
+export interface ComponentLink {
+  /** workspace-relative path of the component's file */
+  file: string;
+  name: string;
+  /** line of the JSX element, in the file that renders it */
+  line: number;
+  /** the next level in the same direction; empty past the depth limit and for a component that is already an ancestor */
+  links: ComponentLink[];
+}
+
+export interface ComponentTree {
+  renderedBy: ComponentLink[];
+  renders: ComponentLink[];
+}
+
 export interface ViewData {
   openFile: string;
   openFileIsTest: boolean;
@@ -72,5 +89,7 @@ export interface ViewData {
   /** what the open file defines, in source order */
   members: Member[];
   orphanChecks: Fact[] | null;
+  /** only when the open file renders JSX */
+  componentTree: ComponentTree | null;
   scan: { done: number; total: number } | null;
 }
