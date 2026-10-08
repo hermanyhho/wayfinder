@@ -404,6 +404,99 @@ describe("when a file declares and uses names", () => {
   });
 });
 
+describe("when a file renders JSX", () => {
+  const userCard = [
+    'import { Avatar } from "./Avatar"',
+    'import { Badge } from "./Badge"',
+    'import { formatName } from "./formatName"',
+    "",
+    "interface UserCardProps {",
+    "  name: string;",
+    "  compact?: boolean;",
+    "}",
+    "",
+    "export function UserCard({ name, compact }: UserCardProps) {",
+    "  return (",
+    '    <div className="card">',
+    "      <Avatar name={formatName(name)} />",
+    "      <Badge>{name}</Badge>",
+    "      <Avatar name={name} />",
+    "    </div>",
+    "  );",
+    "}",
+  ].join("\n");
+  const analysis = analyzeSource("src/ui/UserCard.tsx", userCard);
+  const propsOf = (members: typeof analysis.members) => members.filter((member) => member.kind === "prop").map((member) => [member.name, member.optional]);
+
+  it("should record each imported component it renders at the first line it appears", () => {
+    expect(analysis.renderedComponents).toEqual([
+      { name: "Avatar", line: 13 },
+      { name: "Badge", line: 14 },
+    ]);
+  });
+
+  it("should mark the file as rendering JSX", () => {
+    expect(analysis.rendersJsx).toBe(true);
+  });
+
+  it("should list the props of the component as required or optional at their line", () => {
+    const props = analysis.members.filter((member) => member.kind === "prop").map((member) => [member.name, member.line, member.optional]);
+
+    expect(props).toEqual([
+      ["name", 6, false],
+      ["compact", 7, true],
+    ]);
+  });
+
+  it("should read props written inline on an arrow function component", () => {
+    const inline = analyzeSource("src/ui/Tag.jsx", "export const Tag = ({ label, tone }) => <span className={tone}>{label}</span>;");
+    const typedInline = analyzeSource("src/ui/Tag.tsx", "export const Tag = ({ label }: { label: string; tone?: string }) => <span>{label}</span>;");
+
+    expect([propsOf(inline.members), propsOf(typedInline.members)]).toEqual([[], [["label", false], ["tone", true]]]);
+  });
+
+  it("should not mark a file without JSX or list props for it", () => {
+    const plain = analyzeSource("src/utils/format.ts", "interface Options { short?: boolean }\nexport function Format(value: string, options: Options) { return value }");
+
+    expect([plain.rendersJsx, plain.renderedComponents, propsOf(plain.members)]).toEqual([false, [], []]);
+  });
+});
+
+describe("when a file renders JSX in less common ways", () => {
+  const componentsRenderedBy = (path: string, text: string) => analyzeSource(path, text).renderedComponents.map((component) => component.name);
+  const propNamesOf = (text: string) => analyzeSource("src/ui/Card.tsx", text).members.filter((member) => member.kind === "prop").map((member) => [member.name, member.optional]);
+
+  it("should record a default-imported component", () => {
+    expect(componentsRenderedBy("src/ui/Card.tsx", 'import Avatar from "./Avatar";\nexport const Card = () => <Avatar />;')).toEqual(["Avatar"]);
+  });
+
+  it("should ignore lowercase intrinsic tags and components that are not imported", () => {
+    expect(componentsRenderedBy("src/ui/Card.tsx", 'import { Avatar } from "./Avatar";\nconst Local = () => <p />;\nexport const Card = () => <div><Local /></div>;')).toEqual([]);
+  });
+
+  it("should ignore namespaced member tags such as Foo.Bar", () => {
+    expect(componentsRenderedBy("src/ui/Card.tsx", 'import * as Ui from "./ui";\nexport const Card = () => <Ui.Avatar />;')).toEqual([]);
+  });
+
+  it("should mark a file that only renders fragments as rendering JSX", () => {
+    expect(analyzeSource("src/ui/Card.tsx", "export const Card = () => <>text</>;").rendersJsx).toBe(true);
+  });
+
+  it("should read props from a type alias with an object type", () => {
+    expect(propNamesOf("type Props = { a: string; b?: number };\nexport const Card = (props: Props) => <div />;")).toEqual([["a", false], ["b", true]]);
+  });
+
+  it("should not read props from React.FC generics or a qualified props type", () => {
+    expect(propNamesOf('interface Props { a: string }\nexport const Card: React.FC<Props> = ({ a }) => <div />;\nexport function Other(props: Ns.Props) { return <div /> }')).toEqual([]);
+  });
+
+  it("should keep members of a file without JSX in source order", () => {
+    const analysis = analyzeSource("src/a.ts", "export class A {\n  m() {}\n  constructor(private readonly dep: string) {}\n  p = 1;\n}\nexport const z = 1;\nexport function f() {}");
+
+    expect(analysis.members.map((member) => member.name)).toEqual(["A", "m", "dep", "p", "z", "f"]);
+  });
+});
+
 describe("when a file declares classes and interfaces with implements and extends clauses", () => {
   const source = [
     'import type { IGroup, IAudited } from "./IGroup"',

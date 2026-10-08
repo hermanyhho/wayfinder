@@ -1,4 +1,4 @@
-import type { Fact, Implementation, Member, MemberKind, MemberUse, MemberVisibility, NodeKind, ViewData, ViewNode } from "../shared/viewData";
+import type { ComponentLink, ComponentTree, Fact, Implementation, Member, MemberKind, MemberUse, MemberVisibility, NodeKind, ViewData, ViewNode } from "../shared/viewData";
 
 export const NODE_W = 152;
 export const NODE_H = 56;
@@ -39,7 +39,9 @@ export interface FloorToggle { text: string; icon: "plus" | "minus"; y: number; 
 export type GroupKind = MemberKind | NodeKind;
 export interface GroupHeadingView { key: string; x: number; y: number; w: number; cls: string; kind: GroupKind; text: string; collapsed: boolean; }
 export interface GroupToggleView extends FloorToggle { key: string; x: number; }
-export interface FloorView { key: string; title: string; path: string; cls: string; x: number; y: number; w: number; h: number; emptyText: string; toggle: FloorToggle | null; search?: string; }
+export interface ColumnTabView { text: string; active: boolean; toggleKey: string; }
+export interface FloorView { key: string; title: string; path: string; cls: string; x: number; y: number; w: number; h: number; emptyText: string; toggle: FloorToggle | null; search?: string; tabs?: ColumnTabView[]; }
+export interface TreeRowView { x: number; y: number; w: number; cls: string; name: string; lineText: string; open: { file: string; line?: number } | null; toggleKey: string | null; expanded: boolean; }
 export interface NodeView { id: string; x: number; y: number; w: number; cls: string; kind: NodeKind; tag: string; name: string; path: string; }
 export interface UsesListView { x: number; y: number; w: number; uses: MemberUse[]; }
 export interface MemberUsageView { text: string; listKey: string | null; list: UsesListView | null; }
@@ -47,7 +49,7 @@ export interface MemberView extends Omit<NodeView, "kind"> { kind: MemberKind; l
 export interface WireView { cls: string; d: string; }
 export interface PortView { cls: string; x: number; y: number; incoming: boolean; }
 export interface BannerView { y: number; title: string; items: Fact[]; progress: number | null; }
-export interface LayerView { floors: FloorView[]; nodes: NodeView[]; members: MemberView[]; groupHeadings: GroupHeadingView[]; groupToggles: GroupToggleView[]; wires: WireView[]; ports: PortView[]; banners: BannerView[]; height: number; }
+export interface LayerView { floors: FloorView[]; nodes: NodeView[]; members: MemberView[]; treeRows: TreeRowView[]; groupHeadings: GroupHeadingView[]; groupToggles: GroupToggleView[]; wires: WireView[]; ports: PortView[]; banners: BannerView[]; height: number; }
 export interface SecondLayerView extends LayerView { frame: { x: number; y: number; w: number; h: number }; transform: string; }
 export interface Layout { width: number; inner: LayerView; outer: SecondLayerView | null; }
 
@@ -91,6 +93,7 @@ const DEPENDENCY_GROUPS: { kind: Exclude<NodeKind, "here" | "caller" | "expected
   { kind: "package", title: "Packages" },
 ];
 const MEMBER_GROUPS: { kind: MemberKind; title: string }[] = [
+  { kind: "prop", title: "Props" },
   { kind: "class", title: "Classes" },
   { kind: "interface", title: "Interfaces" },
   { kind: "type", title: "Types" },
@@ -103,7 +106,7 @@ const MEMBER_GROUPS: { kind: MemberKind; title: string }[] = [
   { kind: "suite", title: "Test groups" },
   { kind: "test", title: "Test cases" },
 ];
-const SOURCE_ORDER_KINDS: MemberKind[] = ["suite", "test"];
+const SOURCE_ORDER_KINDS: MemberKind[] = ["suite", "test", "prop"];
 const MEMBER_TAGS: Partial<Record<MemberKind, string>> = { suite: "test group", test: "test case" };
 
 interface ColumnGroup { key: string; heading: { kind: GroupKind; title: string; cls: string } | null; ids: string[]; }
@@ -202,10 +205,15 @@ function implementationView(implementation: Implementation, id: string, box: Box
   };
 }
 
+function tagOf(member: Member): string {
+  if (member.kind === "prop") return member.optional ? "optional" : "required";
+  return MEMBER_TAGS[member.kind] ?? member.kind;
+}
+
 function memberView(member: Member, id: string, box: Box, atCursor: boolean, ui: UiState): MemberView {
   const usage = memberUsageView(member, box, ui);
   return {
-    id, x: box.x, y: box.y, w: box.w, cls: atCursor ? "green cur" : "green", tag: MEMBER_TAGS[member.kind] ?? member.kind, kind: member.kind, name: member.name, line: member.line,
+    id, x: box.x, y: box.y, w: box.w, cls: atCursor ? "green cur" : "green", tag: tagOf(member), kind: member.kind, name: member.name, line: member.line,
     tooltip: [member.name, member.suiteTitle, `Go to line ${member.line}`].filter(Boolean).join("\n"),
     path: member.className ?? member.suiteTitle ?? "",
     ...(member.focus ? { focus: member.focus } : {}),
@@ -273,6 +281,50 @@ function layoutColumns(columns: ColumnGroup[][], searchingColumns: boolean[], ui
   });
   const h = Math.max(top + 34 + COLUMN_SEARCH_ROW_H + ROW_H, ...placed.map((column) => column.bottom)) - top + 4;
   return { boxes, hiddenCardAnchors, groupHeadings, groupToggles, h, placed };
+}
+
+export const TREE_ROW_H = 24;
+export const TREE_INDENT = 16;
+export const IMPORTS_TAB_KEY = "deps:imports";
+
+function layoutComponentTree(tree: ComponentTree, componentName: string, ui: UiState, x: number, top: number, w: number) {
+  const rows: TreeRowView[] = [];
+  const headings: GroupHeadingView[] = [];
+  const branchPaths: string[] = [];
+  let cursor = top;
+  const drawBranch = (parentX: number, parentY: number, childMiddles: number[]) => {
+    const trunkX = parentX + TREE_INDENT / 2;
+    branchPaths.push(`M${trunkX} ${parentY + TREE_ROW_H} V${childMiddles.at(-1)}`, ...childMiddles.map((middle) => `M${trunkX} ${middle} H${parentX + TREE_INDENT}`));
+  };
+  const placeLinks = (links: ComponentLink[], depth: number, parentKey: string, color: string, opensAtLine: boolean): number[] =>
+    links.map((link) => {
+      const toggleKey = `${parentKey}>${link.file}`;
+      const expanded = link.links.length > 0 && !!ui.open[toggleKey];
+      const rowX = x + depth * TREE_INDENT;
+      const rowY = cursor;
+      rows.push({
+        x: rowX, y: rowY, w: w - depth * TREE_INDENT, cls: color, name: link.name, lineText: `line ${link.line}`,
+        open: opensAtLine ? { file: link.file, line: link.line } : { file: link.file }, toggleKey: link.links.length ? toggleKey : null, expanded,
+      });
+      cursor += TREE_ROW_H;
+      if (expanded) drawBranch(rowX, rowY, placeLinks(link.links, depth + 1, toggleKey, color, opensAtLine));
+      return rowY + TREE_ROW_H / 2;
+    });
+
+  if (tree.renderedBy.length) {
+    const collapseKey = "tree:renderedBy:collapsed";
+    const collapsed = !!ui.open[collapseKey];
+    headings.push({ key: collapseKey, x, y: cursor, w, cls: "blue", kind: "caller", text: `Rendered by (${tree.renderedBy.length})`, collapsed });
+    cursor += GROUP_HEADING_H;
+    if (!collapsed) placeLinks(tree.renderedBy, 0, "tree:up", "blue", true);
+    cursor += GROUP_GAP;
+  }
+  const componentY = cursor;
+  rows.push({ x, y: componentY, w, cls: "green here", name: componentName, lineText: "this component", open: null, toggleKey: null, expanded: false });
+  cursor += TREE_ROW_H;
+  // the line of a rendered component is in the file that renders it, so a click opens the component's own file at the top
+  if (tree.renders.length) drawBranch(x, componentY, placeLinks(tree.renders, 1, "tree:down", "violet", false));
+  return { rows, headings, wires: branchPaths.length ? [{ cls: "tree", d: branchPaths.join(" ") }] : [], bottom: cursor };
 }
 
 function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search: SearchByColumn): { layer: LayerView; boxes: Record<string, Box> } {
@@ -358,7 +410,9 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
   const columnIds = columnDefs.map((def) => groupsByColumn[def.key].flatMap((group) => group.ids));
   const nameById = new Map<string, string>([...immediate.map((node) => [node.id, node.name] as const), ...view.members.map((member, index) => [memberIds[index], member.name] as const), ...implementations.map((implementation, index) => [implementationIds[index], implementation.name] as const)]);
   const searchTexts = columnDefs.map((def) => search[def.key] ?? "");
+  const componentTree = ui.open[IMPORTS_TAB_KEY] ? null : view.componentTree;
   const columnGroups = columnDefs.map((def, index) => {
+    if (def.key === "deps" && componentTree) return [];
     const searchText = searchTexts[index].toLowerCase();
     return groupsByColumn[def.key]
       .map((group) => (searchText ? { ...group, ids: group.ids.filter((id) => nameById.get(id)!.toLowerCase().includes(searchText)) } : group))
@@ -368,17 +422,32 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
   const columnWidth = Math.floor((floorWidth - (columnDefs.length - 1) * COL_GAP) / columnDefs.length);
   const columns = layoutColumns(columnGroups, searchTexts.map(Boolean), ui, y, columnWidth, cardSizes);
   Object.assign(boxes, columns.boxes);
+  const treeX = columns.placed[0].x + COLUMN_PADDING;
+  const treeW = columnWidth - 2 * COLUMN_PADDING;
+  const treeY = y + 34;
+  const tree = componentTree ? layoutComponentTree(componentTree, center.name.replace(/\.[^.]+$/, ""), ui, treeX, treeY, treeW) : null;
+  const hiddenDependencyAnchors: Record<string, Box> = {};
+  if (tree) for (const id of columnIds[0]) hiddenDependencyAnchors[id] = { x: treeX, y: treeY, w: treeW, h: TREE_ROW_H, floor: COLUMNS_FLOOR };
+  const columnsHeight = tree ? Math.max(columns.h, tree.bottom - y + 4) : columns.h;
   columnDefs.forEach((def, index) => {
     const count = columnIds[index].length;
     const searchText = searchTexts[index];
     let emptyText = count ? "" : def.empty(center.name);
     if (searchText && columnGroups[index].length === 0) emptyText = `No match for "${searchText}".`;
-    floors.push({
+    const floor: FloorView = {
       key: def.key, title: count ? `${def.title} (${count})` : def.title, path: foldersOf(nodesInColumn(def.key)), cls: count ? (def.key === "tests" ? "annex" : "") : "empty",
-      x: columns.placed[index].x, y, w: columnWidth, h: columns.h, emptyText, toggle: null, search: count ? searchText : undefined,
-    });
+      x: columns.placed[index].x, y, w: columnWidth, h: columnsHeight, emptyText, toggle: null, search: count ? searchText : undefined,
+    };
+    if (def.key === "deps" && view.componentTree) {
+      floor.tabs = [
+        { text: "Component tree", active: !!tree, toggleKey: IMPORTS_TAB_KEY },
+        { text: `Imports (${count})`, active: !tree, toggleKey: IMPORTS_TAB_KEY },
+      ];
+      if (tree) Object.assign(floor, { path: "", cls: "", emptyText: "", search: undefined });
+    }
+    floors.push(floor);
   });
-  y += columns.h + 14;
+  y += columnsHeight + 14;
 
   if (view.orphanChecks) {
     banners.push({ y: y + 4, title: "Nothing connects to this file", items: view.orphanChecks, progress: null });
@@ -414,9 +483,10 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
   ];
   const hiddenCursorGroup = cursorMemberId && !boxes[cursorMemberId] ? groupsByColumn.members.find((group) => group.ids.includes(cursorMemberId)) : undefined;
   const cursorHeadingKey = hiddenCursorGroup && `${hiddenCursorGroup.key}:collapsed`;
-  const groupHeadings = columns.groupHeadings.map((heading) => (heading.key === cursorHeadingKey ? { ...heading, cls: `${heading.cls} cur` } : heading));
-  const layer = { floors, nodes, members, groupHeadings, groupToggles: columns.groupToggles, wires, ports, banners, height: Math.max(y + 8, 600) };
-  return { layer, boxes: { ...columns.hiddenCardAnchors, ...boxes } };
+  const groupHeadings = [...(tree?.headings ?? []), ...columns.groupHeadings].map((heading) => (heading.key === cursorHeadingKey ? { ...heading, cls: `${heading.cls} cur` } : heading));
+  wires.push(...(tree?.wires ?? []));
+  const layer = { floors, nodes, members, treeRows: tree?.rows ?? [], groupHeadings, groupToggles: columns.groupToggles, wires, ports, banners, height: Math.max(y + 8, 600) };
+  return { layer, boxes: { ...columns.hiddenCardAnchors, ...hiddenDependencyAnchors, ...boxes } };
 }
 
 function layoutSecond(view: ViewData, ui: UiState, inner: { layer: LayerView; boxes: Record<string, Box> }, width: number): SecondLayerView | null {
@@ -473,5 +543,5 @@ function layoutSecond(view: ViewData, ui: UiState, inner: { layer: LayerView; bo
   }
 
   const nodes = second.filter((node) => boxes[node.id]).map((node) => nodeView(node, boxes[node.id], ui));
-  return { floors, nodes, members: [], groupHeadings: [], groupToggles: [], wires, ports, banners: [], height: y + 8, frame, transform: `translate(${ox}px, ${oy}px) scale(${CLUSTER_SCALE})` };
+  return { floors, nodes, members: [], treeRows: [], groupHeadings: [], groupToggles: [], wires, ports, banners: [], height: y + 8, frame, transform: `translate(${ox}px, ${oy}px) scale(${CLUSTER_SCALE})` };
 }

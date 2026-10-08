@@ -27,6 +27,9 @@ export interface SourceAnalysis {
   firstPropertyAccessLine: Map<string, number>;
   /** names that appear in this file outside the place that declares them */
   referencedNames: Set<string>;
+  rendersJsx: boolean;
+  /** imported names used as JSX elements, as in `<Avatar />`, at the first line each appears */
+  renderedComponents: { name: string; line: number }[];
 }
 
 export function analyzeSource(path: string, text: string): SourceAnalysis {
@@ -67,8 +70,16 @@ export function analyzeSource(path: string, text: string): SourceAnalysis {
 
   const firstPropertyAccessLine = new Map<string, number>();
   const referencedNames = new Set<string>();
+  let rendersJsx = false;
+  const renderedComponents: SourceAnalysis["renderedComponents"] = [];
 
   const visit = (node: ts.Node) => {
+    if (ts.isJsxOpeningFragment(node)) rendersJsx = true;
+    if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
+      rendersJsx = true;
+      const name = ts.isIdentifier(node.tagName) ? node.tagName.text : "";
+      if (importedNameSet.has(name) && !renderedComponents.some((component) => component.name === name)) renderedComponents.push({ name, line: lineOf(node) });
+    }
     if (isDynamicImportOrRequire(node)) addImport((node.arguments[0] as ts.StringLiteral).text, node, [], false, true);
     if (ts.isIdentifier(node) && importedNameSet.has(node.text) && !isInsideImport(node)) recordUsage(node.text, node);
     if (ts.isMemberName(node) && !isDeclaredName(node)) referencedNames.add(node.text);
@@ -83,11 +94,10 @@ export function analyzeSource(path: string, text: string): SourceAnalysis {
 
   const heritage = heritageNamesOf(source);
   const members = collectMembers(source, lineOf).map((member) => ({ ...member, ...heritage.get(`${member.kind} ${member.name}`) }));
-  if (isTestFile(path)) {
-    members.push(...collectTestCases(source, lineOf));
-    members.sort((left, right) => left.line - right.line);
-  }
-  return { path, lineCount: sourceLines.length, imports, exports, publicMethods, members, hasDocComment, usage, firstPropertyAccessLine, referencedNames };
+  if (isTestFile(path)) members.push(...collectTestCases(source, lineOf));
+  if (rendersJsx) members.push(...collectComponentProps(source, lineOf));
+  members.sort((left, right) => left.line - right.line);
+  return { path, lineCount: sourceLines.length, imports, exports, publicMethods, members, hasDocComment, usage, firstPropertyAccessLine, referencedNames, rendersJsx, renderedComponents };
 }
 
 function scriptKindFor(path: string): ts.ScriptKind {
@@ -203,6 +213,49 @@ function collectMembers(source: ts.SourceFile, lineOf: (node: ts.Node) => number
   }
 
   return members;
+}
+
+// props are read only from an inline type, a local interface or a local type alias
+function collectComponentProps(source: ts.SourceFile, lineOf: (node: ts.Node) => number): Member[] {
+  const props: Member[] = [];
+  const readPropsTypes = new Set<readonly ts.TypeElement[]>();
+  for (const statement of source.statements) {
+    for (const component of componentFunctionsOf(statement)) {
+      const propsType = component.parameters[0]?.type;
+      const propsMembers = propsType && propsTypeMembersOf(source, propsType);
+      if (!propsMembers || readPropsTypes.has(propsMembers)) continue;
+      readPropsTypes.add(propsMembers);
+      for (const member of propsMembers) {
+        if (!ts.isPropertySignature(member) || !ts.isIdentifier(member.name)) continue;
+        const endLine = source.getLineAndCharacterOfPosition(member.getEnd()).line + 1;
+        props.push({ name: member.name.text, kind: "prop", line: lineOf(member.name), endLine, exported: false, optional: !!member.questionToken });
+      }
+    }
+  }
+  return props;
+}
+
+const isComponentName = (name: string) => /^[A-Z]/.test(name);
+
+function componentFunctionsOf(statement: ts.Statement): ts.SignatureDeclaration[] {
+  if (ts.isFunctionDeclaration(statement)) return statement.name && isComponentName(statement.name.text) ? [statement] : [];
+  if (!ts.isVariableStatement(statement)) return [];
+  return statement.declarationList.declarations.flatMap((declaration) => {
+    const initializer = declaration.initializer;
+    const holdsFunction = initializer && (ts.isArrowFunction(initializer) || ts.isFunctionExpression(initializer));
+    return holdsFunction && ts.isIdentifier(declaration.name) && isComponentName(declaration.name.text) ? [initializer] : [];
+  });
+}
+
+function propsTypeMembersOf(source: ts.SourceFile, type: ts.TypeNode): readonly ts.TypeElement[] | undefined {
+  if (ts.isTypeLiteralNode(type)) return type.members;
+  if (!ts.isTypeReferenceNode(type) || !ts.isIdentifier(type.typeName)) return undefined;
+  const typeName = type.typeName.text;
+  for (const statement of source.statements) {
+    if (ts.isInterfaceDeclaration(statement) && statement.name.text === typeName) return statement.members;
+    if (ts.isTypeAliasDeclaration(statement) && statement.name.text === typeName && ts.isTypeLiteralNode(statement.type)) return statement.type.members;
+  }
+  return undefined;
 }
 
 function heritageNamesOf(source: ts.SourceFile): Map<string, Pick<Member, "implements" | "extends">> {

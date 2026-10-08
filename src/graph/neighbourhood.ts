@@ -1,4 +1,4 @@
-import type { CallSite, Fact, Implementation, Member, MemberUse, NodeKind, ViewData, ViewEdge, ViewNode } from "../shared/viewData";
+import type { CallSite, ComponentLink, ComponentTree, Fact, Implementation, Member, MemberUse, NodeKind, ViewData, ViewEdge, ViewNode } from "../shared/viewData";
 import type { SourceAnalysis } from "./analyzeSource";
 import { dependenciesOf, dependentsOf, type Dependency, type Graph } from "./buildGraph";
 import { baseNameOf, circularWith, expectedFiles, fileNameOf, folderOf, isTestFile, sizeOutlier, subjectByFileNameOf, subjectOf, testsOf } from "./patterns";
@@ -125,6 +125,7 @@ export function buildViewData(graph: Graph, path: string, options: ViewOptions =
     lineMarks,
     members: center ? membersWithUsage(graph, center) : [],
     orphanChecks: nodes.size === 1 + countExpected(nodes) ? orphanChecks(path, options.packageJsonText ?? "") : null,
+    componentTree: center?.rendersJsx && !isTestFile(path) ? componentTreeOf(graph, path) : null,
     scan: options.scan ?? null,
   };
 }
@@ -132,7 +133,7 @@ export function buildViewData(graph: Graph, path: string, options: ViewOptions =
 function membersWithUsage(graph: Graph, analysis: SourceAnalysis): Member[] {
   const importers = dependentsOf(graph, analysis.path);
   return analysis.members.map((member) => {
-    if (member.kind === "suite" || member.kind === "test") return member;
+    if (member.kind === "suite" || member.kind === "test" || member.kind === "prop") return member;
     const usedIn = member.exported ? importers.flatMap((dependency) => useInImporter(graph, dependency, member)) : [];
     const withUsage = { ...member, usedIn: usedIn.sort((left, right) => left.file.localeCompare(right.file)), usedInOwnFile: analysis.referencedNames.has(member.name) };
     if (member.kind !== "interface" || !member.exported) return withUsage;
@@ -149,6 +150,35 @@ function implementationsInImporter(graph: Graph, dependency: Dependency, interfa
     if (member.kind === "interface" && member.extends?.includes(interfaceName)) return [{ name: member.name, kind: "interface", file: dependency.from, line: member.line }];
     return [];
   });
+}
+
+// ponytail: the whole tree is sent with the view, to this many levels; ask the host per level if large trees make the view slow
+const COMPONENT_TREE_LEVELS = 3;
+
+function componentTreeOf(graph: Graph, path: string): ComponentTree {
+  return { renderedBy: renderedByOf(graph, path, [path]), renders: rendersOf(graph, path, [path]) };
+}
+
+const nextLevelOf = (file: string, ancestors: string[], linksOf: (file: string, ancestors: string[]) => ComponentLink[]) =>
+  ancestors.length < COMPONENT_TREE_LEVELS && !ancestors.includes(file) ? linksOf(file, [...ancestors, file]) : [];
+
+function rendersOf(graph: Graph, path: string, ancestors: string[]): ComponentLink[] {
+  const dependencies = dependenciesOf(graph, path);
+  return (graph.files.get(path)?.renderedComponents ?? []).flatMap(({ name, line }) => {
+    const file = dependencies.find((dependency) => dependency.names.includes(name))?.to;
+    if (!file) return [];
+    return [{ file, name, line, links: nextLevelOf(file, ancestors, (next, chain) => rendersOf(graph, next, chain)) }];
+  });
+}
+
+function renderedByOf(graph: Graph, path: string, ancestors: string[]): ComponentLink[] {
+  const links = dependentsOf(graph, path).filter((dependency) => !isTestFile(dependency.from)).flatMap((dependency) => {
+    const rendered = graph.files.get(dependency.from)?.renderedComponents.find((component) => dependency.names.includes(component.name));
+    if (!rendered) return [];
+    const file = dependency.from;
+    return [{ file, name: baseNameOf(file), line: rendered.line, links: nextLevelOf(file, ancestors, (next, chain) => renderedByOf(graph, next, chain)) }];
+  });
+  return links.sort((left, right) => left.name.localeCompare(right.name));
 }
 
 // methods and properties match by name only, because the map does not run the type checker

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildViewData } from "../../../src/graph/neighbourhood";
-import { layout, memberAtLine, type UiState } from "../../../src/webview/layout";
+import type { ComponentTree, Member } from "../../../src/shared/viewData";
+import { IMPORTS_TAB_KEY, layout, memberAtLine, type UiState } from "../../../src/webview/layout";
 import { DOCUMENT_SERVICE, analysisOf, graphOf, serviceGraph } from "../helpers/fixtures";
 
 const ui = (patch: Partial<UiState> = {}): UiState => ({ selected: DOCUMENT_SERVICE, layer: 1, open: {}, ...patch });
@@ -461,6 +462,89 @@ describe("when members of the open file carry their usage", () => {
 
     expect(card.usage?.list).toEqual({ x: card.x + 14, y: card.y + 72 + 6, w: card.w - 14, uses: remove.usedIn });
     expect(cardNamed(members, "rename").y - card.y).toBe(72 + 74 - 56 + 6 + 2 * 22);
+  });
+});
+
+describe("when the open file is a React component", () => {
+  const USER_CARD = "src/ui/UserCard.tsx";
+  const AVATAR = "src/ui/Avatar.tsx";
+  const componentTree: ComponentTree = {
+    renderedBy: [
+      { file: "src/ui/CommentItem.tsx", name: "CommentItem", line: 6, links: [] },
+      { file: "src/ui/ProfileHeader.tsx", name: "ProfileHeader", line: 5, links: [{ file: "src/pages/ProfilePage.tsx", name: "ProfilePage", line: 9, links: [] }] },
+      { file: "src/ui/TeamList.tsx", name: "TeamList", line: 8, links: [] },
+    ],
+    renders: [{ file: AVATAR, name: "Avatar", line: 12, links: [{ file: "src/ui/Image.tsx", name: "Image", line: 10, links: [] }] }],
+  };
+  const props: Member[] = [
+    { name: "name", kind: "prop", line: 4, endLine: 4, exported: false, optional: false },
+    { name: "compact", kind: "prop", line: 5, endLine: 5, exported: false, optional: true },
+  ];
+  const plainView = () => buildViewData(graphOf([analysisOf(USER_CARD, [AVATAR]), analysisOf(AVATAR)]), USER_CARD);
+  const componentView = () => ({ ...plainView(), componentTree, members: props });
+  const laidOut = (open: Record<string, boolean> = {}) => layout(componentView(), ui({ selected: USER_CARD, open }), 800).inner;
+  const rowsOf = (layer: ReturnType<typeof laidOut>) => layer.treeRows.map((row) => [row.name, row.lineText]);
+  const firstColumnOf = (layer: ReturnType<typeof laidOut>) => layer.floors.find((floor) => floor.key === "deps")!;
+
+  it("should show the component tree tab first, with the imports count on the other tab", () => {
+    const column = firstColumnOf(laidOut());
+
+    expect(column.tabs?.map((tab) => [tab.text, tab.active])).toEqual([["Component tree", true], ["Imports (1)", false]]);
+  });
+
+  it("should list the components that render it, then the component, then what it renders", () => {
+    const layer = laidOut();
+
+    expect(layer.groupHeadings[0].text).toBe("Rendered by (3)");
+    expect(rowsOf(layer)).toEqual([
+      ["CommentItem", "line 6"], ["ProfileHeader", "line 5"], ["TeamList", "line 8"], ["UserCard", "this component"], ["Avatar", "line 12"],
+    ]);
+  });
+
+  it("should open a parent at the line that renders the component, and a rendered component at its own file", () => {
+    const rows = laidOut().treeRows;
+
+    expect([rows[0].open, rows[4].open]).toEqual([{ file: "src/ui/CommentItem.tsx", line: 6 }, { file: AVATAR }]);
+  });
+
+  it("should nest the next level one indent deeper after its toggle is opened", () => {
+    const closed = laidOut();
+    const avatar = closed.treeRows.find((row) => row.name === "Avatar")!;
+
+    const opened = laidOut({ [avatar.toggleKey!]: true });
+
+    const image = opened.treeRows.find((row) => row.name === "Image");
+    expect(closed.treeRows.some((row) => row.name === "Image")).toBe(false);
+    expect(image).toMatchObject({ x: avatar.x + 16, y: avatar.y + 24, lineText: "line 10" });
+  });
+
+  it("should open the parents of a parent under it", () => {
+    const profileHeader = laidOut().treeRows.find((row) => row.name === "ProfileHeader")!;
+
+    const rows = laidOut({ [profileHeader.toggleKey!]: true }).treeRows;
+
+    expect(rows.find((row) => row.name === "ProfilePage")).toMatchObject({ x: profileHeader.x + 16, y: profileHeader.y + 24 });
+  });
+
+  it("should show the same import cards as a file without JSX when the imports tab is active", () => {
+    const withTree = layout(componentView(), ui({ selected: USER_CARD, open: { [IMPORTS_TAB_KEY]: true } }), 800).inner;
+    const withoutTree = layout(plainView(), ui({ selected: USER_CARD }), 800).inner;
+
+    expect(withTree.nodes).toEqual(withoutTree.nodes);
+    expect(withTree.treeRows).toEqual([]);
+    expect(firstColumnOf(withTree).tabs?.map((tab) => tab.active)).toEqual([false, true]);
+  });
+
+  it("should show no tabs for a file that renders no JSX", () => {
+    const column = firstColumnOf(layout(plainView(), ui({ selected: USER_CARD }), 800).inner);
+
+    expect(column.tabs).toBeUndefined();
+  });
+
+  it("should tag each prop as required or optional", () => {
+    const tags = laidOut().members.map((member) => [member.name, member.tag]);
+
+    expect(tags).toEqual([["name", "required"], ["compact", "optional"]]);
   });
 });
 

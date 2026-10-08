@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { analyzeSource } from "../../../src/graph/analyzeSource";
 import { buildViewData } from "../../../src/graph/neighbourhood";
+import type { ComponentLink } from "../../../src/shared/viewData";
 import { DOCUMENT_SERVICE, analysisOf, graphOf, serviceGraph } from "../helpers/fixtures";
 
 const kinds = (view: ReturnType<typeof buildViewData>) =>
@@ -314,6 +315,101 @@ export const title = groupLabel("Groups") + MAX_GROUPS;
     const members = buildViewData(graphOf([spec]), "test/a.spec.ts").members;
 
     expect(members.map((member) => member.usedIn)).toEqual([undefined, undefined]);
+  });
+});
+
+describe("when the open file is a React component", () => {
+  const USER_CARD = "src/ui/UserCard.tsx";
+  const component = (path: string, rendered: string[] = []) => {
+    const name = path.slice(path.lastIndexOf("/") + 1).replace(/\..*$/, "");
+    const imports = rendered.map((child) => `import { ${child} } from "src/ui/${child}.tsx";`);
+    const elements = rendered.map((child) => `<${child} />`).join("");
+    return analyzeSource(path, [...imports, `export function ${name}() {`, `  return <div>${elements}</div>;`, "}"].join("\n"));
+  };
+  const userCardTree = () =>
+    buildViewData(
+      graphOf([
+        component(USER_CARD, ["Avatar"]),
+        component("src/ui/Avatar.tsx", ["Image"]),
+        component("src/ui/Image.tsx"),
+        component("src/ui/TeamList.tsx", ["UserCard"]),
+        component("src/ui/ProfileHeader.tsx", ["UserCard"]),
+        component("src/pages/ProfilePage.tsx", ["ProfileHeader"]),
+        analyzeSource("src/ui/CommentItem.tsx", 'import { UserCard } from "src/ui/UserCard.tsx";\n\nexport function CommentItem() {\n  return <UserCard />;\n}'),
+        analyzeSource("src/ui/cardTitle.ts", 'import { UserCard } from "src/ui/UserCard.tsx";\nexport const cardTitle = UserCard.name;'),
+      ]),
+      USER_CARD,
+    ).componentTree!;
+  const namesOf = (links: ComponentLink[]): unknown[] => links.map((link) => (link.links.length ? [link.name, namesOf(link.links)] : link.name));
+
+  it("should list the components that render it, with the line that renders it", () => {
+    const tree = userCardTree();
+
+    expect(tree.renderedBy.map((link) => [link.file, link.line])).toEqual([
+      ["src/ui/CommentItem.tsx", 4],
+      ["src/ui/ProfileHeader.tsx", 3],
+      ["src/ui/TeamList.tsx", 3],
+    ]);
+  });
+
+  it("should nest the components that render each parent under it", () => {
+    const tree = userCardTree();
+
+    expect(namesOf(tree.renderedBy)).toEqual(["CommentItem", ["ProfileHeader", ["ProfilePage"]], "TeamList"]);
+  });
+
+  it("should nest what each rendered component renders in turn", () => {
+    const tree = userCardTree();
+
+    expect(namesOf(tree.renders)).toEqual([["Avatar", ["Image"]]]);
+    expect(tree.renders[0]).toMatchObject({ file: "src/ui/Avatar.tsx", line: 3 });
+  });
+
+  it("should stop at a component that is already an ancestor when components render each other", () => {
+    const graph = graphOf([component("src/ui/Tree.tsx", ["Branch"]), component("src/ui/Branch.tsx", ["Tree"])]);
+
+    const tree = buildViewData(graph, "src/ui/Tree.tsx").componentTree!;
+
+    expect([namesOf(tree.renders), namesOf(tree.renderedBy)]).toEqual([[["Branch", ["Tree"]]], [["Branch", ["Tree"]]]]);
+  });
+
+  it("should stop after three levels", () => {
+    const chain = ["Level1", "Level2", "Level3", "Level4"];
+    const graph = graphOf([component("src/ui/Root.tsx", ["Level1"]), ...chain.map((name, index) => component(`src/ui/${name}.tsx`, chain.slice(index + 1, index + 2)))]);
+
+    const tree = buildViewData(graph, "src/ui/Root.tsx").componentTree!;
+
+    expect(namesOf(tree.renders)).toEqual([["Level1", [["Level2", ["Level3"]]]]]);
+  });
+
+  it("should leave a test that renders the component out of Rendered by", () => {
+    const graph = graphOf([component(USER_CARD), component("src/ui/TeamList.tsx", ["UserCard"]), component("src/ui/UserCard.test.tsx", ["UserCard"])]);
+
+    const tree = buildViewData(graph, USER_CARD).componentTree!;
+
+    expect(tree.renderedBy.map((link) => link.file)).toEqual(["src/ui/TeamList.tsx"]);
+  });
+
+  it("should have no component tree for an open test file that renders JSX", () => {
+    const graph = graphOf([component(USER_CARD), component("src/ui/UserCard.test.tsx", ["UserCard"])]);
+
+    const view = buildViewData(graph, "src/ui/UserCard.test.tsx");
+
+    expect(view.componentTree).toBeNull();
+  });
+
+  it("should find a rendered component imported under another name, shown by that name", () => {
+    const parent = analyzeSource(USER_CARD, 'import { Avatar as Pic } from "src/ui/Avatar.tsx";\nexport function UserCard() {\n  return <Pic />;\n}');
+
+    const tree = buildViewData(graphOf([parent, component("src/ui/Avatar.tsx")]), USER_CARD).componentTree!;
+
+    expect(tree.renders.map((link) => [link.file, link.name, link.line])).toEqual([["src/ui/Avatar.tsx", "Pic", 3]]);
+  });
+
+  it("should have no component tree for a file without JSX", () => {
+    const view = buildViewData(graphOf([analyzeSource("src/utils/format.ts", "export const format = (value: string) => value;")]), "src/utils/format.ts");
+
+    expect(view.componentTree).toBeNull();
   });
 });
 

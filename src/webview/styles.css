@@ -110,6 +110,21 @@ body.vscode-light .nd { box-shadow: 0 2px 8px rgba(20, 30, 50, .10); }
 .ftic.plus::after { transform: rotate(90deg); }
 .ftic.minus::after { display: none; }
 
+.seg.coltabs { position: absolute; padding: 2px; border-radius: 7px; }
+.seg.coltabs button { font-size: 11.5px; padding: 4px 9px 3px; border-radius: 5px; }
+.seg.coltabs button.on { cursor: default; }
+.tr { position: absolute; height: 22px; box-sizing: border-box; display: flex; align-items: baseline; gap: 8px; padding: 0 6px; font: inherit; font-size: 12px; line-height: 22px; color: var(--text2); background: none; border: 0; border-radius: 4px; text-align: left; white-space: nowrap; animation: pop .35s ease-out both; }
+button.tr { cursor: pointer; }
+button.tr:hover { color: var(--strong); background: var(--l1); }
+.trn { overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.trl { flex: none; margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--muted); }
+.tr.here { color: var(--c); background: color-mix(in oklab, var(--c) 14%, transparent); box-shadow: inset 0 0 0 1px var(--c); }
+.trtog { position: absolute; width: 16px; height: 22px; display: flex; align-items: center; justify-content: center; padding: 0; background: none; border: 0; border-radius: 4px; color: var(--muted); cursor: pointer; }
+.trtog svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transform: rotate(-90deg); transition: transform .15s; }
+.trtog.open svg { transform: none; }
+.trtog:hover { color: var(--strong); background: var(--l1); }
+.w.tree { stroke: var(--l4); stroke-width: 1; }
+
 .banner { position: absolute; left: 16px; right: 16px; box-sizing: border-box; border: 1px dashed var(--l3); border-radius: 14px; background: var(--bg); padding: 16px 18px 14px; }
 .banner h4 { margin: 0 0 8px; font-size: 14px; font-weight: 700; color: var(--strong); }
 .banner ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
@@ -121,7 +136,7 @@ body.vscode-light .nd { box-shadow: 0 2px 8px rgba(20, 30, 50, .10); }
 .cluster { position: absolute; left: 0; top: 0; width: 100%; transform-origin: 0 0; transition: transform .6s cubic-bezier(.2, .7, .2, 1); }
 .layer2 { animation: fade .45s ease-out .25s both; }
 .layer2.late { animation-delay: .45s; }
-.keep-nodes .nd, .keep-nodes .ndopen, .keep-nodes .nu, .keep-layer2 .layer2 { animation: none; }
+.keep-nodes .nd, .keep-nodes .ndopen, .keep-nodes .nu, .keep-nodes .tr, .keep-layer2 .layer2 { animation: none; }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 .frame { position: absolute; border: 1.5px solid var(--green); border-radius: 18px; box-shadow: 0 0 0 6px rgba(93, 214, 138, .08); pointer-events: none; }
 .framelabel { position: absolute; left: 16px; width: 136px; display: flex; flex-direction: column; gap: 3px; text-align: left; background: none; border: 0; padding: 0; cursor: pointer; font: inherit; color: inherit; }
