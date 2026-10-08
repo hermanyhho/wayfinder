@@ -38,7 +38,7 @@ function nearestInSameRow(candidates: NavigationCard[], current: NavigationCard,
   return ahead.length ? nearestByX(ahead, current.x) : undefined;
 }
 
-export function nextCardKey(cards: NavigationCard[], currentKey: string, arrow: ArrowKey): string | undefined {
+export function nextCardKey(cards: NavigationCard[], currentKey: string, arrow: ArrowKey, options: { loopColumns?: boolean } = {}): string | undefined {
   const current = cards.find((card) => card.key === currentKey);
   if (!current) return undefined;
   const onFloor = (floor: string) => cards.filter((card) => card.floor === floor).sort(byPosition);
@@ -57,7 +57,12 @@ export function nextCardKey(cards: NavigationCard[], currentKey: string, arrow: 
     else if (downwards) next = firstCardOf(["members", "deps", "tests"]);
   } else if (columnIndex !== -1) {
     if (vertical) next = nearestInNextRow(onFloor(current.floor), current, downwards) ?? (downwards ? undefined : openFile);
-    else next = firstCardOf(rightwards ? COLUMN_ORDER.slice(columnIndex + 1) : COLUMN_ORDER.slice(0, columnIndex).reverse());
+    else {
+      const columnsAfter = COLUMN_ORDER.slice(columnIndex + 1);
+      const columnsBefore = COLUMN_ORDER.slice(0, columnIndex);
+      const wrappedColumns = options.loopColumns ? (rightwards ? columnsBefore : columnsAfter) : [];
+      next = firstCardOf(rightwards ? [...columnsAfter, ...wrappedColumns] : [...wrappedColumns, ...columnsBefore].reverse());
+    }
   }
   return next?.key;
 }

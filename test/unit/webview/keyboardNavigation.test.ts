@@ -63,6 +63,32 @@ describe("nextCardKey", () => {
   it("returns nothing for a key that is not on the map", () => {
     expect(nextCardKey(cards, "missing", "ArrowDown")).toBeUndefined();
   });
+
+  describe("when columns loop in focus mode", () => {
+    const loopColumns = { loopColumns: true };
+
+    it("should wrap right from Tests to the first card of Deps", () => {
+      expect(nextCardKey(cards, "spec", "ArrowRight", loopColumns)).toBe("depsHeading");
+    });
+
+    it("should wrap left from Deps to the first card of Tests", () => {
+      expect(nextCardKey(cards, "dependency", "ArrowLeft", loopColumns)).toBe("spec");
+    });
+
+    it("should move left from Members to the next column before wrapping", () => {
+      expect(nextCardKey(cards, "membersHeading", "ArrowLeft", loopColumns)).toBe("depsHeading");
+    });
+
+    it("should skip an empty column while wrapping", () => {
+      const withoutDeps = cards.filter((candidate) => candidate.floor !== "deps");
+
+      expect(nextCardKey(withoutDeps, "spec", "ArrowRight", loopColumns)).toBe("membersHeading");
+    });
+
+    it("should stop at the last column without the option", () => {
+      expect(nextCardKey(cards, "spec", "ArrowRight")).toBeUndefined();
+    });
+  });
 });
 
 describe("navigationCards", () => {

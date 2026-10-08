@@ -121,7 +121,7 @@ document.addEventListener("keydown", (event) => {
   if (!ARROW_KEYS.has(event.key)) return;
   if (focusedKey) {
     event.preventDefault();
-    const nextKey = nextCardKey(cards, focusedKey, event.key as ArrowKey);
+    const nextKey = nextCardKey(cards, focusedKey, event.key as ArrowKey, { loopColumns: !!ui.focusedColumn });
     if (!nextKey) return;
     const nextColumn = cards.find((card) => card.key === nextKey)?.floor as ColumnKey;
     if (ui.focusedColumn && COLUMN_ORDER.includes(nextColumn) && nextColumn !== ui.focusedColumn) {
