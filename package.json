@@ -47,6 +47,18 @@
       {
         "command": "wayfinder.returnToEditor",
         "title": "Wayfinder: Return to the editor from the map"
+      },
+      {
+        "command": "wayfinder.toggleColumnFocus",
+        "title": "Wayfinder: Focus one column, or show all three"
+      },
+      {
+        "command": "wayfinder.nextColumn",
+        "title": "Wayfinder: Move the next column to the centre"
+      },
+      {
+        "command": "wayfinder.previousColumn",
+        "title": "Wayfinder: Move the previous column to the centre"
       }
     ],
     "keybindings": [
@@ -61,6 +73,22 @@
         "key": "ctrl+alt+m",
         "mac": "cmd+alt+m",
         "when": "activeWebviewPanelId == 'wayfinder.map' && config.wayfinder.shortcut.returnToEditor"
+      },
+      {
+        "command": "wayfinder.toggleColumnFocus",
+        "key": "ctrl+alt+enter",
+        "mac": "cmd+alt+enter",
+        "when": "activeWebviewPanelId == 'wayfinder.map' && config.wayfinder.shortcut.columnFocus"
+      },
+      {
+        "command": "wayfinder.nextColumn",
+        "key": "alt+]",
+        "when": "activeWebviewPanelId == 'wayfinder.map' && config.wayfinder.shortcut.columnFocus"
+      },
+      {
+        "command": "wayfinder.previousColumn",
+        "key": "alt+[",
+        "when": "activeWebviewPanelId == 'wayfinder.map' && config.wayfinder.shortcut.columnFocus"
       }
     ],
     "menus": {
@@ -73,6 +101,18 @@
       "commandPalette": [
         {
           "command": "wayfinder.returnToEditor",
+          "when": "activeWebviewPanelId == 'wayfinder.map'"
+        },
+        {
+          "command": "wayfinder.toggleColumnFocus",
+          "when": "activeWebviewPanelId == 'wayfinder.map'"
+        },
+        {
+          "command": "wayfinder.nextColumn",
+          "when": "activeWebviewPanelId == 'wayfinder.map'"
+        },
+        {
+          "command": "wayfinder.previousColumn",
           "when": "activeWebviewPanelId == 'wayfinder.map'"
         }
       ]
@@ -140,6 +180,11 @@
             "type": "boolean",
             "default": true,
             "markdownDescription": "Pressing the **Wayfinder: Show map for this file** shortcut while the map has focus moves focus back to the open file's editor, at the same cursor position."
+          },
+          "wayfinder.shortcut.columnFocus": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "While the map has focus, Cmd+Alt+Enter (Ctrl+Alt+Enter) turns focus mode on or off, and Alt+] and Alt+[ move the next or previous column to the centre. Turn off to free these keys. The focus icon in a column header still works."
           }
         }
       }

@@ -1,7 +1,7 @@
-import type { AiScanState, AiStatus, HostMessage, WebviewMessage } from "../shared/messages";
+import type { AiScanState, AiStatus, ColumnFocusChange, HostMessage, WebviewMessage } from "../shared/messages";
 import type { Fact, ViewData } from "../shared/viewData";
-import { MAX_CANVAS_W, MIN_CANVAS_W, layout, type ColumnKey, type SearchByColumn, type UiState } from "./layout";
-import { COLUMN_ORDER, navigationCards, nextCardKey, type ArrowKey, type NavigationCard } from "./keyboardNavigation";
+import { COLUMN_ORDER, MAX_CANVAS_W, MIN_CANVAS_W, columnAfter, layout, type ColumnKey, type SearchByColumn, type UiState } from "./layout";
+import { navigationCards, nextCardKey, type ArrowKey, type NavigationCard } from "./keyboardNavigation";
 import { answerFor, panelFor, type Action } from "./panelModel";
 import { renderMap, renderPanel } from "./render";
 
@@ -18,6 +18,8 @@ let renderedView: ViewData | null = null;
 let renderedLayer: UiState["layer"] = 1;
 let renderedWidth = MIN_CANVAS_W;
 let renderedAiKey = "";
+let renderedFocusedColumn: ColumnKey | undefined;
+let carouselStyles = new Map<string, string | null>();
 const gitFactsById = new Map<string, Fact[]>();
 const savedUiByFile = new Map<string, Pick<UiState, "layer" | "open">>();
 const IDLE_SCAN: AiScanState = { state: "idle" };
@@ -35,7 +37,7 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
     if (openFileChanged) {
       vscode.setState({ openFile: message.data.openFile });
       if (previousFile !== undefined) savedUiByFile.set(previousFile, { layer: ui.layer, open: ui.open });
-      ui = { layer: 1, open: {}, ...savedUiByFile.get(view.openFile), selected: view.openFile };
+      ui = { layer: 1, open: {}, ...savedUiByFile.get(view.openFile), selected: view.openFile, focusedColumn: ui.focusedColumn };
       searchByColumn = {};
       action = "context";
       lastTransform = IDENTITY;
@@ -47,6 +49,7 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
   if (message.type === "aiStatus") aiStatus = message.status;
   if (message.type === "ai") aiScan = { openFile: message.openFile, scan: message.scan };
   if (message.type === "cursor") ui = { ...ui, cursorLine: message.line };
+  if (message.type === "columnFocus") ui = { ...ui, focusedColumn: changedFocusedColumn(message.change) };
   render();
   if (message.type === "focusOpenFile" && view) focusCard(view.openFile);
 });
@@ -65,6 +68,8 @@ document.addEventListener("click", (event) => {
   }
   if (kind === "toggle" && value) ui = { ...ui, open: { ...ui.open, [value]: !ui.open[value] } };
   if (kind === "layer" && value) ui = { ...ui, layer: value === "2" ? 2 : 1 };
+  if (kind === "focus-mode" && value) ui = { ...ui, focusedColumn: ui.focusedColumn === value ? undefined : (value as ColumnKey) };
+  if (kind === "focus-column" && value) ui = { ...ui, focusedColumn: value as ColumnKey };
   if (kind === "ask" && value) action = value as Action;
   if (kind === "open" && id) vscode.postMessage({ type: "open", id, ...(value ? { line: Number(value) } : {}) });
   if (kind === "reveal" && value) vscode.postMessage({ type: "reveal", line: Number(value) });
@@ -99,7 +104,8 @@ document.addEventListener("keydown", (event) => {
   if (target.matches("input, textarea, select, [contenteditable]")) return;
   const focusedKey = target.dataset.nav;
   const { action, id } = target.dataset;
-  if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+  // with Alt held, Cmd+Enter is the focus mode key and must not also open the file
+  if (event.key === "Enter" && (event.metaKey || event.ctrlKey) && !event.altKey) {
     if (action !== "select" || !id || !panelFor(view, id).canOpen) return;
     event.preventDefault();
     vscode.postMessage({ type: "open", id });
@@ -108,16 +114,20 @@ document.addEventListener("keydown", (event) => {
   if (event.metaKey || event.ctrlKey || event.altKey) return;
   if (event.key === "/") {
     event.preventDefault();
-    const focusedFloor = cards.find((card) => card.key === focusedKey)?.floor as ColumnKey;
-    const column = COLUMN_ORDER.includes(focusedFloor) ? focusedFloor : "members";
-    document.querySelector<HTMLInputElement>(`[data-search="${column}"]`)?.focus();
+    document.querySelector<HTMLInputElement>(`[data-search="${columnOfFocusedCard()}"]`)?.focus();
     return;
   }
   if (!ARROW_KEYS.has(event.key)) return;
   if (focusedKey) {
     event.preventDefault();
     const nextKey = nextCardKey(cards, focusedKey, event.key as ArrowKey);
-    if (nextKey) focusCard(nextKey);
+    if (!nextKey) return;
+    const nextColumn = cards.find((card) => card.key === nextKey)?.floor as ColumnKey;
+    if (ui.focusedColumn && COLUMN_ORDER.includes(nextColumn) && nextColumn !== ui.focusedColumn) {
+      ui = { ...ui, focusedColumn: nextColumn };
+      render();
+    }
+    focusCard(nextKey);
   } else if (target === document.body) {
     event.preventDefault();
     focusCard(view.openFile);
@@ -126,6 +136,33 @@ document.addEventListener("keydown", (event) => {
 
 function focusCard(key: string, options?: FocusOptions): void {
   document.querySelector<HTMLElement>(`[data-nav="${CSS.escape(key)}"]`)?.focus(options);
+}
+
+function columnOfFocusedCard(): ColumnKey {
+  const focusedKey = document.activeElement instanceof HTMLElement ? document.activeElement.dataset.nav : undefined;
+  const focusedFloor = cards.find((card) => card.key === focusedKey)?.floor as ColumnKey;
+  return COLUMN_ORDER.includes(focusedFloor) ? focusedFloor : "members";
+}
+
+function changedFocusedColumn(change: ColumnFocusChange): ColumnKey | undefined {
+  const focused = ui.focusedColumn;
+  if (change === "toggle") return focused ? undefined : columnOfFocusedCard();
+  return focused && columnAfter(focused, change === "next" ? 1 : -1);
+}
+
+// each new element starts at the style it had before this render, so the CSS transition moves it to the new place
+function animateCarousel(map: HTMLElement, rotating: boolean): void {
+  const elements = Array.from(map.querySelectorAll<HTMLElement | SVGElement>("[data-animate]"));
+  const previousStyles = carouselStyles;
+  carouselStyles = new Map(elements.map((element) => [element.dataset.animate!, element.getAttribute("style")]));
+  if (!rotating) return;
+  for (const element of elements) {
+    const previous = previousStyles.get(element.dataset.animate!);
+    const next = element.getAttribute("style");
+    if (!previous || !next || previous === next) continue;
+    element.setAttribute("style", previous);
+    requestAnimationFrame(() => requestAnimationFrame(() => element.setAttribute("style", next)));
+  }
 }
 
 document.addEventListener("dblclick", (event) => {
@@ -151,6 +188,8 @@ function render(remeasured = false): void {
   const scrollLeft = previousScroller?.scrollLeft ?? 0;
   const scrollTop = previousScroller?.scrollTop ?? 0;
   map.innerHTML = renderMap(result, view, ui);
+  animateCarousel(map, sameOpenFile && !!ui.focusedColumn && !!renderedFocusedColumn);
+  renderedFocusedColumn = ui.focusedColumn;
   map.querySelector<HTMLElement>(".ne")?.scrollTo(scrollLeft, scrollTop);
   cards = navigationCards(result.inner);
   if (focusedSearch) restoreSearchFocus(map, focusedSearch);

@@ -45,6 +45,15 @@ To use the map with the keyboard:
 - Enter selects a file card, moves the editor to a member's line, or collapses and expands a group. Cmd+Enter (Ctrl+Enter) opens the file.
 - `/` moves to the search box of the column you are in, or Members. Esc clears the search and moves back to the first card.
 
+When names are cut off, use focus mode. Click the icon in the top-right corner of a column header, or press Cmd+Alt+Enter (Ctrl+Alt+Enter) on the map. That column takes the map width, and the other two sit smaller behind it with their edges showing. Focus mode stays on when you open another file.
+
+- Alt+] moves the next column to the centre, Alt+[ the previous one. The columns go round in a loop.
+- Click the edge of a side column to move it to the centre. Left and Right arrows move it there too when they move to a card in it.
+- Press Cmd+Alt+Enter again, or click the icon again, to go back to three columns.
+- `wayfinder.shortcut.columnFocus` (default on): turn off to free these keys. The icon still works.
+
+To use other keys, change **Wayfinder: Focus one column, or show all three**, **Wayfinder: Move the next column to the centre** and **Wayfinder: Move the previous column to the centre** in Keyboard Shortcuts.
+
 Click **Second layer** to see one more step out: the files that import the callers, and the files the imports use.
 
 ![The second layer: the immediate layer shrunk in the middle, the files that import the callers above it and the files the imports use below it](media/second-layer.png)

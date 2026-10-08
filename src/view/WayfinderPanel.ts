@@ -7,7 +7,7 @@ import { RULES_FILE, SCAN_SYSTEM_PROMPT, STARTER_RULES_FILE, type ScanPromptExtr
 import { buildViewData } from "../graph/neighbourhood";
 import { cliLoginState, runCliScan } from "../providers/cliRunner";
 import { OllamaProvider } from "../providers/index";
-import type { AiScanState, AiStatus, HostMessage, WebviewMessage } from "../shared/messages";
+import type { AiScanState, AiStatus, ColumnFocusChange, HostMessage, WebviewMessage } from "../shared/messages";
 import type { ViewData } from "../shared/viewData";
 import { gitHistory } from "../workspace/gitFacts";
 import type { WorkspaceIndex } from "../workspace/WorkspaceIndex";
@@ -155,6 +155,10 @@ export class WayfinderPanel implements vscode.Disposable {
       selection: editor?.selection,
       preview: false,
     });
+  }
+
+  static changeColumnFocus(change: ColumnFocusChange): void {
+    WayfinderPanel.current?.send({ type: "columnFocus", change });
   }
 
   private constructor(

@@ -78,4 +78,14 @@ describe("navigationCards", () => {
     });
     expect(Object.keys(floorOf)).toHaveLength(inner.nodes.length + inner.members.length + inner.groupHeadings.length);
   });
+
+  describe("when focus mode lays out all three columns at the same place", () => {
+    it("should still put each card in its own column", () => {
+      const { inner } = layout(buildViewData(serviceGraph(), DOCUMENT_SERVICE), { selected: DOCUMENT_SERVICE, layer: 1, open: {}, focusedColumn: "members" }, 800);
+
+      const floorOf = Object.fromEntries(navigationCards(inner).map((navigationCard) => [navigationCard.key, navigationCard.floor]));
+
+      expect(floorOf).toMatchObject({ "src/db/repositories/DocumentRepository.ts": "deps", "test/services/DocumentService.spec.ts": "tests" });
+    });
+  });
 });

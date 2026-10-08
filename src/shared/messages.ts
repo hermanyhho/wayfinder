@@ -15,12 +15,15 @@ export type AiStatus = { ready: true; model: string; sendsCodeTo?: string } | { 
 
 export type AiScanState = { state: "idle" } | { state: "loading" } | { state: "done"; result: AiScan; rulesCut: boolean } | { state: "error"; message: string };
 
+export type ColumnFocusChange = "toggle" | "next" | "previous";
+
 export type HostMessage =
   | { type: "view"; data: ViewData }
   | { type: "git"; id: string; facts: Fact[] }
   | { type: "aiStatus"; status: AiStatus }
   | { type: "ai"; openFile: string; scan: AiScanState }
   | { type: "cursor"; line: number }
-  | { type: "focusOpenFile" };
+  | { type: "focusOpenFile" }
+  | { type: "columnFocus"; change: ColumnFocusChange };
 
 export type WebviewMessage = { type: "ready" } | { type: "select"; id: string } | { type: "open"; id: string; line?: number } | { type: "reveal"; line: number } | { type: "scan" } | { type: "openSettings" };
