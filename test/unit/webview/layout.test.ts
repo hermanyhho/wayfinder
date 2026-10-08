@@ -160,27 +160,27 @@ describe("layout", () => {
   });
 
   const documentServiceMembers = [
-    { name: "DocumentService", kind: "class" as const, line: 6, endLine: 23, exported: true },
-    { name: "documents", kind: "property" as const, line: 8, endLine: 8, exported: false, className: "DocumentService" },
-    { name: "storage", kind: "property" as const, line: 9, endLine: 9, exported: false, className: "DocumentService" },
-    { name: "permissions", kind: "property" as const, line: 10, endLine: 10, exported: false, className: "DocumentService" },
-    { name: "upload", kind: "method" as const, line: 18, endLine: 22, exported: true, className: "DocumentService" },
-    { name: "listForEmployee", kind: "method" as const, line: 13, endLine: 16, exported: true, className: "DocumentService" },
+    { name: "DocumentService", kind: "class" as const, line: 6, endLine: 23, exported: true, visibility: "exported" as const },
+    { name: "documents", kind: "property" as const, line: 8, endLine: 8, exported: false, visibility: "private" as const, className: "DocumentService" },
+    { name: "storage", kind: "property" as const, line: 9, endLine: 9, exported: false, visibility: "private" as const, className: "DocumentService" },
+    { name: "permissions", kind: "property" as const, line: 10, endLine: 10, exported: false, visibility: "private" as const, className: "DocumentService" },
+    { name: "upload", kind: "method" as const, line: 18, endLine: 22, exported: true, visibility: "public" as const, className: "DocumentService" },
+    { name: "listForEmployee", kind: "method" as const, line: 13, endLine: 16, exported: true, visibility: "public" as const, className: "DocumentService" },
   ];
 
-  it("groups members by kind in a fixed order, sorts each group A-Z and keeps kind, class and exported mark", () => {
+  it("groups members by kind in a fixed order, sorts each group A-Z and keeps kind, class and visibility", () => {
     const { inner } = layout({ ...view(), members: documentServiceMembers }, ui(), 800);
     expect(inner.floors.find((floor) => floor.key === "members")).toMatchObject({ title: "Members (6)", cls: "", emptyText: "", toggle: null });
     expect(inner.groupHeadings.filter((heading) => heading.key.startsWith("members:")).map((heading) => [heading.text, heading.kind, heading.y])).toEqual([
       ["Classes (1)", "class", 388], ["Properties (3)", "property", 502], ["Methods (2)", "method", 764],
     ]);
-    expect(inner.members.map((member) => [member.x, member.y, member.w, member.tag, member.name, member.path, member.line])).toEqual([
-      [NODE_X[1], 414, COLUMN_NODE_W, "class", "DocumentService", "exported", 6],
-      [NODE_X[1], 528, COLUMN_NODE_W, "property", "documents", "DocumentService", 8],
-      [NODE_X[1], 602, COLUMN_NODE_W, "property", "permissions", "DocumentService", 10],
-      [NODE_X[1], 676, COLUMN_NODE_W, "property", "storage", "DocumentService", 9],
-      [NODE_X[1], 790, COLUMN_NODE_W, "method", "listForEmployee", "DocumentService, exported", 13],
-      [NODE_X[1], 864, COLUMN_NODE_W, "method", "upload", "DocumentService, exported", 18],
+    expect(inner.members.map((member) => [member.x, member.y, member.w, member.tag, member.name, member.path, member.line, member.visibility])).toEqual([
+      [NODE_X[1], 414, COLUMN_NODE_W, "class", "DocumentService", "", 6, "exported"],
+      [NODE_X[1], 528, COLUMN_NODE_W, "property", "documents", "DocumentService", 8, "private"],
+      [NODE_X[1], 602, COLUMN_NODE_W, "property", "permissions", "DocumentService", 10, "private"],
+      [NODE_X[1], 676, COLUMN_NODE_W, "property", "storage", "DocumentService", 9, "private"],
+      [NODE_X[1], 790, COLUMN_NODE_W, "method", "listForEmployee", "DocumentService", 13, "public"],
+      [NODE_X[1], 864, COLUMN_NODE_W, "method", "upload", "DocumentService", 18, "public"],
     ]);
     expect(inner.nodes.some((node) => node.id.startsWith("member:"))).toBe(false);
   });
@@ -359,6 +359,18 @@ describe("when the open file is a test file", () => {
     ]);
   });
 
+  it("should give each card a tooltip with the full name, the parent test group and the line", () => {
+    const inner = layoutTestFile();
+
+    expect(inner.members.map((member) => member.tooltip)).toEqual([
+      "Group/hooks/UnlinkRelated\nGo to line 5",
+      "when nothing is linked\nGroup/hooks/UnlinkRelated\nGo to line 13",
+      "unlinks the related group\nGroup/hooks/UnlinkRelated\nGo to line 6",
+      "keeps the group\nGroup/hooks/UnlinkRelated\nGo to line 10",
+      "does nothing\nwhen nothing is linked\nGo to line 14",
+    ]);
+  });
+
   it("should mark the innermost test the cursor is in", () => {
     const inner = layoutTestFile({ cursorLine: 16 });
 
@@ -376,7 +388,7 @@ describe("when a test file is open", () => {
 
     const inner = layout(buildViewData(graph, TEST), ui({ selected: TEST }), 800).inner;
 
-    expect(inner.floors.find((floor) => floor.key === "tests")?.title).toBe("Tests (2)");
+    expect(inner.floors.find((floor) => floor.key === "tests")?.title).toBe("Tested code (2)");
     expect(inner.groupHeadings.filter((heading) => heading.key.startsWith("tests:")).map((heading) => heading.text)).toEqual(["Tested file (1)", "Other tests (1)"]);
   });
 
@@ -396,12 +408,12 @@ describe("when a test file is open", () => {
     expect(card).toMatchObject({ x: NODE_X[2], tag: "Tested file, matched by name" });
   });
 
-  it("should say no subject was found when nothing matches", () => {
+  it("should say no tested code was found when nothing matches", () => {
     const graph = graphOf([analysisOf("src/a/Bar.ts"), analysisOf(TEST)]);
 
     const column = testsColumnOf(graph);
 
-    expect(column).toMatchObject({ title: "Tests", emptyText: "No subject found for Foo.int.test.ts." });
+    expect(column).toMatchObject({ title: "Tested code", emptyText: "No tested code found for Foo.int.test.ts." });
   });
 });
 
@@ -533,5 +545,83 @@ describe("when the open file is a React component", () => {
     const tags = laidOut().members.map((member) => [member.name, member.tag]);
 
     expect(tags).toEqual([["name", "required"], ["compact", "optional"]]);
+  });
+});
+
+describe("when the open file defines an exported interface", () => {
+  const I_GROUP = "src/groups/IGroup.ts";
+  const groupInterface = {
+    name: "IGroup", kind: "interface" as const, line: 1, endLine: 4, exported: true, usedIn: [{ file: "src/groups/GroupService.ts", line: 3 }], usedInOwnFile: false,
+    implementedBy: [
+      { name: "GroupService", kind: "class" as const, file: "src/groups/GroupService.ts", line: 3 },
+      { name: "GroupRepository", kind: "class" as const, file: "src/groups/GroupRepository.ts", line: 5 },
+      { name: "IDepartment", kind: "interface" as const, file: "src/groups/IDepartment.ts", line: 2 },
+    ],
+  };
+  const interfaceLaidOut = (open: Record<string, boolean> = {}, testPaths: string[] = []) => {
+    const graph = graphOf([analysisOf(I_GROUP), ...testPaths.map((path) => analysisOf(path, [I_GROUP]))]);
+    const interfaceView = { ...buildViewData(graph, I_GROUP), members: [groupInterface] };
+    return layout(interfaceView, ui({ selected: I_GROUP, open }), 800).inner;
+  };
+  const cardsIn = (inner: ReturnType<typeof interfaceLaidOut>, idPrefix: string) => inner.members.filter((member) => member.id.startsWith(idPrefix));
+
+  it("should title the third column Implemented by and group classes before the interfaces that extend it", () => {
+    const inner = interfaceLaidOut();
+
+    expect(inner.floors.find((floor) => floor.key === "tests")?.title).toBe("Implemented by (3)");
+    expect(inner.groupHeadings.filter((heading) => heading.key.startsWith("tests:")).map((heading) => heading.text)).toEqual(["Classes (2)", "Extended by (1)"]);
+  });
+
+  it("should show each card with its name, its file and line, and open that file at the line", () => {
+    const cards = cardsIn(interfaceLaidOut(), "implementation:");
+
+    expect(cards.map((card) => [card.name, card.path, card.opensFile, card.line, card.x])).toEqual([
+      ["GroupRepository", "GroupRepository.ts · line 5", "src/groups/GroupRepository.ts", 5, NODE_X[2]],
+      ["GroupService", "GroupService.ts · line 3", "src/groups/GroupService.ts", 3, NODE_X[2]],
+      ["IDepartment", "IDepartment.ts · line 2", "src/groups/IDepartment.ts", 2, NODE_X[2]],
+    ]);
+  });
+
+  it("should count the implementing classes on the interface card and list them when opened", () => {
+    const card = cardsIn(interfaceLaidOut({ "implementations:IGroup": true }), "member:")[0];
+
+    expect(card.usage?.text).toBe("2 implementations");
+    expect(card.usage?.list?.uses.map((use) => use.file)).toEqual(["src/groups/GroupService.ts", "src/groups/GroupRepository.ts"]);
+  });
+
+  it("should keep the Tests column when a test imports the file", () => {
+    const inner = interfaceLaidOut({}, ["test/groups/IGroup.spec.ts"]);
+
+    expect(inner.floors.find((floor) => floor.key === "tests")?.title).toBe("Tests (1)");
+  });
+
+  it("should say nothing implements it when the list is empty", () => {
+    const graph = graphOf([analysisOf(I_GROUP)]);
+    const interfaceView = { ...buildViewData(graph, I_GROUP), members: [{ ...groupInterface, implementedBy: [] }] };
+
+    const testsColumn = layout(interfaceView, ui({ selected: I_GROUP }), 800).inner.floors.find((floor) => floor.key === "tests");
+
+    expect(testsColumn).toMatchObject({ title: "Implemented by", emptyText: "No file implements or extends an interface of IGroup.ts." });
+  });
+});
+
+describe("when the open file has no exported interface with implementations data", () => {
+  const FILE = "src/groups/Plain.ts";
+
+  it("should keep the Tests column when the interface is not exported", () => {
+    const view = { ...buildViewData(graphOf([analysisOf(FILE)]), FILE), members: [{ name: "ILocal", kind: "interface" as const, line: 1, endLine: 2, exported: false }] };
+
+    const title = layout(view, ui({ selected: FILE }), 800).inner.floors.find((floor) => floor.key === "tests")?.title;
+
+    expect(title).toBe("Tests");
+  });
+
+  it("should keep the test file columns when the open file is a test", () => {
+    const testFile = "test/groups/IGroup.spec.ts";
+    const view = { ...buildViewData(graphOf([analysisOf(testFile)]), testFile), members: [{ name: "IGroup", kind: "interface" as const, line: 1, endLine: 2, exported: true, implementedBy: [] }] };
+
+    const title = layout(view, ui({ selected: testFile }), 800).inner.floors.find((floor) => floor.key === "tests")?.title;
+
+    expect(title).toBe("Tested code");
   });
 });

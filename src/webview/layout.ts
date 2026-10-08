@@ -1,4 +1,4 @@
-import type { ComponentLink, ComponentTree, Fact, Member, MemberKind, MemberUse, NodeKind, ViewData, ViewNode } from "../shared/viewData";
+import type { ComponentLink, ComponentTree, Fact, Implementation, Member, MemberKind, MemberUse, MemberVisibility, NodeKind, ViewData, ViewNode } from "../shared/viewData";
 
 export const NODE_W = 152;
 export const NODE_H = 56;
@@ -45,7 +45,7 @@ export interface TreeRowView { x: number; y: number; w: number; cls: string; nam
 export interface NodeView { id: string; x: number; y: number; w: number; cls: string; kind: NodeKind; tag: string; name: string; path: string; }
 export interface UsesListView { x: number; y: number; w: number; uses: MemberUse[]; }
 export interface MemberUsageView { text: string; listKey: string | null; list: UsesListView | null; }
-export interface MemberView extends Omit<NodeView, "kind"> { kind: MemberKind; line: number; focus?: Member["focus"]; usage?: MemberUsageView; }
+export interface MemberView extends Omit<NodeView, "kind"> { kind: MemberKind; line: number; tooltip: string; focus?: Member["focus"]; visibility?: MemberVisibility; usage?: MemberUsageView; opensFile?: string; }
 export interface WireView { cls: string; d: string; }
 export interface PortView { cls: string; x: number; y: number; incoming: boolean; }
 export interface BannerView { y: number; title: string; items: Fact[]; progress: number | null; }
@@ -75,7 +75,12 @@ const COLUMNS: ColumnDef[] = [
   { key: "members", title: "Members", color: "green", empty: (name) => `${name} defines no members.` },
   { key: "tests", title: "Tests", color: "pink", empty: (name) => `No test imports ${name}.` },
 ];
-const TEST_FILE_TESTS_COLUMN: ColumnDef = { key: "tests", title: "Tests", color: "pink", empty: (name) => `No subject found for ${name}.` };
+const TEST_FILE_TESTS_COLUMN: ColumnDef = { key: "tests", title: "Tested code", color: "pink", empty: (name) => `No tested code found for ${name}.` };
+const IMPLEMENTED_BY_COLUMN: ColumnDef = { key: "tests", title: "Implemented by", color: "blue", empty: (name) => `No file implements or extends an interface of ${name}.` };
+const IMPLEMENTATION_GROUPS: { kind: Implementation["kind"]; title: string }[] = [
+  { kind: "class", title: "Classes" },
+  { kind: "interface", title: "Extended by" },
+];
 const TEST_FILE_TEST_GROUPS: { kind: "subject" | "test"; title: string }[] = [
   { kind: "subject", title: "Tested file" },
   { kind: "test", title: "Other tests" },
@@ -170,16 +175,34 @@ export function memberAtLine(members: Member[], line: number): number {
   return innermost;
 }
 
-const usesListKeyOf = (member: Member) => `uses:${[member.className, member.name].filter(Boolean).join(".")}`;
-const openUsesOf = (member: Member, ui: UiState) => (member.usedIn && ui.open[usesListKeyOf(member)] ? member.usedIn : []);
+function usesListOf(member: Member): { key: string; text: string; uses: MemberUse[] } | null {
+  const classes = member.implementedBy?.filter((implementation) => implementation.kind === "class") ?? [];
+  if (classes.length) return { key: `implementations:${member.name}`, text: `${classes.length} implementation${classes.length === 1 ? "" : "s"}`, uses: classes };
+  const uses = member.usedIn;
+  if (!uses?.length) return null;
+  return { key: `uses:${[member.className, member.name].filter(Boolean).join(".")}`, text: `used in ${uses.length} file${uses.length === 1 ? "" : "s"}`, uses };
+}
+
+function openUsesOf(member: Member, ui: UiState): MemberUse[] {
+  const usesList = usesListOf(member);
+  return usesList && ui.open[usesList.key] ? usesList.uses : [];
+}
 
 function memberUsageView(member: Member, box: Box, ui: UiState): MemberUsageView | undefined {
-  const uses = member.usedIn;
-  if (!uses) return undefined;
-  if (!uses.length) return { text: member.usedInOwnFile ? "only used in this file" : "no use in this repo", listKey: null, list: null };
+  if (!member.usedIn) return undefined;
+  const usesList = usesListOf(member);
+  if (!usesList) return { text: member.usedInOwnFile ? "only used in this file" : "no use in this repo", listKey: null, list: null };
   const openUses = openUsesOf(member, ui);
   const list = openUses.length ? { x: box.x + USES_LIST_INDENT, y: box.y + box.h + USES_LIST_GAP, w: box.w - USES_LIST_INDENT, uses: openUses } : null;
-  return { text: `used in ${uses.length} file${uses.length === 1 ? "" : "s"}`, listKey: usesListKeyOf(member), list };
+  return { text: usesList.text, listKey: usesList.key, list };
+}
+
+function implementationView(implementation: Implementation, id: string, box: Box): MemberView {
+  const fileName = implementation.file.slice(implementation.file.lastIndexOf("/") + 1);
+  return {
+    id, x: box.x, y: box.y, w: box.w, cls: "blue", tag: implementation.kind === "class" ? "implements" : "extends", kind: implementation.kind, name: implementation.name,
+    line: implementation.line, tooltip: `${implementation.file}:${implementation.line}`, path: `${fileName} · line ${implementation.line}`, opensFile: implementation.file,
+  };
 }
 
 function tagOf(member: Member): string {
@@ -191,8 +214,10 @@ function memberView(member: Member, id: string, box: Box, atCursor: boolean, ui:
   const usage = memberUsageView(member, box, ui);
   return {
     id, x: box.x, y: box.y, w: box.w, cls: atCursor ? "green cur" : "green", tag: tagOf(member), kind: member.kind, name: member.name, line: member.line,
-    path: [member.className ?? member.suiteTitle, member.exported ? "exported" : ""].filter(Boolean).join(", "),
+    tooltip: [member.name, member.suiteTitle, `Go to line ${member.line}`].filter(Boolean).join("\n"),
+    path: member.className ?? member.suiteTitle ?? "",
     ...(member.focus ? { focus: member.focus } : {}),
+    ...(member.visibility ? { visibility: member.visibility } : {}),
     ...(usage ? { usage } : {}),
   };
 }
@@ -336,6 +361,10 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
   const dependencyNodes = nodesInColumn("deps");
   const memberIds = view.members.map((_member, index) => memberIdOf(index));
   const memberById = new Map(view.members.map((member, index) => [memberIds[index], member]));
+  const implementations = view.members.flatMap((member) => member.implementedBy ?? []);
+  const implementationIds = implementations.map((_implementation, index) => `implementation:${index}`);
+  const implementationById = new Map(implementations.map((implementation, index) => [implementationIds[index], implementation]));
+  const showsImplementations = !view.openFileIsTest && view.members.some((member) => member.implementedBy) && nodesInColumn("tests").length === 0;
   const cardSizes: CardSizes = {
     heightOf: (id) => (memberById.get(id)?.usedIn ? MEMBER_WITH_USAGE_H : NODE_H),
     spaceBelowOf: (id) => {
@@ -344,6 +373,28 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
       return openUseCount ? USES_LIST_GAP + openUseCount * USE_ENTRY_H : 0;
     },
   };
+  function testsColumnOf(): { def: ColumnDef; groups: ColumnGroup[] } {
+    if (showsImplementations) {
+      return {
+        def: IMPLEMENTED_BY_COLUMN,
+        groups: IMPLEMENTATION_GROUPS.map((group) => ({
+          key: `tests:${group.kind}`, heading: { kind: group.kind, title: group.title, cls: "blue" },
+          ids: idsByName(implementations.flatMap((implementation, index) => (implementation.kind === group.kind ? [{ id: implementationIds[index], name: implementation.name }] : []))),
+        })),
+      };
+    }
+    if (view.openFileIsTest) {
+      return {
+        def: TEST_FILE_TESTS_COLUMN,
+        groups: TEST_FILE_TEST_GROUPS.map((group) => ({
+          key: `tests:${group.kind}`, heading: { kind: group.kind, title: group.title, cls: "pink" },
+          ids: idsByName(nodesInColumn("tests").filter((node) => node.kind === group.kind)),
+        })),
+      };
+    }
+    return { def: COLUMNS.find((def) => def.key === "tests")!, groups: [{ key: "tests", heading: null, ids: idsByName(nodesInColumn("tests")) }] };
+  }
+  const testsColumn = testsColumnOf();
   const groupsByColumn: Record<ColumnKey, ColumnGroup[]> = {
     deps: DEPENDENCY_GROUPS.map((group) => ({
       key: `deps:${group.kind}`, heading: { kind: group.kind, title: group.title, cls: KIND_COLOR[group.kind] },
@@ -353,16 +404,11 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
       key: `members:${group.kind}`, heading: { kind: group.kind, title: group.title, cls: "green" },
       ids: membersInGroupOrder(view.members.flatMap((member, index) => (member.kind === group.kind ? [{ id: memberIds[index], name: member.name }] : [])), group.kind),
     })),
-    tests: view.openFileIsTest
-      ? TEST_FILE_TEST_GROUPS.map((group) => ({
-          key: `tests:${group.kind}`, heading: { kind: group.kind, title: group.title, cls: "pink" },
-          ids: idsByName(nodesInColumn("tests").filter((node) => node.kind === group.kind)),
-        }))
-      : [{ key: "tests", heading: null, ids: idsByName(nodesInColumn("tests")) }],
+    tests: testsColumn.groups,
   };
-  const columnDefs = view.openFileIsTest ? COLUMNS.map((def) => (def.key === "tests" ? TEST_FILE_TESTS_COLUMN : def)) : COLUMNS;
+  const columnDefs = COLUMNS.map((def) => (def.key === "tests" ? testsColumn.def : def));
   const columnIds = columnDefs.map((def) => groupsByColumn[def.key].flatMap((group) => group.ids));
-  const nameById = new Map<string, string>([...immediate.map((node) => [node.id, node.name] as const), ...view.members.map((member, index) => [memberIds[index], member.name] as const)]);
+  const nameById = new Map<string, string>([...immediate.map((node) => [node.id, node.name] as const), ...view.members.map((member, index) => [memberIds[index], member.name] as const), ...implementations.map((implementation, index) => [implementationIds[index], implementation.name] as const)]);
   const searchTexts = columnDefs.map((def) => search[def.key] ?? "");
   const componentTree = ui.open[IMPORTS_TAB_KEY] ? null : view.componentTree;
   const columnGroups = columnDefs.map((def, index) => {
@@ -431,7 +477,10 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
   const nodes = immediate.filter((node) => boxes[node.id]).map((node) => nodeView(node, boxes[node.id], ui));
   const cursorIndex = ui.cursorLine === undefined ? -1 : memberAtLine(view.members, ui.cursorLine);
   const cursorMemberId = cursorIndex === -1 ? undefined : memberIds[cursorIndex];
-  const members = groupsByColumn.members.flatMap((group) => group.ids).filter((id) => boxes[id]).map((id) => memberView(memberById.get(id)!, id, boxes[id], id === cursorMemberId, ui));
+  const members = [
+    ...groupsByColumn.members.flatMap((group) => group.ids).filter((id) => boxes[id]).map((id) => memberView(memberById.get(id)!, id, boxes[id], id === cursorMemberId, ui)),
+    ...groupsByColumn.tests.flatMap((group) => group.ids).filter((id) => implementationById.has(id) && boxes[id]).map((id) => implementationView(implementationById.get(id)!, id, boxes[id])),
+  ];
   const hiddenCursorGroup = cursorMemberId && !boxes[cursorMemberId] ? groupsByColumn.members.find((group) => group.ids.includes(cursorMemberId)) : undefined;
   const cursorHeadingKey = hiddenCursorGroup && `${hiddenCursorGroup.key}:collapsed`;
   const groupHeadings = [...(tree?.headings ?? []), ...columns.groupHeadings].map((heading) => (heading.key === cursorHeadingKey ? { ...heading, cls: `${heading.cls} cur` } : heading));

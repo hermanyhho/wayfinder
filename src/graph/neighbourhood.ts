@@ -1,4 +1,4 @@
-import type { CallSite, ComponentLink, ComponentTree, Fact, Member, MemberUse, NodeKind, ViewData, ViewEdge, ViewNode } from "../shared/viewData";
+import type { CallSite, ComponentLink, ComponentTree, Fact, Implementation, Member, MemberUse, NodeKind, ViewData, ViewEdge, ViewNode } from "../shared/viewData";
 import type { SourceAnalysis } from "./analyzeSource";
 import { dependenciesOf, dependentsOf, type Dependency, type Graph } from "./buildGraph";
 import { baseNameOf, circularWith, expectedFiles, fileNameOf, folderOf, isTestFile, sizeOutlier, subjectByFileNameOf, subjectOf, testsOf } from "./patterns";
@@ -135,7 +135,20 @@ function membersWithUsage(graph: Graph, analysis: SourceAnalysis): Member[] {
   return analysis.members.map((member) => {
     if (member.kind === "suite" || member.kind === "test" || member.kind === "prop") return member;
     const usedIn = member.exported ? importers.flatMap((dependency) => useInImporter(graph, dependency, member)) : [];
-    return { ...member, usedIn: usedIn.sort((left, right) => left.file.localeCompare(right.file)), usedInOwnFile: analysis.referencedNames.has(member.name) };
+    const withUsage = { ...member, usedIn: usedIn.sort((left, right) => left.file.localeCompare(right.file)), usedInOwnFile: analysis.referencedNames.has(member.name) };
+    if (member.kind !== "interface" || !member.exported) return withUsage;
+    const implementedBy = importers.flatMap((dependency) => implementationsInImporter(graph, dependency, member.name));
+    return { ...withUsage, implementedBy: implementedBy.sort((left, right) => left.name.localeCompare(right.name)) };
+  });
+}
+
+// an interface imported under another name is not matched, as for the "used in" count
+function implementationsInImporter(graph: Graph, dependency: Dependency, interfaceName: string): Implementation[] {
+  if (!dependency.names.includes(interfaceName)) return [];
+  return (graph.files.get(dependency.from)?.members ?? []).flatMap((member): Implementation[] => {
+    if (member.kind === "class" && member.implements?.includes(interfaceName)) return [{ name: member.name, kind: "class", file: dependency.from, line: member.line }];
+    if (member.kind === "interface" && member.extends?.includes(interfaceName)) return [{ name: member.name, kind: "interface", file: dependency.from, line: member.line }];
+    return [];
   });
 }
 
