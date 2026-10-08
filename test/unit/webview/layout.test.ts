@@ -358,6 +358,18 @@ describe("when the open file is a test file", () => {
     ]);
   });
 
+  it("should give each card a tooltip with the full name, the parent test group and the line", () => {
+    const inner = layoutTestFile();
+
+    expect(inner.members.map((member) => member.tooltip)).toEqual([
+      "Group/hooks/UnlinkRelated\nGo to line 5",
+      "when nothing is linked\nGroup/hooks/UnlinkRelated\nGo to line 13",
+      "unlinks the related group\nGroup/hooks/UnlinkRelated\nGo to line 6",
+      "keeps the group\nGroup/hooks/UnlinkRelated\nGo to line 10",
+      "does nothing\nwhen nothing is linked\nGo to line 14",
+    ]);
+  });
+
   it("should mark the innermost test the cursor is in", () => {
     const inner = layoutTestFile({ cursorLine: 16 });
 
