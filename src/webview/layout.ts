@@ -73,7 +73,11 @@ const COLUMNS: ColumnDef[] = [
   { key: "members", title: "Members", color: "green", empty: (name) => `${name} defines no members.` },
   { key: "tests", title: "Tests", color: "pink", empty: (name) => `No test imports ${name}.` },
 ];
-const TESTED_FILE_COLUMN: ColumnDef = { key: "tests", title: "Tested file", color: "pink", empty: (name) => `No file nearby has the same name as ${name}.` };
+const TEST_FILE_TESTS_COLUMN: ColumnDef = { key: "tests", title: "Tests", color: "pink", empty: (name) => `No subject found for ${name}.` };
+const TEST_FILE_TEST_GROUPS: { kind: "subject" | "test"; title: string }[] = [
+  { kind: "subject", title: "Tested file" },
+  { kind: "test", title: "Other tests" },
+];
 
 const DEPENDENCY_GROUPS: { kind: Exclude<NodeKind, "here" | "caller" | "expected" | "test" | "subject">; title: string }[] = [
   { kind: "cycle", title: "Circular imports" },
@@ -297,9 +301,14 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
       key: `members:${group.kind}`, heading: { kind: group.kind, title: group.title, cls: "green" },
       ids: membersInGroupOrder(view.members.flatMap((member, index) => (member.kind === group.kind ? [{ id: memberIds[index], name: member.name }] : [])), group.kind),
     })),
-    tests: [{ key: "tests", heading: null, ids: idsByName(nodesInColumn("tests")) }],
+    tests: view.openFileIsTest
+      ? TEST_FILE_TEST_GROUPS.map((group) => ({
+          key: `tests:${group.kind}`, heading: { kind: group.kind, title: group.title, cls: "pink" },
+          ids: idsByName(nodesInColumn("tests").filter((node) => node.kind === group.kind)),
+        }))
+      : [{ key: "tests", heading: null, ids: idsByName(nodesInColumn("tests")) }],
   };
-  const columnDefs = view.openFileIsTest ? COLUMNS.map((def) => (def.key === "tests" ? TESTED_FILE_COLUMN : def)) : COLUMNS;
+  const columnDefs = view.openFileIsTest ? COLUMNS.map((def) => (def.key === "tests" ? TEST_FILE_TESTS_COLUMN : def)) : COLUMNS;
   const columnIds = columnDefs.map((def) => groupsByColumn[def.key].flatMap((group) => group.ids));
   const nameById = new Map<string, string>([...immediate.map((node) => [node.id, node.name] as const), ...view.members.map((member, index) => [memberIds[index], member.name] as const)]);
   const searchTexts = columnDefs.map((def) => search[def.key] ?? "");
