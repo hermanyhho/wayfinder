@@ -10,6 +10,11 @@ export interface CallSite {
   text: string;
 }
 
+export interface MemberUse {
+  file: string;
+  line: number;
+}
+
 export type MemberKind = "function" | "class" | "method" | "property" | "const" | "let" | "interface" | "type" | "enum" | "suite" | "test";
 
 export interface Member {
@@ -26,6 +31,9 @@ export interface Member {
   suiteTitle?: string;
   /** for suites and tests: marked with .only, or skipped with .skip or an x prefix */
   focus?: "only" | "skip";
+  /** for members of the open file that are not tests: the first line in each other file that uses it, matched by name */
+  usedIn?: MemberUse[];
+  usedInOwnFile?: boolean;
 }
 
 export interface ViewNode {

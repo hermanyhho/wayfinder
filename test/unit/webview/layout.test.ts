@@ -217,7 +217,7 @@ describe("layout", () => {
       analysisOf("src/a/A.ts"), analysisOf("src/a/A.types.ts"), analysisOf("src/a/Z.ts"), analysisOf("test/a/B.ts", [spec]),
     ]);
     const { inner } = layout(buildViewData(graph, spec), ui({ selected: spec }), 800);
-    expect(inner.groupHeadings.map((heading) => heading.text)).toEqual(["Circular imports (1)", "Dependencies (1)", "Types (1)", "Packages (1)"]);
+    expect(inner.groupHeadings.filter((heading) => heading.key.startsWith("deps:")).map((heading) => heading.text)).toEqual(["Circular imports (1)", "Dependencies (1)", "Types (1)", "Packages (1)"]);
   });
 
   it("hides the cards of a collapsed group and shortens the column", () => {
@@ -370,12 +370,13 @@ describe("when a test file is open", () => {
   const testsColumnOf = (graph: ReturnType<typeof graphOf>) => layout(buildViewData(graph, TEST), ui({ selected: TEST }), 800).inner.floors.find((floor) => floor.key === "tests")!;
   const testedFileCardOf = (graph: ReturnType<typeof graphOf>) => layout(buildViewData(graph, TEST), ui({ selected: TEST }), 800).inner.nodes.find((node) => node.id === "src/a/Foo.ts");
 
-  it("should title the right column Tested file", () => {
-    const graph = graphOf([analysisOf("src/a/Foo.ts"), analysisOf(TEST, ["src/a/Foo.ts"])]);
+  it("should group the tested file and the other tests of it under their own headings", () => {
+    const graph = graphOf([analysisOf("src/a/Foo.ts"), analysisOf("src/a/Foo.test.ts", ["src/a/Foo.ts"]), analysisOf(TEST, ["src/a/Foo.ts"])]);
 
-    const column = testsColumnOf(graph);
+    const inner = layout(buildViewData(graph, TEST), ui({ selected: TEST }), 800).inner;
 
-    expect(column.title).toBe("Tested file (1)");
+    expect(inner.floors.find((floor) => floor.key === "tests")?.title).toBe("Tests (2)");
+    expect(inner.groupHeadings.filter((heading) => heading.key.startsWith("tests:")).map((heading) => heading.text)).toEqual(["Tested file (1)", "Other tests (1)"]);
   });
 
   it("should tag a tested file the test imports as Tested file", () => {
@@ -394,11 +395,59 @@ describe("when a test file is open", () => {
     expect(card).toMatchObject({ x: NODE_X[2], tag: "Tested file, matched by name" });
   });
 
-  it("should say no file nearby has the same name when nothing matches", () => {
+  it("should say no subject was found when nothing matches", () => {
     const graph = graphOf([analysisOf("src/a/Bar.ts"), analysisOf(TEST)]);
 
     const column = testsColumnOf(graph);
 
-    expect(column).toMatchObject({ title: "Tested file", emptyText: "No file nearby has the same name as Foo.int.test.ts." });
+    expect(column).toMatchObject({ title: "Tests", emptyText: "No subject found for Foo.int.test.ts." });
+  });
+});
+
+describe("when members of the open file carry their usage", () => {
+  const SERVICE = "src/services/GroupService.ts";
+  const remove = {
+    name: "remove", kind: "method" as const, line: 41, endLine: 44, exported: true, className: "GroupService",
+    usedIn: [{ file: "src/api/GroupController.ts", line: 7 }, { file: "src/jobs/cleanUp.ts", line: 4 }], usedInOwnFile: false,
+  };
+  const rename = { name: "rename", kind: "method" as const, line: 30, endLine: 33, exported: true, className: "GroupService", usedIn: [], usedInOwnFile: true };
+  const unused = { name: "unused", kind: "function" as const, line: 50, endLine: 50, exported: false, usedIn: [], usedInOwnFile: false };
+  const membersLaidOut = (open: Record<string, boolean> = {}) => {
+    const serviceView = { ...buildViewData(graphOf([analysisOf(SERVICE)]), SERVICE), members: [remove, rename, unused] };
+    return layout(serviceView, ui({ selected: SERVICE, open }), 800).inner.members;
+  };
+  const cardNamed = (members: ReturnType<typeof membersLaidOut>, name: string) => members.find((member) => member.name === name)!;
+
+  it("should show the number of files that use a member with a key to open the list", () => {
+    const card = cardNamed(membersLaidOut(), "remove");
+
+    expect(card.usage).toEqual({ text: "used in 2 files", listKey: "uses:GroupService.remove", list: null });
+  });
+
+  it("should say a member is only used in its own file, with nothing to open", () => {
+    const card = cardNamed(membersLaidOut(), "rename");
+
+    expect(card.usage).toEqual({ text: "only used in this file", listKey: null, list: null });
+  });
+
+  it("should say no file in the repo uses a member", () => {
+    const card = cardNamed(membersLaidOut(), "unused");
+
+    expect(card.usage).toEqual({ text: "no use in this repo", listKey: null, list: null });
+  });
+
+  it("should leave room for the usage row before the next card", () => {
+    const members = membersLaidOut();
+
+    expect(cardNamed(members, "rename").y - cardNamed(members, "remove").y).toBe(72 + 74 - 56);
+  });
+
+  it("should list the files indented under the card and push the next card down when the list is open", () => {
+    const members = membersLaidOut({ "uses:GroupService.remove": true });
+
+    const card = cardNamed(members, "remove");
+
+    expect(card.usage?.list).toEqual({ x: card.x + 14, y: card.y + 72 + 6, w: card.w - 14, uses: remove.usedIn });
+    expect(cardNamed(members, "rename").y - card.y).toBe(72 + 74 - 56 + 6 + 2 * 22);
   });
 });

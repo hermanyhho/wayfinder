@@ -23,6 +23,10 @@ export interface SourceAnalysis {
   hasDocComment: boolean;
   /** imported name -> lines in this file that use it */
   usage: Record<string, CallSite[]>;
+  /** property name -> first line in this file that reads it, as in `service.remove(` */
+  firstPropertyAccessLine: Map<string, number>;
+  /** names that appear in this file outside the place that declares them */
+  referencedNames: Set<string>;
 }
 
 export function analyzeSource(path: string, text: string): SourceAnalysis {
@@ -61,9 +65,14 @@ export function analyzeSource(path: string, text: string): SourceAnalysis {
     if (!sites.some((site) => site.line === line)) sites.push({ line, text: textOf(line) });
   };
 
+  const firstPropertyAccessLine = new Map<string, number>();
+  const referencedNames = new Set<string>();
+
   const visit = (node: ts.Node) => {
     if (isDynamicImportOrRequire(node)) addImport((node.arguments[0] as ts.StringLiteral).text, node, [], false, true);
     if (ts.isIdentifier(node) && importedNameSet.has(node.text) && !isInsideImport(node)) recordUsage(node.text, node);
+    if (ts.isIdentifier(node) && !isDeclaredName(node)) referencedNames.add(node.text);
+    if (ts.isPropertyAccessExpression(node) && !firstPropertyAccessLine.has(node.name.text)) firstPropertyAccessLine.set(node.name.text, lineOf(node.name));
     if (ts.isPropertyAccessExpression(node) && node.expression.kind === ts.SyntaxKind.ThisKeyword) {
       const typeName = fieldTypes.get(node.name.text);
       if (typeName) recordUsage(typeName, node);
@@ -77,7 +86,7 @@ export function analyzeSource(path: string, text: string): SourceAnalysis {
     members.push(...collectTestCases(source, lineOf));
     members.sort((left, right) => left.line - right.line);
   }
-  return { path, lineCount: sourceLines.length, imports, exports, publicMethods, members, hasDocComment, usage };
+  return { path, lineCount: sourceLines.length, imports, exports, publicMethods, members, hasDocComment, usage, firstPropertyAccessLine, referencedNames };
 }
 
 function scriptKindFor(path: string): ts.ScriptKind {
@@ -270,6 +279,12 @@ function fieldsTypedWithImports(source: ts.SourceFile, importedNames: Set<string
 function isDynamicImportOrRequire(node: ts.Node): node is ts.CallExpression {
   if (!ts.isCallExpression(node) || node.arguments.length !== 1 || !ts.isStringLiteral(node.arguments[0])) return false;
   return node.expression.kind === ts.SyntaxKind.ImportKeyword || (ts.isIdentifier(node.expression) && node.expression.text === "require");
+}
+
+function isDeclaredName(identifier: ts.Identifier): boolean {
+  const parent = identifier.parent;
+  if (ts.isPropertyAccessExpression(parent) || ts.isShorthandPropertyAssignment(parent) || ts.isExportSpecifier(parent)) return false;
+  return (parent as ts.NamedDeclaration).name === identifier;
 }
 
 function isInsideImport(node: ts.Node): boolean {

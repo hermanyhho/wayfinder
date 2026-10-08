@@ -137,6 +137,45 @@ describe("when a test file is open", () => {
   });
 });
 
+describe("when a test file of a subject with other tests is open", () => {
+  const SUBJECT = "src/a/Foo.ts";
+  const INTEGRATION_TEST = "src/a/__tests__/Foo.int.test.ts";
+  const UNIT_TEST = "src/a/Foo.test.ts";
+  const viewOfIntegrationTest = (integrationTestImports: string[]) =>
+    buildViewData(graphOf([analysisOf(SUBJECT), analysisOf(UNIT_TEST, [SUBJECT]), analysisOf(INTEGRATION_TEST, integrationTestImports)]), INTEGRATION_TEST);
+  const testNodeIdsOf = (view: ReturnType<typeof buildViewData>) => view.nodes.filter((node) => node.kind === "test").map((node) => node.id);
+
+  it("should list the other test of the subject with an edge to the subject", () => {
+    const view = viewOfIntegrationTest([SUBJECT]);
+
+    expect(testNodeIdsOf(view)).toEqual([UNIT_TEST]);
+    expect(view.edges).toContainEqual({ from: UNIT_TEST, to: SUBJECT, style: "solid" });
+  });
+
+  it("should list the other test when the subject is found by file name only", () => {
+    const view = viewOfIntegrationTest([]);
+
+    expect(testNodeIdsOf(view)).toEqual([UNIT_TEST]);
+  });
+
+  it("should not add a no-other-test check", () => {
+    const view = viewOfIntegrationTest([SUBJECT]);
+
+    expect(view.nodes[0].checks.map((check) => check.label)).not.toContain("Tests");
+  });
+});
+
+describe("when a test file is the only test of its subject", () => {
+  it("should leave the open test out of the tests and say no other test covers the subject", () => {
+    const graph = graphOf([analysisOf("src/a/Foo.ts"), analysisOf("src/a/Foo.test.ts", ["src/a/Foo.ts"])]);
+
+    const view = buildViewData(graph, "src/a/Foo.test.ts");
+
+    expect(view.nodes.filter((node) => node.kind === "test")).toEqual([]);
+    expect(view.nodes[0].checks).toContainEqual({ label: "Tests", value: "No other test covers Foo.ts." });
+  });
+});
+
 describe("when the open test file has a test marked .only", () => {
   const SPEC = "test/services/DocumentService.spec.ts";
   const specWithOnly = analysisOf(SPEC, [], {
@@ -167,5 +206,113 @@ describe("when the open test file has two tests marked .only", () => {
     const openFile = buildViewData(graphOf([specWithTwoOnly]), SPEC).nodes[0];
 
     expect(openFile.checks.filter((check) => check.label === "Only")).toHaveLength(2);
+  });
+});
+
+describe("when the open file defines members that other files use", () => {
+  const GROUP_SERVICE = "src/services/GroupService.ts";
+  const groupService = `export const MAX_GROUPS = 10;
+
+export function groupLabel(name: string) {
+  return name.trim();
+}
+
+function normalise(name: string) {
+  return name.toLowerCase();
+}
+
+export class GroupService {
+  rename(name: string) {
+    return normalise(name);
+  }
+
+  remove(id: string) {
+    return id;
+  }
+}
+`;
+  const controller = `import { GroupService, groupLabel } from "../services/GroupService";
+
+export class GroupController {
+  constructor(private readonly groups: GroupService) {}
+
+  delete(id: string) {
+    return this.groups.remove(id);
+  }
+}
+`;
+  const job = `import { GroupService, MAX_GROUPS } from "../services/GroupService";
+
+export function cleanUp(groups: GroupService) {
+  groups.remove("old");
+  return MAX_GROUPS;
+}
+`;
+  const page = `import { MAX_GROUPS, groupLabel } from "../services/GroupService";
+
+export const title = groupLabel("Groups") + MAX_GROUPS;
+`;
+  const importingGroupService = (path: string, text: string) => {
+    const analysis = analyzeSource(path, text);
+    return { ...analysis, imports: analysis.imports.map((record) => ({ ...record, specifier: GROUP_SERVICE })) };
+  };
+  const memberNamed = (name: string) => {
+    const graph = graphOf([
+      analyzeSource(GROUP_SERVICE, groupService),
+      importingGroupService("src/api/GroupController.ts", controller),
+      importingGroupService("src/jobs/cleanUp.ts", job),
+      importingGroupService("src/ui/page.ts", page),
+    ]);
+    return buildViewData(graph, GROUP_SERVICE).members.find((member) => member.name === name)!;
+  };
+
+  it("should list each file that calls a method of the imported class, at the line of the call", () => {
+    const remove = memberNamed("remove");
+
+    expect(remove.usedIn).toEqual([
+      { file: "src/api/GroupController.ts", line: 7 },
+      { file: "src/jobs/cleanUp.ts", line: 4 },
+    ]);
+  });
+
+  it("should list each file that imports an exported constant, at the first line that uses it", () => {
+    const maxGroups = memberNamed("MAX_GROUPS");
+
+    expect(maxGroups.usedIn).toEqual([
+      { file: "src/jobs/cleanUp.ts", line: 5 },
+      { file: "src/ui/page.ts", line: 3 },
+    ]);
+  });
+
+  it("should list each file that imports an exported function", () => {
+    const label = memberNamed("groupLabel");
+
+    expect(label.usedIn?.map((use) => use.file)).toEqual(["src/api/GroupController.ts", "src/ui/page.ts"]);
+  });
+
+  it("should list each file that imports an exported class", () => {
+    const service = memberNamed("GroupService");
+
+    expect(service.usedIn?.map((use) => use.file)).toEqual(["src/api/GroupController.ts", "src/jobs/cleanUp.ts"]);
+  });
+
+  it("should mark a function that only its own file calls as used in its own file", () => {
+    const normalise = memberNamed("normalise");
+
+    expect(normalise).toMatchObject({ usedIn: [], usedInOwnFile: true });
+  });
+
+  it("should report no use for a method that no file calls", () => {
+    const rename = memberNamed("rename");
+
+    expect(rename).toMatchObject({ usedIn: [], usedInOwnFile: false });
+  });
+
+  it("should leave the usage off test cases", () => {
+    const spec = analyzeSource("test/a.spec.ts", 'describe("a", () => { it("works", () => {}); });');
+
+    const members = buildViewData(graphOf([spec]), "test/a.spec.ts").members;
+
+    expect(members.map((member) => member.usedIn)).toEqual([undefined, undefined]);
   });
 });
