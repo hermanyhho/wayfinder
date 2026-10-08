@@ -159,27 +159,27 @@ describe("layout", () => {
   });
 
   const documentServiceMembers = [
-    { name: "DocumentService", kind: "class" as const, line: 6, endLine: 23, exported: true },
-    { name: "documents", kind: "property" as const, line: 8, endLine: 8, exported: false, className: "DocumentService" },
-    { name: "storage", kind: "property" as const, line: 9, endLine: 9, exported: false, className: "DocumentService" },
-    { name: "permissions", kind: "property" as const, line: 10, endLine: 10, exported: false, className: "DocumentService" },
-    { name: "upload", kind: "method" as const, line: 18, endLine: 22, exported: true, className: "DocumentService" },
-    { name: "listForEmployee", kind: "method" as const, line: 13, endLine: 16, exported: true, className: "DocumentService" },
+    { name: "DocumentService", kind: "class" as const, line: 6, endLine: 23, exported: true, visibility: "exported" as const },
+    { name: "documents", kind: "property" as const, line: 8, endLine: 8, exported: false, visibility: "private" as const, className: "DocumentService" },
+    { name: "storage", kind: "property" as const, line: 9, endLine: 9, exported: false, visibility: "private" as const, className: "DocumentService" },
+    { name: "permissions", kind: "property" as const, line: 10, endLine: 10, exported: false, visibility: "private" as const, className: "DocumentService" },
+    { name: "upload", kind: "method" as const, line: 18, endLine: 22, exported: true, visibility: "public" as const, className: "DocumentService" },
+    { name: "listForEmployee", kind: "method" as const, line: 13, endLine: 16, exported: true, visibility: "public" as const, className: "DocumentService" },
   ];
 
-  it("groups members by kind in a fixed order, sorts each group A-Z and keeps kind, class and exported mark", () => {
+  it("groups members by kind in a fixed order, sorts each group A-Z and keeps kind, class and visibility", () => {
     const { inner } = layout({ ...view(), members: documentServiceMembers }, ui(), 800);
     expect(inner.floors.find((floor) => floor.key === "members")).toMatchObject({ title: "Members (6)", cls: "", emptyText: "", toggle: null });
     expect(inner.groupHeadings.filter((heading) => heading.key.startsWith("members:")).map((heading) => [heading.text, heading.kind, heading.y])).toEqual([
       ["Classes (1)", "class", 388], ["Properties (3)", "property", 502], ["Methods (2)", "method", 764],
     ]);
-    expect(inner.members.map((member) => [member.x, member.y, member.w, member.tag, member.name, member.path, member.line])).toEqual([
-      [NODE_X[1], 414, COLUMN_NODE_W, "class", "DocumentService", "exported", 6],
-      [NODE_X[1], 528, COLUMN_NODE_W, "property", "documents", "DocumentService", 8],
-      [NODE_X[1], 602, COLUMN_NODE_W, "property", "permissions", "DocumentService", 10],
-      [NODE_X[1], 676, COLUMN_NODE_W, "property", "storage", "DocumentService", 9],
-      [NODE_X[1], 790, COLUMN_NODE_W, "method", "listForEmployee", "DocumentService, exported", 13],
-      [NODE_X[1], 864, COLUMN_NODE_W, "method", "upload", "DocumentService, exported", 18],
+    expect(inner.members.map((member) => [member.x, member.y, member.w, member.tag, member.name, member.path, member.line, member.visibility])).toEqual([
+      [NODE_X[1], 414, COLUMN_NODE_W, "class", "DocumentService", "", 6, "exported"],
+      [NODE_X[1], 528, COLUMN_NODE_W, "property", "documents", "DocumentService", 8, "private"],
+      [NODE_X[1], 602, COLUMN_NODE_W, "property", "permissions", "DocumentService", 10, "private"],
+      [NODE_X[1], 676, COLUMN_NODE_W, "property", "storage", "DocumentService", 9, "private"],
+      [NODE_X[1], 790, COLUMN_NODE_W, "method", "listForEmployee", "DocumentService", 13, "public"],
+      [NODE_X[1], 864, COLUMN_NODE_W, "method", "upload", "DocumentService", 18, "public"],
     ]);
     expect(inner.nodes.some((node) => node.id.startsWith("member:"))).toBe(false);
   });

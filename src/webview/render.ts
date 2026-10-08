@@ -1,5 +1,5 @@
 import type { AiScanState, AiStatus } from "../shared/messages";
-import type { Fact, MemberKind, NodeKind, ViewData } from "../shared/viewData";
+import type { Fact, MemberKind, MemberVisibility, NodeKind, ViewData } from "../shared/viewData";
 import type { BannerView, FloorView, GroupHeadingView, GroupKind, GroupToggleView, LayerView, Layout, MemberView, NodeView, PortView, SecondLayerView, UiState, UsesListView, WireView } from "./layout";
 import { groupChecks, panelFor, type Action, type PanelModel } from "./panelModel";
 
@@ -81,8 +81,10 @@ function renderMemberUsage(member: MemberView): string {
     : `<span class="nunone">${escapeHtml(usage.text)}</span>`;
   return `<div class="nu" style="left:${member.x + 8}px;top:${member.y + 53}px;width:${member.w - 16}px">line ${member.line}<span class="nusep">|</span>${count}</div>${usage.list ? renderUsesList(usage.list) : ""}`;
 }
+const VISIBILITY_TAG_STYLES: Record<MemberVisibility, string> = { public: "filled", exported: "filled", protected: "outline", private: "dashed", "not exported": "dashed" };
+const renderVisibilityTag = (visibility: MemberVisibility) => `<span class="vis ${VISIBILITY_TAG_STYLES[visibility]}">${visibility}</span>`;
 const renderMember = (member: MemberView) =>
-  `<button class="nd ${member.cls}${member.usage ? " withusage" : ""}" style="left:${member.x}px;top:${member.y}px;width:${member.w}px" data-action="reveal" data-value="${member.line}" data-nav="${member.id}" title="Go to line ${member.line}"><span class="nh"><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${MEMBER_KIND_ICONS[member.kind]}</svg>${escapeHtml(member.tag)}${member.focus ? `<span class="chip">${member.focus}</span>` : ""}</span><span class="nn">${escapeHtml(member.name)}</span><span class="np">${escapeHtml(member.path)}</span></button>${renderMemberUsage(member)}`;
+  `<button class="nd ${member.cls}${member.usage ? " withusage" : ""}" style="left:${member.x}px;top:${member.y}px;width:${member.w}px" data-action="reveal" data-value="${member.line}" data-nav="${member.id}" title="Go to line ${member.line}"><span class="nh"><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${MEMBER_KIND_ICONS[member.kind]}</svg>${escapeHtml(member.tag)}${member.focus ? `<span class="chip">${member.focus}</span>` : ""}${member.visibility ? renderVisibilityTag(member.visibility) : ""}</span><span class="nn">${escapeHtml(member.name)}</span><span class="np">${escapeHtml(member.path)}</span></button>${renderMemberUsage(member)}`;
 const GROUP_ICONS: Record<GroupKind, string> = { ...NODE_KIND_ICONS, ...MEMBER_KIND_ICONS };
 const CHEVRON_ICON = '<path d="m6 9 6 6 6-6"></path>';
 const renderGroupHeading = (heading: GroupHeadingView) =>
