@@ -108,3 +108,32 @@ export interface ViewData {
   componentTree: ComponentTree | null;
   scan: { done: number; total: number } | null;
 }
+
+export type CallDirection = "callers" | "callees";
+
+export interface ChainCall {
+  /** workspace-relative path */
+  file: string;
+  name: string;
+  line: number;
+  /** controller, service, repo and so on, from the file name or folder, else "Depth N" */
+  layer: string;
+  /** the language server stops at an interface method and does not name the class that runs */
+  isInterfaceMethod: boolean;
+}
+
+export interface CallLevel {
+  calls: ChainCall[];
+  /** calls at this level past the per-level limit */
+  moreCount: number;
+}
+
+export interface CallChain {
+  root: ChainCall;
+  /** index 0 holds the direct callers */
+  callers: CallLevel[];
+  /** index 0 holds the direct callees */
+  callees: CallLevel[];
+  /** false once a side has no more calls to load */
+  canGoDeeper: Record<CallDirection, boolean>;
+}

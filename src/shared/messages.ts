@@ -1,4 +1,4 @@
-import type { Fact, ViewData } from "./viewData";
+import type { CallChain, CallDirection, Fact, ViewData } from "./viewData";
 
 export interface AiFinding {
   file: string;
@@ -24,6 +24,15 @@ export type HostMessage =
   | { type: "ai"; openFile: string; scan: AiScanState }
   | { type: "cursor"; line: number }
   | { type: "focusOpenFile" }
-  | { type: "columnFocus"; change: ColumnFocusChange };
+  | { type: "columnFocus"; change: ColumnFocusChange }
+  | { type: "callChain"; chain: CallChain };
 
-export type WebviewMessage = { type: "ready" } | { type: "select"; id: string } | { type: "open"; id: string; line?: number } | { type: "reveal"; line: number } | { type: "scan" } | { type: "openSettings" };
+export type WebviewMessage =
+  | { type: "ready" }
+  | { type: "select"; id: string }
+  | { type: "open"; id: string; line?: number }
+  | { type: "reveal"; line: number }
+  | { type: "scan" }
+  | { type: "openSettings" }
+  | { type: "showCallChain"; file: string; line: number }
+  | { type: "extendCallChain"; direction: CallDirection };

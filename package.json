@@ -37,6 +37,10 @@
         "icon": "$(type-hierarchy)"
       },
       {
+        "command": "wayfinder.showCallChain",
+        "title": "Wayfinder: Show call chain"
+      },
+      {
         "command": "wayfinder.chooseAiModel",
         "title": "Wayfinder: Choose AI model"
       },
@@ -98,7 +102,18 @@
           "group": "navigation"
         }
       ],
+      "editor/context": [
+        {
+          "command": "wayfinder.showCallChain",
+          "when": "editorLangId =~ /^(typescript|javascript)(react)?$/",
+          "group": "navigation"
+        }
+      ],
       "commandPalette": [
+        {
+          "command": "wayfinder.showCallChain",
+          "when": "editorLangId =~ /^(typescript|javascript)(react)?$/"
+        },
         {
           "command": "wayfinder.returnToEditor",
           "when": "activeWebviewPanelId == 'wayfinder.map'"

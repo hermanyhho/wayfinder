@@ -4,13 +4,15 @@ import * as vscode from "vscode";
 import { CLOUD_CLIS, type CloudCli, cloudCliFor, cloudCliStatus, cloudConsentQuestion } from "../ai/cloudCli";
 import { type InstalledModel, type ModelPickerItem, modelPickerItems } from "../ai/modelPicker";
 import { RULES_FILE, SCAN_SYSTEM_PROMPT, STARTER_RULES_FILE, type ScanPromptExtras, aiStatusFor, buildScanPrompt, neighbourFiles, parseScanReply } from "../ai/scanFile";
+import type { CallChainBuilder } from "../graph/callChain";
 import { buildViewData } from "../graph/neighbourhood";
 import { cliLoginState, runCliScan } from "../providers/cliRunner";
 import { OllamaProvider } from "../providers/index";
 import type { AiScanState, AiStatus, ColumnFocusChange, HostMessage, WebviewMessage } from "../shared/messages";
-import type { ViewData } from "../shared/viewData";
+import type { CallDirection, ViewData } from "../shared/viewData";
 import { gitHistory } from "../workspace/gitFacts";
 import type { WorkspaceIndex } from "../workspace/WorkspaceIndex";
+import { buildCallChainAt } from "./callChain";
 import { EditorMarks } from "./EditorMarks";
 
 const SOURCE_FILE = /\.[cm]?[jt]sx?$/;
@@ -18,6 +20,7 @@ const NUM_CTX = 8192;
 const SCAN_TIMEOUT_MS = 120_000;
 const STATUS_TIMEOUT_MS = 3_000;
 const CURSOR_THROTTLE_MS = 100;
+const CALL_DIRECTIONS: readonly unknown[] = ["callers", "callees"] satisfies CallDirection[];
 
 const hashOf = (text: string) => createHash("sha1").update(text).digest("hex");
 
@@ -92,6 +95,7 @@ export class WayfinderPanel implements vscode.Disposable {
   private readonly scans = new Map<string, { textHash: string; scan: AiScanState }>();
   private latestStatusCheck = 0;
   private readonly stopScansOnClose = new AbortController();
+  private callChain: CallChainBuilder<vscode.CallHierarchyItem> | undefined;
 
   // the index keeps the folder it was first opened with, and the scan reads the rules file from there
   static rulesRoot(): vscode.Uri | undefined {
@@ -155,6 +159,17 @@ export class WayfinderPanel implements vscode.Disposable {
       selection: editor?.selection,
       preview: false,
     });
+  }
+
+  static async showCallChain(context: vscode.ExtensionContext, index: WorkspaceIndex): Promise<void> {
+    const editor = vscode.window.activeTextEditor;
+    const callChain = editor && (await buildCallChainAt(index, editor.document.uri, editor.selection.active));
+    if (!callChain) {
+      void vscode.window.showInformationMessage("No function at the cursor.");
+      return;
+    }
+    WayfinderPanel.show(context, index);
+    WayfinderPanel.current?.showChain(callChain);
   }
 
   static changeColumnFocus(change: ColumnFocusChange): void {
@@ -253,6 +268,7 @@ export class WayfinderPanel implements vscode.Disposable {
         this.post();
         if (this.focusOpenFileWhenReady) this.send({ type: "focusOpenFile" });
         this.focusOpenFileWhenReady = false;
+        if (this.callChain) this.send({ type: "callChain", chain: this.callChain.chain });
         return;
       case "select": {
         this.selected = message.id;
@@ -274,7 +290,31 @@ export class WayfinderPanel implements vscode.Disposable {
       case "openSettings":
         await openWayfinderSettings();
         return;
+      case "showCallChain":
+        await this.showCallChainAtLine(message.file, message.line);
+        return;
+      case "extendCallChain": {
+        const callChain = this.callChain;
+        if (!callChain || !CALL_DIRECTIONS.includes(message.direction)) return;
+        await callChain.deeper(message.direction);
+        if (callChain === this.callChain) this.send({ type: "callChain", chain: callChain.chain });
+        return;
+      }
     }
+  }
+
+  private showChain(callChain: CallChainBuilder<vscode.CallHierarchyItem>): void {
+    this.callChain = callChain;
+    this.send({ type: "callChain", chain: callChain.chain });
+  }
+
+  private async showCallChainAtLine(file: string, line: number): Promise<void> {
+    if (!this.index.graph.files.has(file) || !Number.isInteger(line)) return;
+    const document = await vscode.workspace.openTextDocument(this.index.uriOf(file));
+    const textLine = document.lineAt(Math.min(Math.max(line, 1), document.lineCount) - 1);
+    const callChain = await buildCallChainAt(this.index, document.uri, new vscode.Position(textLine.lineNumber, textLine.firstNonWhitespaceCharacterIndex));
+    if (callChain) this.showChain(callChain);
+    else void vscode.window.showInformationMessage(`No function at line ${line} of ${basename(file)}.`);
   }
 
   private async showFile(path: string, line?: number): Promise<void> {
