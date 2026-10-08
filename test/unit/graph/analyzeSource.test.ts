@@ -119,13 +119,13 @@ describe("analyzeSource", () => {
 
   it("lists the class, its constructor properties and its methods with their lines", () => {
     expect(analysis.members).toEqual([
-      { name: "DocumentService", kind: "class", line: 6, endLine: 31, exported: true },
-      { name: "documents", kind: "property", line: 8, endLine: 8, exported: false, className: "DocumentService" },
-      { name: "storage", kind: "property", line: 9, endLine: 9, exported: false, className: "DocumentService" },
-      { name: "permissions", kind: "property", line: 10, endLine: 10, exported: false, className: "DocumentService" },
-      { name: "listForEmployee", kind: "method", line: 13, endLine: 16, exported: true, className: "DocumentService" },
-      { name: "upload", kind: "method", line: 18, endLine: 22, exported: true, className: "DocumentService" },
-      { name: "remindUnsigned", kind: "method", line: 24, endLine: 30, exported: true, className: "DocumentService" },
+      { name: "DocumentService", kind: "class", line: 6, endLine: 31, exported: true, visibility: "exported" },
+      { name: "documents", kind: "property", line: 8, endLine: 8, exported: false, visibility: "private", className: "DocumentService" },
+      { name: "storage", kind: "property", line: 9, endLine: 9, exported: false, visibility: "private", className: "DocumentService" },
+      { name: "permissions", kind: "property", line: 10, endLine: 10, exported: false, visibility: "private", className: "DocumentService" },
+      { name: "listForEmployee", kind: "method", line: 13, endLine: 16, exported: true, visibility: "public", className: "DocumentService" },
+      { name: "upload", kind: "method", line: 18, endLine: 22, exported: true, visibility: "public", className: "DocumentService" },
+      { name: "remindUnsigned", kind: "method", line: 24, endLine: 30, exported: true, visibility: "public", className: "DocumentService" },
     ]);
   });
 
@@ -142,14 +142,14 @@ describe("analyzeSource", () => {
       "export { helper, LIMIT as MAX }",
     ].join("\n");
     expect(analyzeSource("src/utils.ts", text).members).toEqual([
-      { name: "formatDate", kind: "function", line: 1, endLine: 1, exported: true },
-      { name: "helper", kind: "function", line: 2, endLine: 2, exported: true },
-      { name: "toUpper", kind: "function", line: 3, endLine: 3, exported: true },
-      { name: "counter", kind: "let", line: 4, endLine: 4, exported: false },
-      { name: "Options", kind: "interface", line: 5, endLine: 5, exported: true },
-      { name: "Mode", kind: "type", line: 6, endLine: 6, exported: false },
-      { name: "Color", kind: "enum", line: 7, endLine: 7, exported: true },
-      { name: "LIMIT", kind: "const", line: 8, endLine: 8, exported: true },
+      { name: "formatDate", kind: "function", line: 1, endLine: 1, exported: true, visibility: "exported" },
+      { name: "helper", kind: "function", line: 2, endLine: 2, exported: true, visibility: "exported" },
+      { name: "toUpper", kind: "function", line: 3, endLine: 3, exported: true, visibility: "exported" },
+      { name: "counter", kind: "let", line: 4, endLine: 4, exported: false, visibility: "not exported" },
+      { name: "Options", kind: "interface", line: 5, endLine: 5, exported: true, visibility: "exported" },
+      { name: "Mode", kind: "type", line: 6, endLine: 6, exported: false, visibility: "not exported" },
+      { name: "Color", kind: "enum", line: 7, endLine: 7, exported: true, visibility: "exported" },
+      { name: "LIMIT", kind: "const", line: 8, endLine: 8, exported: true, visibility: "exported" },
     ]);
   });
 
@@ -170,10 +170,10 @@ describe("analyzeSource", () => {
       "export default function main() {}",
     ].join("\n");
     expect(analyzeSource("src/main.ts", text).members).toEqual([
-      { name: "Internal", kind: "class", line: 1, endLine: 4, exported: false },
-      { name: "count", kind: "property", line: 2, endLine: 2, exported: false, className: "Internal" },
-      { name: "run", kind: "method", line: 3, endLine: 3, exported: false, className: "Internal" },
-      { name: "main", kind: "function", line: 5, endLine: 5, exported: true },
+      { name: "Internal", kind: "class", line: 1, endLine: 4, exported: false, visibility: "not exported" },
+      { name: "count", kind: "property", line: 2, endLine: 2, exported: false, visibility: "public", className: "Internal" },
+      { name: "run", kind: "method", line: 3, endLine: 3, exported: false, visibility: "public", className: "Internal" },
+      { name: "main", kind: "function", line: 5, endLine: 5, exported: true, visibility: "exported" },
     ]);
   });
 
@@ -196,32 +196,32 @@ describe("analyzeSource", () => {
 
   it("marks a const exported when export default names it later", () => {
     const text = ["const fallback = 1", "export default fallback"].join("\n");
-    expect(analyzeSource("src/fallback.ts", text).members).toEqual([{ name: "fallback", kind: "const", line: 1, endLine: 1, exported: true }]);
+    expect(analyzeSource("src/fallback.ts", text).members).toEqual([{ name: "fallback", kind: "const", line: 1, endLine: 1, exported: true, visibility: "exported" }]);
   });
 
   it("names an anonymous default class default and marks its public members exported", () => {
     const text = ["export default class {", "  protected hidden = 1", "  open() {}", "}"].join("\n");
     expect(analyzeSource("src/anonymous.ts", text).members).toEqual([
-      { name: "default", kind: "class", line: 1, endLine: 4, exported: true },
-      { name: "hidden", kind: "property", line: 2, endLine: 2, exported: false, className: "default" },
-      { name: "open", kind: "method", line: 3, endLine: 3, exported: true, className: "default" },
+      { name: "default", kind: "class", line: 1, endLine: 4, exported: true, visibility: "exported" },
+      { name: "hidden", kind: "property", line: 2, endLine: 2, exported: false, visibility: "protected", className: "default" },
+      { name: "open", kind: "method", line: 3, endLine: 3, exported: true, visibility: "public", className: "default" },
     ]);
   });
 
   it("marks a public constructor parameter property of an exported class as exported", () => {
     const text = ["export class Box {", "  constructor(public readonly size: number, private secret: string, plain: string) {}", "}"].join("\n");
     expect(analyzeSource("src/box.ts", text).members).toEqual([
-      { name: "Box", kind: "class", line: 1, endLine: 3, exported: true },
-      { name: "size", kind: "property", line: 2, endLine: 2, exported: true, className: "Box" },
-      { name: "secret", kind: "property", line: 2, endLine: 2, exported: false, className: "Box" },
+      { name: "Box", kind: "class", line: 1, endLine: 3, exported: true, visibility: "exported" },
+      { name: "size", kind: "property", line: 2, endLine: 2, exported: true, visibility: "public", className: "Box" },
+      { name: "secret", kind: "property", line: 2, endLine: 2, exported: false, visibility: "private", className: "Box" },
     ]);
   });
 
   it("marks public methods exported when their class is exported by a later export list", () => {
     const text = ["class A { run() {} }", "export { A }"].join("\n");
     expect(analyzeSource("src/a.ts", text).members).toEqual([
-      { name: "A", kind: "class", line: 1, endLine: 1, exported: true },
-      { name: "run", kind: "method", line: 1, endLine: 1, exported: true, className: "A" },
+      { name: "A", kind: "class", line: 1, endLine: 1, exported: true, visibility: "exported" },
+      { name: "run", kind: "method", line: 1, endLine: 1, exported: true, visibility: "public", className: "A" },
     ]);
   });
 });
@@ -449,5 +449,50 @@ describe("when heritage clauses use generics or qualified names", () => {
     const service = classNamed("export class Service implements ns.IGroup, IAudited {}");
 
     expect(service.implements).toEqual(["IAudited"]);
+  });
+});
+
+describe("when a file declares members with different visibility", () => {
+  const source = [
+    "export const MAX_UPLOAD_MB = 25",
+    "const CHUNK_SIZE = 1024",
+    "export class GroupService {",
+    "  #pending = 0",
+    "  private assertSameCompany() {}",
+    "  protected rename() {}",
+    "  remove() {}",
+    "  #flush() {}",
+    "}",
+  ].join("\n");
+  const members = analyzeSource("src/GroupService.ts", source).members;
+  const visibilityOf = (name: string) => members.find((member) => member.name === name)?.visibility;
+
+  it("should mark top-level members exported or not exported", () => {
+    expect([visibilityOf("MAX_UPLOAD_MB"), visibilityOf("CHUNK_SIZE"), visibilityOf("GroupService")]).toEqual(["exported", "not exported", "exported"]);
+  });
+
+  it("should mark class members private, protected or public by their modifier", () => {
+    expect([visibilityOf("assertSameCompany"), visibilityOf("rename"), visibilityOf("remove")]).toEqual(["private", "protected", "public"]);
+  });
+
+  it("should list #private fields and methods as private and not exported", () => {
+    const privateNameMembers = members.filter((member) => member.name.startsWith("#"));
+
+    expect(privateNameMembers.map(({ name, kind, visibility, exported }) => [name, kind, visibility, exported])).toEqual([
+      ["#pending", "property", "private", false],
+      ["#flush", "method", "private", false],
+    ]);
+  });
+
+  it("should list a #private name that is used, and not one that is only declared", () => {
+    const privateUse = analyzeSource("src/Counter.ts", ["class Counter {", "  #count = 0", "  #unused = 0", "  bump() { this.#count += 1 }", "}"].join("\n"));
+
+    expect([privateUse.referencedNames.has("#count"), privateUse.referencedNames.has("#unused")]).toEqual([true, false]);
+  });
+
+  it("should give test groups and test cases no visibility", () => {
+    const testFile = analyzeSource("src/a.test.ts", ['describe("a", () => {', '  it("b", () => {})', "})"].join("\n"));
+
+    expect(testFile.members.map((member) => member.visibility)).toEqual([undefined, undefined]);
   });
 });

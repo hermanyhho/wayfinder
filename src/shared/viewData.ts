@@ -21,6 +21,8 @@ export interface Implementation extends MemberUse {
   kind: "class" | "interface";
 }
 
+export type MemberVisibility = "public" | "protected" | "private" | "exported" | "not exported";
+
 export type MemberKind = "function" | "class" | "method" | "property" | "const" | "let" | "interface" | "type" | "enum" | "suite" | "test";
 
 export interface Member {
@@ -31,6 +33,8 @@ export interface Member {
   endLine: number;
   /** for methods and properties: the class is exported and the member is not private or protected */
   exported: boolean;
+  /** for methods and properties: the access modifier. For other members except tests: whether the file exports it */
+  visibility?: MemberVisibility;
   /** the class a method or property belongs to */
   className?: string;
   /** for suites and tests: the title of the describe it is in */

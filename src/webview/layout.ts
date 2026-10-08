@@ -1,4 +1,4 @@
-import type { Fact, Implementation, Member, MemberKind, MemberUse, NodeKind, ViewData, ViewNode } from "../shared/viewData";
+import type { Fact, Implementation, Member, MemberKind, MemberUse, MemberVisibility, NodeKind, ViewData, ViewNode } from "../shared/viewData";
 
 export const NODE_W = 152;
 export const NODE_H = 56;
@@ -43,7 +43,7 @@ export interface FloorView { key: string; title: string; path: string; cls: stri
 export interface NodeView { id: string; x: number; y: number; w: number; cls: string; kind: NodeKind; tag: string; name: string; path: string; }
 export interface UsesListView { x: number; y: number; w: number; uses: MemberUse[]; }
 export interface MemberUsageView { text: string; listKey: string | null; list: UsesListView | null; }
-export interface MemberView extends Omit<NodeView, "kind"> { kind: MemberKind; line: number; focus?: Member["focus"]; usage?: MemberUsageView; opensFile?: string; }
+export interface MemberView extends Omit<NodeView, "kind"> { kind: MemberKind; line: number; tooltip: string; focus?: Member["focus"]; visibility?: MemberVisibility; usage?: MemberUsageView; opensFile?: string; }
 export interface WireView { cls: string; d: string; }
 export interface PortView { cls: string; x: number; y: number; incoming: boolean; }
 export interface BannerView { y: number; title: string; items: Fact[]; progress: number | null; }
@@ -73,7 +73,7 @@ const COLUMNS: ColumnDef[] = [
   { key: "members", title: "Members", color: "green", empty: (name) => `${name} defines no members.` },
   { key: "tests", title: "Tests", color: "pink", empty: (name) => `No test imports ${name}.` },
 ];
-const TEST_FILE_TESTS_COLUMN: ColumnDef = { key: "tests", title: "Tests", color: "pink", empty: (name) => `No subject found for ${name}.` };
+const TEST_FILE_TESTS_COLUMN: ColumnDef = { key: "tests", title: "Tested code", color: "pink", empty: (name) => `No tested code found for ${name}.` };
 const IMPLEMENTED_BY_COLUMN: ColumnDef = { key: "tests", title: "Implemented by", color: "blue", empty: (name) => `No file implements or extends an interface of ${name}.` };
 const IMPLEMENTATION_GROUPS: { kind: Implementation["kind"]; title: string }[] = [
   { kind: "class", title: "Classes" },
@@ -198,7 +198,7 @@ function implementationView(implementation: Implementation, id: string, box: Box
   const fileName = implementation.file.slice(implementation.file.lastIndexOf("/") + 1);
   return {
     id, x: box.x, y: box.y, w: box.w, cls: "blue", tag: implementation.kind === "class" ? "implements" : "extends", kind: implementation.kind, name: implementation.name,
-    line: implementation.line, path: `${fileName} · line ${implementation.line}`, opensFile: implementation.file,
+    line: implementation.line, tooltip: `${implementation.file}:${implementation.line}`, path: `${fileName} · line ${implementation.line}`, opensFile: implementation.file,
   };
 }
 
@@ -206,8 +206,10 @@ function memberView(member: Member, id: string, box: Box, atCursor: boolean, ui:
   const usage = memberUsageView(member, box, ui);
   return {
     id, x: box.x, y: box.y, w: box.w, cls: atCursor ? "green cur" : "green", tag: MEMBER_TAGS[member.kind] ?? member.kind, kind: member.kind, name: member.name, line: member.line,
-    path: [member.className ?? member.suiteTitle, member.exported ? "exported" : ""].filter(Boolean).join(", "),
+    tooltip: [member.name, member.suiteTitle, `Go to line ${member.line}`].filter(Boolean).join("\n"),
+    path: member.className ?? member.suiteTitle ?? "",
     ...(member.focus ? { focus: member.focus } : {}),
+    ...(member.visibility ? { visibility: member.visibility } : {}),
     ...(usage ? { usage } : {}),
   };
 }
