@@ -63,6 +63,32 @@ describe("nextCardKey", () => {
   it("returns nothing for a key that is not on the map", () => {
     expect(nextCardKey(cards, "missing", "ArrowDown")).toBeUndefined();
   });
+
+  describe("when columns loop in focus mode", () => {
+    const loopColumns = { loopColumns: true };
+
+    it("should wrap right from Tests to the first card of Deps", () => {
+      expect(nextCardKey(cards, "spec", "ArrowRight", loopColumns)).toBe("depsHeading");
+    });
+
+    it("should wrap left from Deps to the first card of Tests", () => {
+      expect(nextCardKey(cards, "dependency", "ArrowLeft", loopColumns)).toBe("spec");
+    });
+
+    it("should move left from Members to the next column before wrapping", () => {
+      expect(nextCardKey(cards, "membersHeading", "ArrowLeft", loopColumns)).toBe("depsHeading");
+    });
+
+    it("should skip an empty column while wrapping", () => {
+      const withoutDeps = cards.filter((candidate) => candidate.floor !== "deps");
+
+      expect(nextCardKey(withoutDeps, "spec", "ArrowRight", loopColumns)).toBe("membersHeading");
+    });
+
+    it("should stop at the last column without the option", () => {
+      expect(nextCardKey(cards, "spec", "ArrowRight")).toBeUndefined();
+    });
+  });
 });
 
 describe("navigationCards", () => {
@@ -77,5 +103,15 @@ describe("navigationCards", () => {
       "test/services/DocumentService.spec.ts": "tests",
     });
     expect(Object.keys(floorOf)).toHaveLength(inner.nodes.length + inner.members.length + inner.groupHeadings.length);
+  });
+
+  describe("when focus mode lays out all three columns at the same place", () => {
+    it("should still put each card in its own column", () => {
+      const { inner } = layout(buildViewData(serviceGraph(), DOCUMENT_SERVICE), { selected: DOCUMENT_SERVICE, layer: 1, open: {}, focusedColumn: "members" }, 800);
+
+      const floorOf = Object.fromEntries(navigationCards(inner).map((navigationCard) => [navigationCard.key, navigationCard.floor]));
+
+      expect(floorOf).toMatchObject({ "src/db/repositories/DocumentRepository.ts": "deps", "test/services/DocumentService.spec.ts": "tests" });
+    });
   });
 });

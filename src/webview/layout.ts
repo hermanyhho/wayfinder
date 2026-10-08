@@ -22,6 +22,8 @@ export const MAX_CANVAS_W = 1280;
 const COLUMN_PADDING = 14;
 const COLUMN_SEARCH_ROW_H = 34;
 export const CLUSTER_SCALE = 0.56;
+export const CAROUSEL_MARGIN = 48;
+export const CAROUSEL_SIDE_SCALE = 0.9;
 
 export interface UiState {
   selected: string;
@@ -29,29 +31,37 @@ export interface UiState {
   open: Record<string, boolean>;
   /** 1-based line of the editor cursor in the open file */
   cursorLine?: number;
+  /** set while focus mode shows this column in the centre */
+  focusedColumn?: ColumnKey;
 }
 
 export type ColumnKey = "deps" | "members" | "tests";
+export const COLUMN_ORDER: ColumnKey[] = ["deps", "members", "tests"];
 export type SearchByColumn = Partial<Record<ColumnKey, string>>;
 
 export interface Box { x: number; y: number; w: number; h: number; floor: number; }
 export interface FloorToggle { text: string; icon: "plus" | "minus"; y: number; }
 export type GroupKind = MemberKind | NodeKind;
-export interface GroupHeadingView { key: string; x: number; y: number; w: number; cls: string; kind: GroupKind; text: string; collapsed: boolean; }
-export interface GroupToggleView extends FloorToggle { key: string; x: number; }
+export interface GroupHeadingView { key: string; x: number; y: number; w: number; cls: string; kind: GroupKind; text: string; collapsed: boolean; column?: ColumnKey; }
+export interface GroupToggleView extends FloorToggle { key: string; x: number; column?: ColumnKey; }
 export interface ColumnTabView { text: string; active: boolean; toggleKey: string; }
-export interface FloorView { key: string; title: string; path: string; cls: string; x: number; y: number; w: number; h: number; emptyText: string; toggle: FloorToggle | null; search?: string; tabs?: ColumnTabView[]; }
-export interface TreeRowView { x: number; y: number; w: number; cls: string; name: string; lineText: string; open: { file: string; line?: number } | null; toggleKey: string | null; expanded: boolean; }
-export interface NodeView { id: string; x: number; y: number; w: number; cls: string; kind: NodeKind; tag: string; name: string; path: string; }
+export interface FloorView { key: string; title: string; path: string; cls: string; x: number; y: number; w: number; h: number; emptyText: string; toggle: FloorToggle | null; search?: string; tabs?: ColumnTabView[]; column?: ColumnKey; focused?: boolean; }
+export interface TreeRowView { x: number; y: number; w: number; cls: string; name: string; lineText: string; open: { file: string; line?: number } | null; toggleKey: string | null; expanded: boolean; column?: ColumnKey; }
+export interface NodeView { id: string; x: number; y: number; w: number; cls: string; kind: NodeKind; tag: string; name: string; path: string; column?: ColumnKey; }
 export interface UsesListView { x: number; y: number; w: number; uses: MemberUse[]; }
 export interface MemberUsageView { text: string; listKey: string | null; list: UsesListView | null; }
 export interface MemberView extends Omit<NodeView, "kind"> { kind: MemberKind; line: number; tooltip: string; focus?: Member["focus"]; visibility?: MemberVisibility; usage?: MemberUsageView; opensFile?: string; }
-export interface WireView { cls: string; d: string; }
-export interface PortView { cls: string; x: number; y: number; incoming: boolean; }
+/** column: drawn inside that column and moves with it. toColumn: leads from the open file to that column */
+export interface WireView { cls: string; d: string; column?: ColumnKey; toColumn?: ColumnKey; }
+export interface PortView { cls: string; x: number; y: number; incoming: boolean; toColumn?: ColumnKey; }
 export interface BannerView { y: number; title: string; items: Fact[]; progress: number | null; }
 export interface LayerView { floors: FloorView[]; nodes: NodeView[]; members: MemberView[]; treeRows: TreeRowView[]; groupHeadings: GroupHeadingView[]; groupToggles: GroupToggleView[]; wires: WireView[]; ports: PortView[]; banners: BannerView[]; height: number; }
 export interface SecondLayerView extends LayerView { frame: { x: number; y: number; w: number; h: number }; transform: string; }
-export interface Layout { width: number; inner: LayerView; outer: SecondLayerView | null; }
+export type CarouselPlace = "left" | "centre" | "right";
+/** x, y and w are where the column shows on the canvas after its transform. wireEndX is on the part of its top edge that shows */
+export interface CarouselColumnView { key: ColumnKey; place: CarouselPlace; x: number; y: number; w: number; wireEndX: number; transform: string; }
+export interface CarouselView { origin: string; columns: CarouselColumnView[]; }
+export interface Layout { width: number; inner: LayerView; outer: SecondLayerView | null; carousel: CarouselView | null; }
 
 const KIND_COLOR: Record<NodeKind, string> = {
   here: "green", caller: "blue", dependency: "violet", types: "violet", test: "pink", subject: "pink", expected: "violet", cycle: "red", package: "grey",
@@ -125,7 +135,37 @@ const COLUMNS_FLOOR = 2;
 export function layout(view: ViewData, ui: UiState, width: number, search: SearchByColumn = {}): Layout {
   const floorWidth = width - 2 * FLOOR_LEFT;
   const inner = layoutImmediate(view, ui, floorWidth, search);
-  return { width, inner: inner.layer, outer: ui.layer === 2 ? layoutSecond(view, ui, inner, width) : null };
+  return { width, inner: inner.layer, outer: ui.layer === 2 ? layoutSecond(view, ui, inner, width) : null, carousel: inner.carousel };
+}
+
+export function columnAfter(column: ColumnKey, step: 1 | -1): ColumnKey {
+  return COLUMN_ORDER[(COLUMN_ORDER.indexOf(column) + step + COLUMN_ORDER.length) % COLUMN_ORDER.length];
+}
+
+function placeInCarousel(column: ColumnKey, focused: ColumnKey): CarouselPlace {
+  if (column === focused) return "centre";
+  return column === columnAfter(focused, -1) ? "left" : "right";
+}
+
+// every column is laid out at the centre position, and the transform shrinks a side column and moves it to its edge
+function carouselOf(focused: ColumnKey, centreX: number, columnWidth: number, top: number, columnHeight: number, floorWidth: number): CarouselView {
+  const sideWidth = columnWidth * CAROUSEL_SIDE_SCALE;
+  const xOf: Record<CarouselPlace, number> = { left: FLOOR_LEFT, centre: centreX, right: FLOOR_LEFT + floorWidth - sideWidth };
+  const wireEndXOf: Record<CarouselPlace, number> = { left: FLOOR_LEFT + CAROUSEL_MARGIN / 2, centre: centreX + columnWidth / 2, right: FLOOR_LEFT + floorWidth - CAROUSEL_MARGIN / 2 };
+  return {
+    origin: `${centreX}px ${top}px`,
+    columns: COLUMN_ORDER.map((key) => {
+      const place = placeInCarousel(key, focused);
+      const scale = place === "centre" ? 1 : CAROUSEL_SIDE_SCALE;
+      const offsetY = (columnHeight * (1 - scale)) / 2;
+      return { key, place, x: xOf[place], y: top + offsetY, w: columnWidth * scale, wireEndX: wireEndXOf[place], transform: `translate(${xOf[place] - centreX}px, ${offsetY}px) scale(${scale})` };
+    }),
+  };
+}
+
+export function visibleColumnBoxes(layout: Layout): Partial<Record<ColumnKey, { x: number; y: number; w: number }>> {
+  const shown = layout.carousel?.columns ?? layout.inner.floors.flatMap((floor) => (floor.column ? [{ ...floor, key: floor.column }] : []));
+  return Object.fromEntries(shown.map((column) => [column.key, { x: column.x, y: column.y, w: column.w }]));
 }
 
 function foldersOf(nodes: ViewNode[]): string {
@@ -200,7 +240,7 @@ function memberUsageView(member: Member, box: Box, ui: UiState): MemberUsageView
 function implementationView(implementation: Implementation, id: string, box: Box): MemberView {
   const fileName = implementation.file.slice(implementation.file.lastIndexOf("/") + 1);
   return {
-    id, x: box.x, y: box.y, w: box.w, cls: "blue", tag: implementation.kind === "class" ? "implements" : "extends", kind: implementation.kind, name: implementation.name,
+    id, x: box.x, y: box.y, w: box.w, column: "tests", cls: "blue", tag: implementation.kind === "class" ? "implements" : "extends", kind: implementation.kind, name: implementation.name,
     line: implementation.line, tooltip: `${implementation.file}:${implementation.line}`, path: `${fileName} · line ${implementation.line}`, opensFile: implementation.file,
   };
 }
@@ -213,7 +253,7 @@ function tagOf(member: Member): string {
 function memberView(member: Member, id: string, box: Box, atCursor: boolean, ui: UiState): MemberView {
   const usage = memberUsageView(member, box, ui);
   return {
-    id, x: box.x, y: box.y, w: box.w, cls: atCursor ? "green cur" : "green", tag: tagOf(member), kind: member.kind, name: member.name, line: member.line,
+    id, x: box.x, y: box.y, w: box.w, column: "members", cls: atCursor ? "green cur" : "green", tag: tagOf(member), kind: member.kind, name: member.name, line: member.line,
     tooltip: [member.name, member.suiteTitle, `Go to line ${member.line}`].filter(Boolean).join("\n"),
     path: member.className ?? member.suiteTitle ?? "",
     ...(member.focus ? { focus: member.focus } : {}),
@@ -238,13 +278,13 @@ export function routeWire(from: Box, to: Box) {
 
 interface CardSizes { heightOf: (id: string) => number; spaceBelowOf: (id: string) => number; }
 
-function layoutColumns(columns: ColumnGroup[][], searchingColumns: boolean[], ui: UiState, top: number, columnWidth: number, cardSizes: CardSizes) {
+function layoutColumns(columns: ColumnGroup[][], slots: { key: ColumnKey; x: number }[], searchingColumns: boolean[], ui: UiState, top: number, columnWidth: number, cardSizes: CardSizes) {
   const boxes: Record<string, Box> = {};
   const hiddenCardAnchors: Record<string, Box> = {};
   const groupHeadings: GroupHeadingView[] = [];
   const groupToggles: GroupToggleView[] = [];
   const placed = columns.map((groups, columnIndex) => {
-    const x = FLOOR_LEFT + columnIndex * (columnWidth + COL_GAP);
+    const { key: column, x } = slots[columnIndex];
     const cardX = x + COLUMN_PADDING;
     const cardW = columnWidth - 2 * COLUMN_PADDING;
     const searching = searchingColumns[columnIndex];
@@ -257,7 +297,7 @@ function layoutColumns(columns: ColumnGroup[][], searchingColumns: boolean[], ui
       const showAll = searching || !!ui.open[moreKey];
       const headingBox: Box = { x: cardX, y: cursor, w: cardW, h: GROUP_HEADING_H, floor: COLUMNS_FLOOR };
       if (group.heading) {
-        groupHeadings.push({ key: collapseKey, x: cardX, y: cursor, w: cardW, cls: group.heading.cls, kind: group.heading.kind, text: `${group.heading.title} (${group.ids.length})`, collapsed });
+        groupHeadings.push({ key: collapseKey, x: cardX, y: cursor, w: cardW, cls: group.heading.cls, kind: group.heading.kind, text: `${group.heading.title} (${group.ids.length})`, collapsed, column });
         cursor += GROUP_HEADING_H;
       }
       let shownCount = Math.min(MAX_PER_GROUP, group.ids.length);
@@ -273,7 +313,7 @@ function layoutColumns(columns: ColumnGroup[][], searchingColumns: boolean[], ui
         cursor += height + ROW_H - NODE_H + cardSizes.spaceBelowOf(id);
       });
       if (!searching && !collapsed && group.ids.length > MAX_PER_GROUP) {
-        groupToggles.push({ key: moreKey, x: cardX, y: cursor - 6, text: showAll ? "Show fewer" : `Show ${group.ids.length - shownCount} more`, icon: showAll ? "minus" : "plus" });
+        groupToggles.push({ key: moreKey, x: cardX, y: cursor - 6, text: showAll ? "Show fewer" : `Show ${group.ids.length - shownCount} more`, icon: showAll ? "minus" : "plus", column });
         cursor += GROUP_TOGGLE_H;
       }
     }
@@ -304,7 +344,7 @@ function layoutComponentTree(tree: ComponentTree, componentName: string, ui: UiS
       const rowY = cursor;
       rows.push({
         x: rowX, y: rowY, w: w - depth * TREE_INDENT, cls: color, name: link.name, lineText: `line ${link.line}`,
-        open: opensAtLine ? { file: link.file, line: link.line } : { file: link.file }, toggleKey: link.links.length ? toggleKey : null, expanded,
+        open: opensAtLine ? { file: link.file, line: link.line } : { file: link.file }, toggleKey: link.links.length ? toggleKey : null, expanded, column: "deps",
       });
       cursor += TREE_ROW_H;
       if (expanded) drawBranch(rowX, rowY, placeLinks(link.links, depth + 1, toggleKey, color, opensAtLine));
@@ -314,20 +354,20 @@ function layoutComponentTree(tree: ComponentTree, componentName: string, ui: UiS
   if (tree.renderedBy.length) {
     const collapseKey = "tree:renderedBy:collapsed";
     const collapsed = !!ui.open[collapseKey];
-    headings.push({ key: collapseKey, x, y: cursor, w, cls: "blue", kind: "caller", text: `Rendered by (${tree.renderedBy.length})`, collapsed });
+    headings.push({ key: collapseKey, x, y: cursor, w, cls: "blue", kind: "caller", text: `Rendered by (${tree.renderedBy.length})`, collapsed, column: "deps" });
     cursor += GROUP_HEADING_H;
     if (!collapsed) placeLinks(tree.renderedBy, 0, "tree:up", "blue", true);
     cursor += GROUP_GAP;
   }
   const componentY = cursor;
-  rows.push({ x, y: componentY, w, cls: "green here", name: componentName, lineText: "this component", open: null, toggleKey: null, expanded: false });
+  rows.push({ x, y: componentY, w, cls: "green here", name: componentName, lineText: "this component", open: null, toggleKey: null, expanded: false, column: "deps" });
   cursor += TREE_ROW_H;
   // the line of a rendered component is in the file that renders it, so a click opens the component's own file at the top
   if (tree.renders.length) drawBranch(x, componentY, placeLinks(tree.renders, 1, "tree:down", "violet", false));
-  return { rows, headings, wires: branchPaths.length ? [{ cls: "tree", d: branchPaths.join(" ") }] : [], bottom: cursor };
+  return { rows, headings, wires: branchPaths.length ? [{ cls: "tree", d: branchPaths.join(" "), column: "deps" as const }] : [], bottom: cursor };
 }
 
-function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search: SearchByColumn): { layer: LayerView; boxes: Record<string, Box> } {
+function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search: SearchByColumn): { layer: LayerView; boxes: Record<string, Box>; carousel: CarouselView | null } {
   const immediate = view.nodes.filter((node) => !node.secondLayer);
   const byId = new Map(view.nodes.map((node) => [node.id, node]));
   const center = byId.get(view.openFile)!;
@@ -419,8 +459,11 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
       .filter((group) => group.ids.length > 0);
   });
   const columnsTop = y;
-  const columnWidth = Math.floor((floorWidth - (columnDefs.length - 1) * COL_GAP) / columnDefs.length);
-  const columns = layoutColumns(columnGroups, searchTexts.map(Boolean), ui, y, columnWidth, cardSizes);
+  const focusedColumn = ui.focusedColumn;
+  const columnWidth = focusedColumn ? floorWidth - 2 * CAROUSEL_MARGIN : Math.floor((floorWidth - (columnDefs.length - 1) * COL_GAP) / columnDefs.length);
+  const carouselCentreX = FLOOR_LEFT + CAROUSEL_MARGIN;
+  const slots = columnDefs.map((def, index) => ({ key: def.key, x: focusedColumn ? carouselCentreX : FLOOR_LEFT + index * (columnWidth + COL_GAP) }));
+  const columns = layoutColumns(columnGroups, slots, searchTexts.map(Boolean), ui, y, columnWidth, cardSizes);
   Object.assign(boxes, columns.boxes);
   const treeX = columns.placed[0].x + COLUMN_PADDING;
   const treeW = columnWidth - 2 * COLUMN_PADDING;
@@ -429,6 +472,7 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
   const hiddenDependencyAnchors: Record<string, Box> = {};
   if (tree) for (const id of columnIds[0]) hiddenDependencyAnchors[id] = { x: treeX, y: treeY, w: treeW, h: TREE_ROW_H, floor: COLUMNS_FLOOR };
   const columnsHeight = tree ? Math.max(columns.h, tree.bottom - y + 4) : columns.h;
+  const carousel = focusedColumn ? carouselOf(focusedColumn, carouselCentreX, columnWidth, columnsTop, columnsHeight, floorWidth) : null;
   columnDefs.forEach((def, index) => {
     const count = columnIds[index].length;
     const searchText = searchTexts[index];
@@ -437,6 +481,7 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
     const floor: FloorView = {
       key: def.key, title: count ? `${def.title} (${count})` : def.title, path: foldersOf(nodesInColumn(def.key)), cls: count ? (def.key === "tests" ? "annex" : "") : "empty",
       x: columns.placed[index].x, y, w: columnWidth, h: columnsHeight, emptyText, toggle: null, search: count ? searchText : undefined,
+      column: def.key, focused: def.key === focusedColumn,
     };
     if (def.key === "deps" && view.componentTree) {
       floor.tabs = [
@@ -467,14 +512,15 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
   }
   const openFileBox = boxes[center.id];
   columnDefs.forEach((def, index) => {
-    const columnTop: Box = { x: Math.round(columns.placed[index].x + columnWidth / 2), y: columnsTop, w: 0, h: 0, floor: COLUMNS_FLOOR };
-    const route = routeWire(openFileBox, columnTop);
-    wires.push({ cls: `${def.color}${wireState(view, ui, columnIds[index])}`, d: route.d });
-    ports.push({ cls: def.color, x: route.x2, y: route.y2, incoming: true });
+    const placed = carousel?.columns.find((column) => column.key === def.key);
+    const wireEndX = placed ? placed.wireEndX : Math.round(columns.placed[index].x + columnWidth / 2);
+    const route = routeWire(openFileBox, { x: wireEndX, y: placed ? placed.y : columnsTop, w: 0, h: 0, floor: COLUMNS_FLOOR });
+    wires.push({ cls: `${def.color}${wireState(view, ui, columnIds[index])}`, d: route.d, toColumn: def.key });
+    ports.push({ cls: def.color, x: route.x2, y: route.y2, incoming: true, toColumn: def.key });
   });
   ports.push({ cls: colorOf(center), x: openFileBox.x + openFileBox.w / 2, y: openFileBox.y + openFileBox.h, incoming: false });
 
-  const nodes = immediate.filter((node) => boxes[node.id]).map((node) => nodeView(node, boxes[node.id], ui));
+  const nodes = immediate.filter((node) => boxes[node.id]).map((node) => ({ ...nodeView(node, boxes[node.id], ui), column: columnOf(node) ?? undefined }));
   const cursorIndex = ui.cursorLine === undefined ? -1 : memberAtLine(view.members, ui.cursorLine);
   const cursorMemberId = cursorIndex === -1 ? undefined : memberIds[cursorIndex];
   const members = [
@@ -486,7 +532,17 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
   const groupHeadings = [...(tree?.headings ?? []), ...columns.groupHeadings].map((heading) => (heading.key === cursorHeadingKey ? { ...heading, cls: `${heading.cls} cur` } : heading));
   wires.push(...(tree?.wires ?? []));
   const layer = { floors, nodes, members, treeRows: tree?.rows ?? [], groupHeadings, groupToggles: columns.groupToggles, wires, ports, banners, height: Math.max(y + 8, 600) };
-  return { layer, boxes: { ...columns.hiddenCardAnchors, ...hiddenDependencyAnchors, ...boxes } };
+  const canvasBoxes = { ...columns.hiddenCardAnchors, ...hiddenDependencyAnchors, ...boxes };
+  // second-layer wires end at these boxes, so a side column's cards need the place its transform shows them at
+  for (const placed of carousel?.columns ?? []) {
+    if (placed.place === "centre") continue;
+    const scale = placed.w / columnWidth;
+    for (const id of columnIds[columnDefs.findIndex((def) => def.key === placed.key)]) {
+      const box = canvasBoxes[id];
+      if (box) canvasBoxes[id] = { ...box, x: placed.x + (box.x - carouselCentreX) * scale, y: placed.y + (box.y - columnsTop) * scale, w: box.w * scale, h: box.h * scale };
+    }
+  }
+  return { layer, boxes: canvasBoxes, carousel };
 }
 
 function layoutSecond(view: ViewData, ui: UiState, inner: { layer: LayerView; boxes: Record<string, Box> }, width: number): SecondLayerView | null {

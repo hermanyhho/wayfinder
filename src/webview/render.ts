@@ -1,6 +1,6 @@
 import type { AiScanState, AiStatus } from "../shared/messages";
 import type { Fact, MemberKind, MemberVisibility, NodeKind, ViewData } from "../shared/viewData";
-import { TREE_INDENT, type BannerView, type FloorView, type GroupHeadingView, type GroupKind, type GroupToggleView, type LayerView, type Layout, type MemberView, type NodeView, type PortView, type SecondLayerView, type TreeRowView, type UiState, type UsesListView, type WireView } from "./layout";
+import { COLUMN_ORDER, TREE_INDENT, type BannerView, type CarouselView, type ColumnKey, type FloorView, type GroupHeadingView, type GroupKind, type GroupToggleView, type LayerView, type Layout, type MemberView, type NodeView, type PortView, type SecondLayerView, type TreeRowView, type UiState, type UsesListView, type WireView } from "./layout";
 import { groupChecks, panelFor, type Action, type PanelModel } from "./panelModel";
 
 const HTML_ESCAPES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
@@ -35,12 +35,22 @@ const renderFloor = (floor: FloorView) =>
 const renderColumnSearch = (floor: FloorView) =>
   floor.search === undefined ? "" : `<input class="colsearch" style="left:${floor.x + 14}px;top:${floor.y + 34}px;width:${floor.w - 28}px" type="search" data-search="${floor.key}" value="${escapeHtml(floor.search)}" placeholder="Search" aria-label="Search ${escapeHtml(floor.title)}" spellcheck="false">`;
 const renderColumnTabs = (floor: FloorView) =>
-  `<div class="seg coltabs" style="left:${floor.x + 14}px;top:${floor.y + 5}px" role="group" aria-label="${escapeHtml(floor.title)}">${floor.tabs!
+  `<div class="seg coltabs" style="left:${floor.x + 14}px;top:${floor.y + 5}px;max-width:${floor.w - 28 - (floor.column ? FOCUS_TOGGLE_W : 0)}px" role="group" aria-label="${escapeHtml(floor.title)}">${floor.tabs!
     .map((tab) => (tab.active ? `<button class="on" aria-pressed="true">${escapeHtml(tab.text)}</button>` : `<button data-action="toggle" data-value="${escapeHtml(tab.toggleKey)}" aria-pressed="false">${escapeHtml(tab.text)}</button>`))
     .join("")}</div>`;
+const EXPAND_ICON = '<path d="M15 3h6v6"></path><path d="M9 21H3v-6"></path><path d="m21 3-7 7"></path><path d="m3 21 7-7"></path>';
+const SHRINK_ICON = '<path d="M4 14h6v6"></path><path d="M20 10h-6V4"></path><path d="m14 10 7-7"></path><path d="m3 21 7-7"></path>';
+const FOCUS_TOGGLE_W = 22;
+function renderFocusToggle(floor: FloorView): string {
+  const label = floor.focused ? "Show all three columns" : "Focus this column";
+  return `<button class="colfocus" style="left:${floor.x + floor.w - 8 - FOCUS_TOGGLE_W}px;top:${floor.y + 6}px" data-action="focus-mode" data-value="${floor.column}" aria-pressed="${!!floor.focused}" aria-label="${label}" title="${label} (⌘/Ctrl+Alt+Enter, change the key in Keyboard Shortcuts)"><svg viewBox="0 0 24 24" aria-hidden="true">${floor.focused ? SHRINK_ICON : EXPAND_ICON}</svg></button>`;
+}
 const renderFloorHeader = (floor: FloorView) =>
-  `${floor.tabs ? renderColumnTabs(floor) : `<div class="flh ${floor.cls}" style="left:${floor.x + 14}px;top:${floor.y + 9}px;max-width:${floor.w - 28}px"><span class="ti">${escapeHtml(floor.title)}</span><span class="fp">${escapeHtml(floor.path)}</span></div>`}${renderColumnSearch(floor)}`;
-const renderWires = (wires: WireView[]) => `<svg class="wires" aria-hidden="true">${wires.map((wire) => `<path class="w ${wire.cls}" d="${wire.d}"></path>`).join("")}</svg>`;
+  `${floor.tabs ? renderColumnTabs(floor) : `<div class="flh ${floor.cls}" style="left:${floor.x + 14}px;top:${floor.y + 9}px;max-width:${floor.w - 28 - (floor.column ? FOCUS_TOGGLE_W : 0)}px"><span class="ti">${escapeHtml(floor.title)}</span><span class="fp">${escapeHtml(floor.path)}</span></div>`}${floor.column ? renderFocusToggle(floor) : ""}${renderColumnSearch(floor)}`;
+// the path is repeated in the style because only the css d property can animate, so the wire follows its column
+const renderWire = (wire: WireView) =>
+  wire.toColumn ? `<path class="w ${wire.cls}" d="${wire.d}" style="d:path('${wire.d}')" data-animate="wire:${wire.toColumn}"></path>` : `<path class="w ${wire.cls}" d="${wire.d}"></path>`;
+const renderWires = (wires: WireView[]) => `<svg class="wires" aria-hidden="true">${wires.map(renderWire).join("")}</svg>`;
 const OPEN_ICON = '<path d="M14 4h6v6"></path><path d="m20 4-9 9"></path><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"></path>';
 const MEMBER_KIND_ICONS: Record<MemberKind, string> = {
   function: '<path d="M15 4h-2a3 3 0 0 0-3 3v13"></path><path d="M6 11h8"></path>',
@@ -110,7 +120,8 @@ function renderTreeRow(row: TreeRowView): string {
 }
 const renderGroupToggle = (toggle: GroupToggleView) =>
   `<button class="ftog" style="left:${toggle.x}px;top:${toggle.y}px" data-action="toggle" data-value="${escapeHtml(toggle.key)}"><span class="ftic ${toggle.icon}"></span>${escapeHtml(toggle.text)}</button>`;
-const renderPort = (port: PortView) => `<span class="port ${port.cls}${port.incoming ? " in" : ""}" style="left:${port.x}px;top:${port.y}px"></span>`;
+const renderPort = (port: PortView) =>
+  `<span class="port ${port.cls}${port.incoming ? " in" : ""}" style="left:${port.x}px;top:${port.y}px"${port.toColumn ? ` data-animate="port:${port.toColumn}"` : ""}></span>`;
 const renderToggles = (floors: FloorView[]) =>
   floors
     .filter((floor) => floor.toggle)
@@ -179,7 +190,7 @@ function renderBanner(banner: BannerView): string {
   return `<div class="banner" style="top:${banner.y}px"><h4>${escapeHtml(banner.title)}</h4>${bar}<ul>${items}</ul></div>`;
 }
 
-function renderLayer(layer: LayerView, canOpen: (id: string) => boolean): string {
+function renderLayerContent(layer: LayerView, canOpen: (id: string) => boolean): string {
   return [
     layer.floors.map(renderFloor).join(""),
     layer.banners.map(renderBanner).join(""),
@@ -192,6 +203,35 @@ function renderLayer(layer: LayerView, canOpen: (id: string) => boolean): string
     layer.groupToggles.map(renderGroupToggle).join(""),
     layer.ports.map(renderPort).join(""),
     renderToggles(layer.floors),
+  ].join("");
+}
+
+function partOfLayer(layer: LayerView, column: ColumnKey | undefined): LayerView {
+  const keep = <Item extends { column?: ColumnKey; toColumn?: ColumnKey }>(items: Item[]) => items.filter((item) => item.column === column && !item.toColumn);
+  return {
+    ...layer, floors: keep(layer.floors), nodes: keep(layer.nodes), members: keep(layer.members), treeRows: keep(layer.treeRows),
+    groupHeadings: keep(layer.groupHeadings), groupToggles: keep(layer.groupToggles), wires: keep(layer.wires), ports: keep(layer.ports),
+    banners: column ? [] : layer.banners,
+  };
+}
+
+const renderSideCover = (floor: FloorView) =>
+  `<button class="colcover" style="left:${floor.x}px;top:${floor.y}px;width:${floor.w}px;height:${floor.h}px" data-action="focus-column" data-value="${floor.column}" aria-label="Move ${escapeHtml(floor.title)} to the centre"></button>`;
+
+// the wires and ports to the columns come last, so a column floor does not cover the end of its wire
+function renderLayer(layer: LayerView, canOpen: (id: string) => boolean, carousel: CarouselView | null): string {
+  const columns = COLUMN_ORDER.map((key) => {
+    const part = partOfLayer(layer, key);
+    const placed = carousel?.columns.find((column) => column.key === key);
+    if (!carousel || !placed) return `<div class="col" data-animate="column:${key}">${renderLayerContent(part, canOpen)}</div>`;
+    const side = placed.place !== "centre";
+    return `<div class="col ${side ? "side" : "centre"}" style="transform-origin:${carousel.origin};transform:${placed.transform}" data-animate="column:${key}">${renderLayerContent(part, canOpen)}${side ? renderSideCover(part.floors[0]) : ""}</div>`;
+  });
+  return [
+    renderLayerContent(partOfLayer(layer, undefined), canOpen),
+    ...columns,
+    renderWires(layer.wires.filter((wire) => wire.toColumn)),
+    layer.ports.filter((port) => port.toColumn).map(renderPort).join(""),
   ].join("");
 }
 
@@ -217,7 +257,7 @@ export function renderMap(result: Layout, view: ViewData, ui: UiState): string {
 </div>
 <div class="ne"><div class="fit"><div class="cv" style="width:${result.width}px;height:${outer ? outer.height : inner.height}px">
 ${outer ? renderOuterBack(outer, open.name, immediateCount(view)) : ""}
-<div class="cluster" style="height:${inner.height}px">${renderLayer(inner, canOpen)}</div>
+<div class="cluster" style="height:${inner.height}px">${renderLayer(inner, canOpen, result.carousel)}</div>
 ${outer ? `<div class="layer2 late">${outer.nodes.map((node) => renderNode(node, canOpen)).join("")}${outer.ports.map(renderPort).join("")}${renderToggles(outer.floors)}</div>` : ""}
 ${ui.layer === 2 && !outer ? `<div class="nolayer">No second layer. Nothing is connected beyond the immediate layer.</div>` : ""}
 </div></div></div>

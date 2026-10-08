@@ -1,11 +1,10 @@
-import type { ColumnKey, LayerView } from "./layout";
+import { COLUMN_ORDER, type ColumnKey, type LayerView } from "./layout";
 
 export type ArrowKey = "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight";
 
 /** x is the horizontal centre so cards of different widths line up, y is the top edge */
 export interface NavigationCard { key: string; floor: string; x: number; y: number; }
 
-export const COLUMN_ORDER: ColumnKey[] = ["deps", "members", "tests"];
 const OPEN_FILE_FLOOR = "mine";
 const CALLERS_FLOOR = "callers";
 
@@ -13,13 +12,14 @@ const byPosition = (first: NavigationCard, second: NavigationCard) => first.y - 
 
 export function navigationCards(layer: LayerView): NavigationCard[] {
   const placed = [
-    ...layer.nodes.map((node) => ({ key: node.id, x: node.x, y: node.y, w: node.w })),
-    ...layer.members.map((member) => ({ key: member.id, x: member.x, y: member.y, w: member.w })),
-    ...layer.groupHeadings.map((heading) => ({ key: heading.key, x: heading.x, y: heading.y, w: heading.w })),
+    ...layer.nodes.map((node) => ({ key: node.id, x: node.x, y: node.y, w: node.w, column: node.column })),
+    ...layer.members.map((member) => ({ key: member.id, x: member.x, y: member.y, w: member.w, column: member.column })),
+    ...layer.groupHeadings.map((heading) => ({ key: heading.key, x: heading.x, y: heading.y, w: heading.w, column: heading.column })),
   ];
   return placed.flatMap((card) => {
-    const floor = layer.floors.find((candidate) => card.x >= candidate.x && card.x < candidate.x + candidate.w && card.y >= candidate.y && card.y < candidate.y + candidate.h);
-    return floor ? [{ key: card.key, floor: floor.key, x: card.x + card.w / 2, y: card.y }] : [];
+    // in focus mode all three columns are laid out at the same place, so a column card cannot be found by position
+    const floor = card.column ?? layer.floors.find((candidate) => card.x >= candidate.x && card.x < candidate.x + candidate.w && card.y >= candidate.y && card.y < candidate.y + candidate.h)?.key;
+    return floor ? [{ key: card.key, floor, x: card.x + card.w / 2, y: card.y }] : [];
   }).sort(byPosition);
 }
 
@@ -38,7 +38,7 @@ function nearestInSameRow(candidates: NavigationCard[], current: NavigationCard,
   return ahead.length ? nearestByX(ahead, current.x) : undefined;
 }
 
-export function nextCardKey(cards: NavigationCard[], currentKey: string, arrow: ArrowKey): string | undefined {
+export function nextCardKey(cards: NavigationCard[], currentKey: string, arrow: ArrowKey, options: { loopColumns?: boolean } = {}): string | undefined {
   const current = cards.find((card) => card.key === currentKey);
   if (!current) return undefined;
   const onFloor = (floor: string) => cards.filter((card) => card.floor === floor).sort(byPosition);
@@ -57,7 +57,12 @@ export function nextCardKey(cards: NavigationCard[], currentKey: string, arrow: 
     else if (downwards) next = firstCardOf(["members", "deps", "tests"]);
   } else if (columnIndex !== -1) {
     if (vertical) next = nearestInNextRow(onFloor(current.floor), current, downwards) ?? (downwards ? undefined : openFile);
-    else next = firstCardOf(rightwards ? COLUMN_ORDER.slice(columnIndex + 1) : COLUMN_ORDER.slice(0, columnIndex).reverse());
+    else {
+      const columnsAfter = COLUMN_ORDER.slice(columnIndex + 1);
+      const columnsBefore = COLUMN_ORDER.slice(0, columnIndex);
+      const wrappedColumns = options.loopColumns ? (rightwards ? columnsBefore : columnsAfter) : [];
+      next = firstCardOf(rightwards ? [...columnsAfter, ...wrappedColumns] : [...wrappedColumns, ...columnsBefore].reverse());
+    }
   }
   return next?.key;
 }

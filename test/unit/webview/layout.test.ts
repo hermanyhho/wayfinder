@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildViewData } from "../../../src/graph/neighbourhood";
 import type { ComponentTree, Member } from "../../../src/shared/viewData";
-import { IMPORTS_TAB_KEY, layout, memberAtLine, type UiState } from "../../../src/webview/layout";
+import { IMPORTS_TAB_KEY, columnAfter, layout, memberAtLine, visibleColumnBoxes, type ColumnKey, type UiState } from "../../../src/webview/layout";
 import { DOCUMENT_SERVICE, analysisOf, graphOf, serviceGraph } from "../helpers/fixtures";
 
 const ui = (patch: Partial<UiState> = {}): UiState => ({ selected: DOCUMENT_SERVICE, layer: 1, open: {}, ...patch });
@@ -150,7 +150,7 @@ describe("layout", () => {
     const crowded = buildViewData(graphOf([analysisOf("src/x.ts", dependencies), ...dependencies.map((path) => analysisOf(path))]), "src/x.ts");
     const closed = layout(crowded, ui({ selected: "src/x.ts" }), 800).inner;
     expect(closed.floors.find((floor) => floor.key === "deps")).toMatchObject({ y: 272, h: 422, toggle: null });
-    expect(closed.groupToggles).toEqual([{ key: "deps:dependency:more", x: NODE_X[0], y: 656, text: "Show 2 more", icon: "plus" }]);
+    expect(closed.groupToggles).toEqual([{ key: "deps:dependency:more", x: NODE_X[0], y: 656, text: "Show 2 more", icon: "plus", column: "deps" }]);
     expect(closed.nodes.filter((node) => node.id.startsWith("src/d/"))).toHaveLength(4);
     expect(closed.floors.find((floor) => floor.key === "tests")?.h).toBe(422);
     const opened = layout(crowded, ui({ selected: "src/x.ts", open: { "deps:dependency:more": true } }), 800).inner;
@@ -623,5 +623,123 @@ describe("when the open file has no exported interface with implementations data
     const title = layout(view, ui({ selected: testFile }), 800).inner.floors.find((floor) => floor.key === "tests")?.title;
 
     expect(title).toBe("Tested code");
+  });
+});
+
+describe("when focus mode moves the columns as a carousel", () => {
+  const focusedOn = (focusedColumn: ColumnKey) => layout(view(), ui({ focusedColumn }), 800);
+  const placesOf = (focusedColumn: ColumnKey) => Object.fromEntries(focusedOn(focusedColumn).carousel!.columns.map((column) => [column.key, column.place]));
+  const rotate = (start: ColumnKey, step: 1 | -1, times: number) =>
+    Array.from({ length: times }).reduce<ColumnKey[]>((visited) => [...visited, columnAfter(visited.at(-1)!, step)], [start]).slice(1);
+
+  it("should move Tests, then Imported by this file, then Members to the centre when moving to the next column", () => {
+    const order = rotate("members", 1, 3);
+
+    expect(order).toEqual(["tests", "deps", "members"]);
+  });
+
+  it("should go round the other way when moving to the previous column", () => {
+    const order = rotate("members", -1, 3);
+
+    expect(order).toEqual(["deps", "tests", "members"]);
+  });
+
+  it("should put the column before the focused one on the left and the one after it on the right", () => {
+    const places = [placesOf("members"), placesOf("tests"), placesOf("deps")];
+
+    expect(places).toEqual([
+      { deps: "left", members: "centre", tests: "right" },
+      { members: "left", tests: "centre", deps: "right" },
+      { tests: "left", deps: "centre", members: "right" },
+    ]);
+  });
+
+  it("should give the focused column the map width less the margin on each side", () => {
+    const { inner, carousel } = focusedOn("members");
+
+    const columnFloors = inner.floors.filter((floor) => floor.column);
+
+    expect(columnFloors.map((floor) => [floor.key, floor.x, floor.w, floor.focused])).toEqual([["deps", 64, 672, false], ["members", 64, 672, true], ["tests", 64, 672, false]]);
+    expect(carousel!.columns.find((column) => column.place === "centre")).toMatchObject({ key: "members", x: 64, w: 672, transform: "translate(0px, 0px) scale(1)" });
+  });
+
+  it("should show the side columns smaller with their outer edge at the edge of the map", () => {
+    const { inner, carousel } = focusedOn("members");
+
+    const [left, right] = ["deps", "tests"].map((key) => carousel!.columns.find((column) => column.key === key)!);
+
+    const columnTop = inner.floors.find((floor) => floor.column === "tests")!.y;
+    expect(left.x).toBe(16);
+    expect(left.w).toBeCloseTo(604.8);
+    expect(right.x + right.w).toBeCloseTo(784);
+    const [moveX, moveY, scale] = right.transform.match(/-?[\d.]+/g)!.map(Number);
+    expect([moveX, moveY, scale]).toEqual([expect.closeTo(right.x - 64), expect.closeTo(right.y - columnTop), 0.9]);
+  });
+
+  describe("when a side column is shown at 0.9 scale", () => {
+    const columnsOf = () => {
+      const { inner, carousel } = focusedOn("members");
+      const centreFloor = inner.floors.find((floor) => floor.column === "members")!;
+      return { centreFloor, side: carousel!.columns.find((column) => column.key === "deps")!, sidePort: inner.ports.find((port) => port.toColumn === "deps")! };
+    };
+
+    it("should put its visible top below the centre column's top by half the height it lost", () => {
+      const { centreFloor, side } = columnsOf();
+
+      expect(side.y).toBeCloseTo(centreFloor.y + (centreFloor.h * (1 - 0.9)) / 2);
+    });
+
+    it("should end its wire at its visible top", () => {
+      const { side, sidePort } = columnsOf();
+
+      expect(sidePort.y).toBeCloseTo(side.y);
+    });
+  });
+
+  it("should end the wire to the centre column at its top centre and to a side column in the middle of its visible edge", () => {
+    const { inner } = focusedOn("members");
+
+    const wireEnds = inner.ports.filter((port) => port.toColumn).map((port) => [port.toColumn, port.x]);
+
+    expect(wireEnds).toEqual([["deps", 40], ["members", 400], ["tests", 760]]);
+    expect(inner.ports.find((port) => port.toColumn === "members")!.y).toBe(320);
+  });
+
+  it("should leave the three columns side by side when focus mode is off", () => {
+    const { inner, carousel } = layout(view(), ui(), 800);
+
+    expect(carousel).toBeNull();
+    expect(inner.floors.filter((floor) => floor.column).map((floor) => floor.x)).toEqual(COLUMN_X);
+  });
+});
+
+describe("when the webview asks where each column shows on the canvas", () => {
+  it("should give the carousel place of each column when focus mode is on", () => {
+    const focused = layout(view(), ui({ focusedColumn: "members" }), 800);
+
+    const boxes = visibleColumnBoxes(focused);
+
+    expect(boxes).toEqual(Object.fromEntries(focused.carousel!.columns.map((column) => [column.key, { x: column.x, y: column.y, w: column.w }])));
+  });
+
+  it("should give the floor of each column when focus mode is off", () => {
+    const sideBySide = layout(view(), ui(), 800);
+
+    const boxes = visibleColumnBoxes(sideBySide);
+
+    const columnFloors = sideBySide.inner.floors.filter((floor) => floor.column);
+    expect(boxes).toEqual(Object.fromEntries(columnFloors.map((floor) => [floor.column, { x: floor.x, y: floor.y, w: floor.w }])));
+  });
+});
+
+describe("when focus mode and the second layer are both on", () => {
+  it("should start a second-layer wire at the middle of the card as shown in the shrunk side column", () => {
+    const { outer } = layout(view(), ui({ layer: 2, selected: "src/db/schema.ts", focusedColumn: "members" }), 800);
+
+    const wire = outer!.wires.find((candidate) => candidate.cls.endsWith(" hi"))!;
+    const [startX] = wire.d.slice(1).split(" ").map(Number);
+
+    const cardCentreInLeftColumn = 16 + 0.9 * (14 + (672 - 28) / 2);
+    expect(startX).toBeCloseTo(176 + cardCentreInLeftColumn * 0.56);
   });
 });

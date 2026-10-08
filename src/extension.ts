@@ -27,6 +27,9 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("wayfinder.chooseAiModel", chooseAiModel),
     vscode.commands.registerCommand("wayfinder.createAiRules", createAiRulesFile),
     vscode.commands.registerCommand("wayfinder.returnToEditor", () => WayfinderPanel.returnToEditor()),
+    vscode.commands.registerCommand("wayfinder.toggleColumnFocus", () => WayfinderPanel.changeColumnFocus("toggle")),
+    vscode.commands.registerCommand("wayfinder.nextColumn", () => WayfinderPanel.changeColumnFocus("next")),
+    vscode.commands.registerCommand("wayfinder.previousColumn", () => WayfinderPanel.changeColumnFocus("previous")),
   );
 }
 
