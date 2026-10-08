@@ -73,7 +73,7 @@ const COLUMNS: ColumnDef[] = [
   { key: "members", title: "Members", color: "green", empty: (name) => `${name} defines no members.` },
   { key: "tests", title: "Tests", color: "pink", empty: (name) => `No test imports ${name}.` },
 ];
-const TEST_FILE_TESTS_COLUMN: ColumnDef = { key: "tests", title: "Tests", color: "pink", empty: (name) => `No subject found for ${name}.` };
+const TEST_FILE_TESTS_COLUMN: ColumnDef = { key: "tests", title: "Tested code", color: "pink", empty: (name) => `No tested code found for ${name}.` };
 const TEST_FILE_TEST_GROUPS: { kind: "subject" | "test"; title: string }[] = [
   { kind: "subject", title: "Tested file" },
   { kind: "test", title: "Other tests" },
