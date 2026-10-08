@@ -358,6 +358,18 @@ describe("when the open file is a test file", () => {
     ]);
   });
 
+  it("should give each card a tooltip with the full name, the parent test group and the line", () => {
+    const inner = layoutTestFile();
+
+    expect(inner.members.map((member) => member.tooltip)).toEqual([
+      "Group/hooks/UnlinkRelated\nGo to line 5",
+      "when nothing is linked\nGroup/hooks/UnlinkRelated\nGo to line 13",
+      "unlinks the related group\nGroup/hooks/UnlinkRelated\nGo to line 6",
+      "keeps the group\nGroup/hooks/UnlinkRelated\nGo to line 10",
+      "does nothing\nwhen nothing is linked\nGo to line 14",
+    ]);
+  });
+
   it("should mark the innermost test the cursor is in", () => {
     const inner = layoutTestFile({ cursorLine: 16 });
 
@@ -375,7 +387,7 @@ describe("when a test file is open", () => {
 
     const inner = layout(buildViewData(graph, TEST), ui({ selected: TEST }), 800).inner;
 
-    expect(inner.floors.find((floor) => floor.key === "tests")?.title).toBe("Tests (2)");
+    expect(inner.floors.find((floor) => floor.key === "tests")?.title).toBe("Tested code (2)");
     expect(inner.groupHeadings.filter((heading) => heading.key.startsWith("tests:")).map((heading) => heading.text)).toEqual(["Tested file (1)", "Other tests (1)"]);
   });
 
@@ -395,12 +407,12 @@ describe("when a test file is open", () => {
     expect(card).toMatchObject({ x: NODE_X[2], tag: "Tested file, matched by name" });
   });
 
-  it("should say no subject was found when nothing matches", () => {
+  it("should say no tested code was found when nothing matches", () => {
     const graph = graphOf([analysisOf("src/a/Bar.ts"), analysisOf(TEST)]);
 
     const column = testsColumnOf(graph);
 
-    expect(column).toMatchObject({ title: "Tests", emptyText: "No subject found for Foo.int.test.ts." });
+    expect(column).toMatchObject({ title: "Tested code", emptyText: "No tested code found for Foo.int.test.ts." });
   });
 });
 

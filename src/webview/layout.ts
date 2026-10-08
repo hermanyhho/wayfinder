@@ -43,7 +43,7 @@ export interface FloorView { key: string; title: string; path: string; cls: stri
 export interface NodeView { id: string; x: number; y: number; w: number; cls: string; kind: NodeKind; tag: string; name: string; path: string; }
 export interface UsesListView { x: number; y: number; w: number; uses: MemberUse[]; }
 export interface MemberUsageView { text: string; listKey: string | null; list: UsesListView | null; }
-export interface MemberView extends Omit<NodeView, "kind"> { kind: MemberKind; line: number; focus?: Member["focus"]; visibility?: MemberVisibility; usage?: MemberUsageView; }
+export interface MemberView extends Omit<NodeView, "kind"> { kind: MemberKind; line: number; tooltip: string; focus?: Member["focus"]; visibility?: MemberVisibility; usage?: MemberUsageView; }
 export interface WireView { cls: string; d: string; }
 export interface PortView { cls: string; x: number; y: number; incoming: boolean; }
 export interface BannerView { y: number; title: string; items: Fact[]; progress: number | null; }
@@ -73,7 +73,7 @@ const COLUMNS: ColumnDef[] = [
   { key: "members", title: "Members", color: "green", empty: (name) => `${name} defines no members.` },
   { key: "tests", title: "Tests", color: "pink", empty: (name) => `No test imports ${name}.` },
 ];
-const TEST_FILE_TESTS_COLUMN: ColumnDef = { key: "tests", title: "Tests", color: "pink", empty: (name) => `No subject found for ${name}.` };
+const TEST_FILE_TESTS_COLUMN: ColumnDef = { key: "tests", title: "Tested code", color: "pink", empty: (name) => `No tested code found for ${name}.` };
 const TEST_FILE_TEST_GROUPS: { kind: "subject" | "test"; title: string }[] = [
   { kind: "subject", title: "Tested file" },
   { kind: "test", title: "Other tests" },
@@ -183,6 +183,7 @@ function memberView(member: Member, id: string, box: Box, atCursor: boolean, ui:
   const usage = memberUsageView(member, box, ui);
   return {
     id, x: box.x, y: box.y, w: box.w, cls: atCursor ? "green cur" : "green", tag: MEMBER_TAGS[member.kind] ?? member.kind, kind: member.kind, name: member.name, line: member.line,
+    tooltip: [member.name, member.suiteTitle, `Go to line ${member.line}`].filter(Boolean).join("\n"),
     path: member.className ?? member.suiteTitle ?? "",
     ...(member.focus ? { focus: member.focus } : {}),
     ...(member.visibility ? { visibility: member.visibility } : {}),
