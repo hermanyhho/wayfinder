@@ -58,8 +58,8 @@ export interface BannerView { y: number; title: string; items: Fact[]; progress:
 export interface LayerView { floors: FloorView[]; nodes: NodeView[]; members: MemberView[]; treeRows: TreeRowView[]; groupHeadings: GroupHeadingView[]; groupToggles: GroupToggleView[]; wires: WireView[]; ports: PortView[]; banners: BannerView[]; height: number; }
 export interface SecondLayerView extends LayerView { frame: { x: number; y: number; w: number; h: number }; transform: string; }
 export type CarouselPlace = "left" | "centre" | "right";
-/** x and w are where the column shows on the canvas after its transform. wireEndX is on the part of its top edge that shows */
-export interface CarouselColumnView { key: ColumnKey; place: CarouselPlace; x: number; w: number; wireEndX: number; transform: string; }
+/** x, y and w are where the column shows on the canvas after its transform. wireEndX is on the part of its top edge that shows */
+export interface CarouselColumnView { key: ColumnKey; place: CarouselPlace; x: number; y: number; w: number; wireEndX: number; transform: string; }
 export interface CarouselView { origin: string; columns: CarouselColumnView[]; }
 export interface Layout { width: number; inner: LayerView; outer: SecondLayerView | null; carousel: CarouselView | null; }
 
@@ -148,7 +148,7 @@ function placeInCarousel(column: ColumnKey, focused: ColumnKey): CarouselPlace {
 }
 
 // every column is laid out at the centre position, and the transform shrinks a side column and moves it to its edge
-function carouselOf(focused: ColumnKey, centreX: number, columnWidth: number, top: number, floorWidth: number): CarouselView {
+function carouselOf(focused: ColumnKey, centreX: number, columnWidth: number, top: number, columnHeight: number, floorWidth: number): CarouselView {
   const sideWidth = columnWidth * CAROUSEL_SIDE_SCALE;
   const xOf: Record<CarouselPlace, number> = { left: FLOOR_LEFT, centre: centreX, right: FLOOR_LEFT + floorWidth - sideWidth };
   const wireEndXOf: Record<CarouselPlace, number> = { left: FLOOR_LEFT + CAROUSEL_MARGIN / 2, centre: centreX + columnWidth / 2, right: FLOOR_LEFT + floorWidth - CAROUSEL_MARGIN / 2 };
@@ -157,9 +157,15 @@ function carouselOf(focused: ColumnKey, centreX: number, columnWidth: number, to
     columns: COLUMN_ORDER.map((key) => {
       const place = placeInCarousel(key, focused);
       const scale = place === "centre" ? 1 : CAROUSEL_SIDE_SCALE;
-      return { key, place, x: xOf[place], w: columnWidth * scale, wireEndX: wireEndXOf[place], transform: `translate(${xOf[place] - centreX}px, 0px) scale(${scale})` };
+      const offsetY = (columnHeight * (1 - scale)) / 2;
+      return { key, place, x: xOf[place], y: top + offsetY, w: columnWidth * scale, wireEndX: wireEndXOf[place], transform: `translate(${xOf[place] - centreX}px, ${offsetY}px) scale(${scale})` };
     }),
   };
+}
+
+export function visibleColumnBoxes(layout: Layout): Partial<Record<ColumnKey, { x: number; y: number; w: number }>> {
+  const shown = layout.carousel?.columns ?? layout.inner.floors.flatMap((floor) => (floor.column ? [{ ...floor, key: floor.column }] : []));
+  return Object.fromEntries(shown.map((column) => [column.key, { x: column.x, y: column.y, w: column.w }]));
 }
 
 function foldersOf(nodes: ViewNode[]): string {
@@ -458,7 +464,6 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
   const carouselCentreX = FLOOR_LEFT + CAROUSEL_MARGIN;
   const slots = columnDefs.map((def, index) => ({ key: def.key, x: focusedColumn ? carouselCentreX : FLOOR_LEFT + index * (columnWidth + COL_GAP) }));
   const columns = layoutColumns(columnGroups, slots, searchTexts.map(Boolean), ui, y, columnWidth, cardSizes);
-  const carousel = focusedColumn ? carouselOf(focusedColumn, carouselCentreX, columnWidth, columnsTop, floorWidth) : null;
   Object.assign(boxes, columns.boxes);
   const treeX = columns.placed[0].x + COLUMN_PADDING;
   const treeW = columnWidth - 2 * COLUMN_PADDING;
@@ -467,6 +472,7 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
   const hiddenDependencyAnchors: Record<string, Box> = {};
   if (tree) for (const id of columnIds[0]) hiddenDependencyAnchors[id] = { x: treeX, y: treeY, w: treeW, h: TREE_ROW_H, floor: COLUMNS_FLOOR };
   const columnsHeight = tree ? Math.max(columns.h, tree.bottom - y + 4) : columns.h;
+  const carousel = focusedColumn ? carouselOf(focusedColumn, carouselCentreX, columnWidth, columnsTop, columnsHeight, floorWidth) : null;
   columnDefs.forEach((def, index) => {
     const count = columnIds[index].length;
     const searchText = searchTexts[index];
@@ -508,7 +514,7 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
   columnDefs.forEach((def, index) => {
     const placed = carousel?.columns.find((column) => column.key === def.key);
     const wireEndX = placed ? placed.wireEndX : Math.round(columns.placed[index].x + columnWidth / 2);
-    const route = routeWire(openFileBox, { x: wireEndX, y: columnsTop, w: 0, h: 0, floor: COLUMNS_FLOOR });
+    const route = routeWire(openFileBox, { x: wireEndX, y: placed ? placed.y : columnsTop, w: 0, h: 0, floor: COLUMNS_FLOOR });
     wires.push({ cls: `${def.color}${wireState(view, ui, columnIds[index])}`, d: route.d, toColumn: def.key });
     ports.push({ cls: def.color, x: route.x2, y: route.y2, incoming: true, toColumn: def.key });
   });
@@ -533,7 +539,7 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
     const scale = placed.w / columnWidth;
     for (const id of columnIds[columnDefs.findIndex((def) => def.key === placed.key)]) {
       const box = canvasBoxes[id];
-      if (box) canvasBoxes[id] = { ...box, x: placed.x + (box.x - carouselCentreX) * scale, y: columnsTop + (box.y - columnsTop) * scale, w: box.w * scale, h: box.h * scale };
+      if (box) canvasBoxes[id] = { ...box, x: placed.x + (box.x - carouselCentreX) * scale, y: placed.y + (box.y - columnsTop) * scale, w: box.w * scale, h: box.h * scale };
     }
   }
   return { layer, boxes: canvasBoxes, carousel };

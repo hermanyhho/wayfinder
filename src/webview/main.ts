@@ -1,6 +1,6 @@
 import type { AiScanState, AiStatus, ColumnFocusChange, HostMessage, WebviewMessage } from "../shared/messages";
 import type { Fact, ViewData } from "../shared/viewData";
-import { COLUMN_ORDER, MAX_CANVAS_W, MIN_CANVAS_W, columnAfter, layout, type ColumnKey, type SearchByColumn, type UiState } from "./layout";
+import { COLUMN_ORDER, MAX_CANVAS_W, MIN_CANVAS_W, columnAfter, layout, visibleColumnBoxes, type ColumnKey, type Layout, type SearchByColumn, type UiState } from "./layout";
 import { navigationCards, nextCardKey, type ArrowKey, type NavigationCard } from "./keyboardNavigation";
 import { answerFor, panelFor, type Action } from "./panelModel";
 import { renderMap, renderPanel } from "./render";
@@ -19,6 +19,7 @@ let renderedLayer: UiState["layer"] = 1;
 let renderedWidth = MIN_CANVAS_W;
 let renderedAiKey = "";
 let renderedFocusedColumn: ColumnKey | undefined;
+let renderedColumnBoxes: ReturnType<typeof visibleColumnBoxes> = {};
 let carouselStyles = new Map<string, string | null>();
 const gitFactsById = new Map<string, Fact[]>();
 const savedUiByFile = new Map<string, Pick<UiState, "layer" | "open">>();
@@ -151,16 +152,30 @@ function changedFocusedColumn(change: ColumnFocusChange): ColumnKey | undefined 
 }
 
 // each new element starts at the style it had before this render, so the CSS transition moves it to the new place
-function animateCarousel(map: HTMLElement, rotating: boolean): void {
+function animateCarousel(map: HTMLElement, animating: boolean, togglingFocus: boolean): void {
   const elements = Array.from(map.querySelectorAll<HTMLElement | SVGElement>("[data-animate]"));
   const previousStyles = carouselStyles;
   carouselStyles = new Map(elements.map((element) => [element.dataset.animate!, element.getAttribute("style")]));
-  if (!rotating) return;
+  if (!animating) return;
   for (const element of elements) {
+    if (togglingFocus && element.dataset.animate!.startsWith("column:")) continue;
     const previous = previousStyles.get(element.dataset.animate!);
     const next = element.getAttribute("style");
     if (!previous || !next || previous === next) continue;
     element.setAttribute("style", previous);
+    requestAnimationFrame(() => requestAnimationFrame(() => element.setAttribute("style", next)));
+  }
+}
+
+// each column starts scaled and moved onto the box it showed in before focus mode turned on or off
+function animateFocusToggle(map: HTMLElement, result: Layout, previousBoxes: ReturnType<typeof visibleColumnBoxes>): void {
+  for (const floor of result.inner.floors) {
+    const previous = floor.column && previousBoxes[floor.column];
+    const element = floor.column && map.querySelector<HTMLElement>(`.col[data-animate="column:${floor.column}"]`);
+    if (!previous || !element) continue;
+    const origin = `transform-origin:${floor.x}px ${floor.y}px`;
+    const next = result.carousel ? element.getAttribute("style")! : `${origin};transform:none`;
+    element.setAttribute("style", `${origin};transform:translate(${previous.x - floor.x}px, ${previous.y - floor.y}px) scale(${previous.w / floor.w})`);
     requestAnimationFrame(() => requestAnimationFrame(() => element.setAttribute("style", next)));
   }
 }
@@ -188,8 +203,11 @@ function render(remeasured = false): void {
   const scrollLeft = previousScroller?.scrollLeft ?? 0;
   const scrollTop = previousScroller?.scrollTop ?? 0;
   map.innerHTML = renderMap(result, view, ui);
-  animateCarousel(map, sameOpenFile && !!ui.focusedColumn && !!renderedFocusedColumn);
+  const togglingFocus = sameOpenFile && !!ui.focusedColumn !== !!renderedFocusedColumn;
+  animateCarousel(map, sameOpenFile && (!!ui.focusedColumn || !!renderedFocusedColumn), togglingFocus);
+  if (togglingFocus) animateFocusToggle(map, result, renderedColumnBoxes);
   renderedFocusedColumn = ui.focusedColumn;
+  renderedColumnBoxes = visibleColumnBoxes(result);
   map.querySelector<HTMLElement>(".ne")?.scrollTo(scrollLeft, scrollTop);
   cards = navigationCards(result.inner);
   if (focusedSearch) restoreSearchFocus(map, focusedSearch);

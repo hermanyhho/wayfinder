@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildViewData } from "../../../src/graph/neighbourhood";
 import type { ComponentTree, Member } from "../../../src/shared/viewData";
-import { IMPORTS_TAB_KEY, columnAfter, layout, memberAtLine, type ColumnKey, type UiState } from "../../../src/webview/layout";
+import { IMPORTS_TAB_KEY, columnAfter, layout, memberAtLine, visibleColumnBoxes, type ColumnKey, type UiState } from "../../../src/webview/layout";
 import { DOCUMENT_SERVICE, analysisOf, graphOf, serviceGraph } from "../helpers/fixtures";
 
 const ui = (patch: Partial<UiState> = {}): UiState => ({ selected: DOCUMENT_SERVICE, layer: 1, open: {}, ...patch });
@@ -664,22 +664,45 @@ describe("when focus mode moves the columns as a carousel", () => {
   });
 
   it("should show the side columns smaller with their outer edge at the edge of the map", () => {
-    const { carousel } = focusedOn("members");
+    const { inner, carousel } = focusedOn("members");
 
     const [left, right] = ["deps", "tests"].map((key) => carousel!.columns.find((column) => column.key === key)!);
 
+    const columnTop = inner.floors.find((floor) => floor.column === "tests")!.y;
     expect(left.x).toBe(16);
     expect(left.w).toBeCloseTo(604.8);
     expect(right.x + right.w).toBeCloseTo(784);
-    expect(right.transform).toBe(`translate(${right.x - 64}px, 0px) scale(0.9)`);
+    const [moveX, moveY, scale] = right.transform.match(/-?[\d.]+/g)!.map(Number);
+    expect([moveX, moveY, scale]).toEqual([expect.closeTo(right.x - 64), expect.closeTo(right.y - columnTop), 0.9]);
+  });
+
+  describe("when a side column is shown at 0.9 scale", () => {
+    const columnsOf = () => {
+      const { inner, carousel } = focusedOn("members");
+      const centreFloor = inner.floors.find((floor) => floor.column === "members")!;
+      return { centreFloor, side: carousel!.columns.find((column) => column.key === "deps")!, sidePort: inner.ports.find((port) => port.toColumn === "deps")! };
+    };
+
+    it("should put its visible top below the centre column's top by half the height it lost", () => {
+      const { centreFloor, side } = columnsOf();
+
+      expect(side.y).toBeCloseTo(centreFloor.y + (centreFloor.h * (1 - 0.9)) / 2);
+    });
+
+    it("should end its wire at its visible top", () => {
+      const { side, sidePort } = columnsOf();
+
+      expect(sidePort.y).toBeCloseTo(side.y);
+    });
   });
 
   it("should end the wire to the centre column at its top centre and to a side column in the middle of its visible edge", () => {
     const { inner } = focusedOn("members");
 
-    const wireEnds = inner.ports.filter((port) => port.toColumn).map((port) => [port.toColumn, port.x, port.y]);
+    const wireEnds = inner.ports.filter((port) => port.toColumn).map((port) => [port.toColumn, port.x]);
 
-    expect(wireEnds).toEqual([["deps", 40, 320], ["members", 400, 320], ["tests", 760, 320]]);
+    expect(wireEnds).toEqual([["deps", 40], ["members", 400], ["tests", 760]]);
+    expect(inner.ports.find((port) => port.toColumn === "members")!.y).toBe(320);
   });
 
   it("should leave the three columns side by side when focus mode is off", () => {
@@ -687,6 +710,25 @@ describe("when focus mode moves the columns as a carousel", () => {
 
     expect(carousel).toBeNull();
     expect(inner.floors.filter((floor) => floor.column).map((floor) => floor.x)).toEqual(COLUMN_X);
+  });
+});
+
+describe("when the webview asks where each column shows on the canvas", () => {
+  it("should give the carousel place of each column when focus mode is on", () => {
+    const focused = layout(view(), ui({ focusedColumn: "members" }), 800);
+
+    const boxes = visibleColumnBoxes(focused);
+
+    expect(boxes).toEqual(Object.fromEntries(focused.carousel!.columns.map((column) => [column.key, { x: column.x, y: column.y, w: column.w }])));
+  });
+
+  it("should give the floor of each column when focus mode is off", () => {
+    const sideBySide = layout(view(), ui(), 800);
+
+    const boxes = visibleColumnBoxes(sideBySide);
+
+    const columnFloors = sideBySide.inner.floors.filter((floor) => floor.column);
+    expect(boxes).toEqual(Object.fromEntries(columnFloors.map((floor) => [floor.column, { x: floor.x, y: floor.y, w: floor.w }])));
   });
 });
 
