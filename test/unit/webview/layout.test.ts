@@ -387,7 +387,7 @@ describe("when a test file is open", () => {
 
     const inner = layout(buildViewData(graph, TEST), ui({ selected: TEST }), 800).inner;
 
-    expect(inner.floors.find((floor) => floor.key === "tests")?.title).toBe("Tests (2)");
+    expect(inner.floors.find((floor) => floor.key === "tests")?.title).toBe("Tested code (2)");
     expect(inner.groupHeadings.filter((heading) => heading.key.startsWith("tests:")).map((heading) => heading.text)).toEqual(["Tested file (1)", "Other tests (1)"]);
   });
 
@@ -407,12 +407,12 @@ describe("when a test file is open", () => {
     expect(card).toMatchObject({ x: NODE_X[2], tag: "Tested file, matched by name" });
   });
 
-  it("should say no subject was found when nothing matches", () => {
+  it("should say no tested code was found when nothing matches", () => {
     const graph = graphOf([analysisOf("src/a/Bar.ts"), analysisOf(TEST)]);
 
     const column = testsColumnOf(graph);
 
-    expect(column).toMatchObject({ title: "Tests", emptyText: "No subject found for Foo.int.test.ts." });
+    expect(column).toMatchObject({ title: "Tested code", emptyText: "No tested code found for Foo.int.test.ts." });
   });
 });
 
