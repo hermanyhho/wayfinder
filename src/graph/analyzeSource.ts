@@ -81,7 +81,8 @@ export function analyzeSource(path: string, text: string): SourceAnalysis {
   };
   visit(source);
 
-  const members = collectMembers(source, lineOf);
+  const heritage = heritageNamesOf(source);
+  const members = collectMembers(source, lineOf).map((member) => ({ ...member, ...heritage.get(`${member.kind} ${member.name}`) }));
   if (isTestFile(path)) {
     members.push(...collectTestCases(source, lineOf));
     members.sort((left, right) => left.line - right.line);
@@ -202,6 +203,23 @@ function collectMembers(source: ts.SourceFile, lineOf: (node: ts.Node) => number
   }
 
   return members;
+}
+
+function heritageNamesOf(source: ts.SourceFile): Map<string, Pick<Member, "implements" | "extends">> {
+  const heritage = new Map<string, Pick<Member, "implements" | "extends">>();
+  for (const statement of source.statements) {
+    if (!(ts.isClassDeclaration(statement) || ts.isInterfaceDeclaration(statement)) || !statement.heritageClauses) continue;
+    const namesIn = (token: ts.SyntaxKind) =>
+      statement.heritageClauses!.filter((clause) => clause.token === token).flatMap((clause) => clause.types.flatMap((type) => (ts.isIdentifier(type.expression) ? [type.expression.text] : [])));
+    const implementsNames = namesIn(ts.SyntaxKind.ImplementsKeyword);
+    const extendsNames = namesIn(ts.SyntaxKind.ExtendsKeyword);
+    const kind = ts.isClassDeclaration(statement) ? "class" : "interface";
+    heritage.set(`${kind} ${statement.name?.text ?? "default"}`, {
+      ...(implementsNames.length ? { implements: implementsNames } : {}),
+      ...(extendsNames.length ? { extends: extendsNames } : {}),
+    });
+  }
+  return heritage;
 }
 
 const TEST_CALLS: Record<string, { kind: MemberKind; focus?: "only" | "skip" }> = {

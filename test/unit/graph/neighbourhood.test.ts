@@ -316,3 +316,71 @@ export const title = groupLabel("Groups") + MAX_GROUPS;
     expect(members.map((member) => member.usedIn)).toEqual([undefined, undefined]);
   });
 });
+
+describe("when the open file defines an interface that other files implement and extend", () => {
+  const I_GROUP = "src/groups/IGroup.ts";
+  const importingFrom = (target: string, path: string, text: string) => {
+    const analysis = analyzeSource(path, text);
+    return { ...analysis, imports: analysis.imports.map((record) => ({ ...record, specifier: target })) };
+  };
+  const interfaceNamed = (name: string) => {
+    const graph = graphOf([
+      analyzeSource(I_GROUP, "export interface IGroup {}\nexport interface IOther {}\ninterface ILocal {}\n"),
+      importingFrom(I_GROUP, "src/groups/GroupService.ts", 'import type { IGroup } from "./IGroup";\n\nexport class GroupService implements IGroup {}\n'),
+      importingFrom(I_GROUP, "src/groups/GroupRepository.ts", 'import { IGroup } from "./IGroup";\nexport class GroupRepository implements IGroup {}\n'),
+      importingFrom(I_GROUP, "src/groups/IDepartment.ts", 'import type { IGroup } from "./IGroup";\nexport interface IDepartment extends IGroup {}\n'),
+      importingFrom(I_GROUP, "src/groups/Other.ts", 'import type { IOther } from "./IGroup";\nexport class Other implements IGroup {}\n'),
+      importingFrom("src/other/IGroup.ts", "src/other/Lookalike.ts", 'import type { IGroup } from "../other/IGroup";\nexport class Lookalike implements IGroup {}\n'),
+    ]);
+    return buildViewData(graph, I_GROUP).members.find((member) => member.name === name)!;
+  };
+
+  it("should list the implementing classes and extending interfaces with their file and line, sorted by name", () => {
+    const group = interfaceNamed("IGroup");
+
+    expect(group.implementedBy).toEqual([
+      { name: "GroupRepository", kind: "class", file: "src/groups/GroupRepository.ts", line: 2 },
+      { name: "GroupService", kind: "class", file: "src/groups/GroupService.ts", line: 3 },
+      { name: "IDepartment", kind: "interface", file: "src/groups/IDepartment.ts", line: 2 },
+    ]);
+  });
+
+  it("should list nothing for an interface that no file implements", () => {
+    const other = interfaceNamed("IOther");
+
+    expect(other.implementedBy).toEqual([]);
+  });
+
+  it("should leave the list off an interface that is not exported", () => {
+    const local = interfaceNamed("ILocal");
+
+    expect(local.implementedBy).toBeUndefined();
+  });
+});
+
+describe("when a class implements two interfaces of the open file or extends a class of it", () => {
+  const FILE = "src/groups/Contracts.ts";
+  const contractsMember = (name: string) => {
+    const importer = analyzeSource(
+      "src/groups/Service.ts",
+      'import { IGroup, IAudited, Base } from "./Contracts";\nexport class Service extends Base implements IGroup, IAudited {}\n',
+    );
+    const graph = graphOf([
+      analyzeSource(FILE, "export interface IGroup {}\nexport interface IAudited {}\nexport class Base {}\n"),
+      { ...importer, imports: importer.imports.map((record) => ({ ...record, specifier: FILE })) },
+    ]);
+    return buildViewData(graph, FILE).members.find((member) => member.name === name)!;
+  };
+
+  it("should list the class under each interface it implements", () => {
+    const names = ["IGroup", "IAudited"].map((name) => contractsMember(name).implementedBy?.map((implementation) => implementation.name));
+
+    expect(names).toEqual([["Service"], ["Service"]]);
+  });
+
+  it("should not give a class of the open file an implementation list", () => {
+    const base = contractsMember("Base");
+
+    expect(base.implementedBy).toBeUndefined();
+  });
+});

@@ -15,6 +15,12 @@ export interface MemberUse {
   line: number;
 }
 
+/** a class that implements, or an interface that extends, an interface of the open file */
+export interface Implementation extends MemberUse {
+  name: string;
+  kind: "class" | "interface";
+}
+
 export type MemberVisibility = "public" | "protected" | "private" | "exported" | "not exported";
 
 export type MemberKind = "function" | "class" | "method" | "property" | "const" | "let" | "interface" | "type" | "enum" | "suite" | "test";
@@ -38,6 +44,11 @@ export interface Member {
   /** for members of the open file that are not tests: the first line in each other file that uses it, matched by name */
   usedIn?: MemberUse[];
   usedInOwnFile?: boolean;
+  /** for classes and interfaces: the names in their implements and extends clauses, as written */
+  implements?: string[];
+  extends?: string[];
+  /** for interfaces of the open file: classes in importing files that implement it and interfaces that extend it */
+  implementedBy?: Implementation[];
 }
 
 export interface ViewNode {

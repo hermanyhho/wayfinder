@@ -404,6 +404,54 @@ describe("when a file declares and uses names", () => {
   });
 });
 
+describe("when a file declares classes and interfaces with implements and extends clauses", () => {
+  const source = [
+    'import type { IGroup, IAudited } from "./IGroup"',
+    'import { BaseService } from "./BaseService"',
+    "export class GroupService extends BaseService implements IGroup, IAudited {",
+    "  IGroup() {}",
+    "}",
+    "export interface IDepartment extends IGroup {}",
+    "class Plain {}",
+  ].join("\n");
+  const memberNamed = (name: string, kind: string) => analyzeSource("src/groups/GroupService.ts", source).members.find((member) => member.name === name && member.kind === kind)!;
+
+  it("should record the names a class implements and extends", () => {
+    const service = memberNamed("GroupService", "class");
+
+    expect(service).toMatchObject({ implements: ["IGroup", "IAudited"], extends: ["BaseService"] });
+  });
+
+  it("should record the names an interface extends", () => {
+    const department = memberNamed("IDepartment", "interface");
+
+    expect(department.extends).toEqual(["IGroup"]);
+  });
+
+  it("should leave the clauses off a class without them and off a method named like an interface", () => {
+    const plain = memberNamed("Plain", "class");
+    const method = memberNamed("IGroup", "method");
+
+    expect([plain, method].map((member) => [member.implements, member.extends])).toEqual([[undefined, undefined], [undefined, undefined]]);
+  });
+});
+
+describe("when heritage clauses use generics or qualified names", () => {
+  const classNamed = (source: string) => analyzeSource("src/groups/Service.ts", source).members.find((member) => member.kind === "class")!;
+
+  it("should record the interface name without its type arguments", () => {
+    const service = classNamed("export class Service implements IGroup<string>, IAudited<number> {}");
+
+    expect(service.implements).toEqual(["IGroup", "IAudited"]);
+  });
+
+  it("should skip a qualified name because it cannot match a named import", () => {
+    const service = classNamed("export class Service implements ns.IGroup, IAudited {}");
+
+    expect(service.implements).toEqual(["IAudited"]);
+  });
+});
+
 describe("when a file declares members with different visibility", () => {
   const source = [
     "export const MAX_UPLOAD_MB = 25",
