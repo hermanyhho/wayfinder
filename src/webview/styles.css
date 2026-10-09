@@ -110,12 +110,18 @@ body.vscode-light .nd { box-shadow: 0 2px 8px rgba(20, 30, 50, .10); }
 .nd.withicon .nh { padding-right: 26px; }
 .nd.chaincard .nh { overflow: hidden; text-transform: none; letter-spacing: normal; }
 .nd.chaincard .nh .fname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nd.chaincard .nh, .nd.chaincard .nn, .nd.chaincard .np { font-size: var(--vscode-editor-font-size, 13px); line-height: 1.35; }
+.nd.chaincard .nh { height: auto; padding-top: 3px; padding-bottom: 3px; }
+.nd.chaincard .nh .vis { font-size: inherit; line-height: normal; letter-spacing: normal; }
+.nd.chaincard .nn { padding-top: 4px; font-weight: 700; }
+.map.chain .crumb, .map.chain .crumb .k, .map.chain .count, .chainnote { font-size: var(--vscode-editor-font-size, 13px); }
+.map.chain .legend { position: static; padding: 8px 16px 0; font-size: var(--vscode-editor-font-size, 13px); }
 
 .ftog.deeper { transform: translateX(-50%); }
 .openbtn.back { margin-top: 0; }
 .openbtn.flip { display: flex; align-items: center; padding: 6px 8px; }
 .openbtn.flip svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.chainnote { padding: 8px 16px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--l1); }
+.chainnote { padding: 8px 16px; color: var(--muted); border-top: 1px solid var(--l1); }
 
 .grh { position: absolute; height: 20px; box-sizing: border-box; display: flex; align-items: center; gap: 6px; padding: 0; font: inherit; font-size: 13px; font-weight: 700; color: var(--strong); background: none; border: 0; border-radius: 5px; cursor: pointer; white-space: nowrap; text-align: left; }
 .grh:hover { color: var(--strong); background: var(--l1); }

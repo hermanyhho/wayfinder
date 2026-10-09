@@ -23,6 +23,12 @@ const LEGEND = `<div class="legend">
 <span class="grey"><span class="lsw"></span>Package</span>
 </div>`;
 
+const CHAIN_LEGEND = `<div class="legend">
+<span class="green"><span class="lsw"></span>Selected function</span>
+<span class="blue"><span class="lsw"></span>Calls the selected function</span>
+<span class="violet"><span class="lsw"></span>Called by the selected function</span>
+</div>`;
+
 const immediateCount = (view: ViewData) => view.nodes.filter((node) => !node.secondLayer && node.kind !== "here" && node.kind !== "expected").length;
 
 function countLabel(view: ViewData): string {
@@ -278,7 +284,7 @@ function renderChainCard(card: ChainCardView): string {
   const { call } = card;
   const centreAttributes = card.isRoot ? "" : ` data-action="chain-centre" data-id="${escapeHtml(call.file)}" data-value="${call.line}"`;
   const title = card.isRoot ? `${call.file}:${call.line}` : `${call.file}:${call.line}\nDouble-click to show the call chain of ${call.name}`;
-  return `<button class="nd chaincard ${card.cls} withicon" style="left:${card.x}px;top:${card.y}px;width:${card.w}px"${centreAttributes} data-nav="${card.key}" title="${escapeHtml(title)}"><span class="nh"><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${MEMBER_KIND_ICONS.method}</svg><span class="fname">${escapeHtml(fileNameOf(call.file))}</span>${call.isInterfaceMethod ? '<span class="vis outline">interface</span>' : ""}</span><span class="nn">${escapeHtml(call.name)}</span><span class="np">${escapeHtml([folderOf(call.file), `line ${call.line}`].filter(Boolean).join(" · "))}</span></button>${renderChainOpenIcon(card)}`;
+  return `<button class="nd chaincard ${card.cls} withicon" style="left:${card.x}px;top:${card.y}px;width:${card.w}px;height:${card.h}px"${centreAttributes} data-nav="${card.key}" title="${escapeHtml(title)}"><span class="nh"><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${MEMBER_KIND_ICONS.method}</svg><span class="fname">${escapeHtml(fileNameOf(call.file))}</span>${call.isInterfaceMethod ? '<span class="vis outline">interface</span>' : ""}</span><span class="nn">${escapeHtml(call.name)}</span><span class="np">${escapeHtml([folderOf(call.file), `line ${call.line}`].filter(Boolean).join(" · "))}</span></button>${renderChainOpenIcon(card)}`;
 }
 const renderChainToggle = (toggle: GroupToggleView) =>
   `<button class="ftog" style="left:${toggle.x}px;top:${toggle.y}px" data-action="chain-toggle" data-value="${escapeHtml(toggle.key)}"><span class="ftic ${toggle.icon}"></span>${escapeHtml(toggle.text)}</button>`;
@@ -303,6 +309,7 @@ ${result.ports.map(renderPort).join("")}
 ${result.toggles.map(renderChainToggle).join("")}
 ${result.deeper.map(renderDeeper).join("")}
 </div></div></div>
+${CHAIN_LEGEND}
 <div class="chainnote">Only direct calls are shown. Calls through events, callbacks, decorators or dependency injection are not found, so a function with no callers may still be called indirectly.</div>`;
 }
 

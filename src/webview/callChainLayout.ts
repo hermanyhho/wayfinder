@@ -7,13 +7,19 @@ const TOGGLE_H = 30;
 const DEEPER_H = 22;
 const DEEPER_GAP = 14;
 const MAX_CARD_W = 240;
+const CARD_TEXT_LINES = 3;
+// matches the line-height of .nd.chaincard text in styles.css, or the card clips its last line
+const CARD_LINE_HEIGHT = 1.35;
+const CARD_VERTICAL_PADDING = 20;
 export const ROOT_CARD_KEY = "chain:root";
 
 type ChainSide = CallDirection | "root";
 export interface ChainLaneView { key: string; x: number; y: number; w: number; h: number; isRoot: boolean; }
-export interface ChainCardView { key: string; x: number; y: number; w: number; cls: string; call: ChainCall; isRoot: boolean; }
+export interface ChainCardView { key: string; x: number; y: number; w: number; h: number; cls: string; call: ChainCall; isRoot: boolean; }
 export interface ChainDeeperView { direction: CallDirection; x: number; y: number; }
 export interface CallChainLayout { lanes: ChainLaneView[]; cards: ChainCardView[]; toggles: GroupToggleView[]; wires: WireView[]; ports: PortView[]; deeper: ChainDeeperView[]; height: number; }
+
+const SIDE_COLORS: Record<ChainSide, string> = { callers: "blue", root: "green", callees: "violet" };
 
 const cardKeyOf = (side: CallDirection, levelIndex: number, callIndex: number) => `chain:${side}:${levelIndex}:${callIndex}`;
 
@@ -25,7 +31,9 @@ function lanesTopToBottom(chain: CallChain, topSide: CallDirection, bottomSide: 
 }
 
 /** open holds the lanes whose "Show N more" toggle is on, by lane key */
-export function layoutCallChain(chain: CallChain, open: Record<string, boolean>, width: number, callersOnTop: boolean): CallChainLayout {
+export function layoutCallChain(chain: CallChain, open: Record<string, boolean>, width: number, callersOnTop: boolean, editorFontSize: number): CallChainLayout {
+  const cardH = Math.ceil(CARD_TEXT_LINES * editorFontSize * CARD_LINE_HEIGHT) + CARD_VERTICAL_PADDING;
+  const rowStep = cardH + ROW_H - NODE_H;
   const [topSide, bottomSide]: CallDirection[] = callersOnTop ? ["callers", "callees"] : ["callees", "callers"];
   const cardsX = FLOOR_LEFT;
   const cardsW = width - 2 * FLOOR_LEFT;
@@ -52,12 +60,12 @@ export function layoutCallChain(chain: CallChain, open: Record<string, boolean>,
       const inRow = Math.min(MAX_PER_ROW, shown.length - row * MAX_PER_ROW);
       const startX = cardsX + Math.round((cardsW - (inRow * cardW + (inRow - 1) * COL_GAP)) / 2);
       const key = lane.side === "root" ? ROOT_CARD_KEY : cardKeyOf(lane.side, lane.levelIndex, callIndex);
-      const card = { key, x: startX + (callIndex % MAX_PER_ROW) * (cardW + COL_GAP), y: y + LANE_PADDING + row * ROW_H, w: cardW, cls: isRoot ? "green sel" : "grey", call, isRoot };
+      const card = { key, x: startX + (callIndex % MAX_PER_ROW) * (cardW + COL_GAP), y: y + LANE_PADDING + row * rowStep, w: cardW, h: cardH, cls: `${SIDE_COLORS[lane.side]}${isRoot ? " sel" : ""}`, call, isRoot };
       cards.push(card);
       cardByKey.set(key, card);
     });
     const rows = Math.ceil(shown.length / MAX_PER_ROW);
-    const cardsBottom = y + LANE_PADDING + (rows - 1) * ROW_H + NODE_H;
+    const cardsBottom = y + LANE_PADDING + (rows - 1) * rowStep + cardH;
     if (collapsible) {
       toggles.push({ key: lane.key, x: cardsX, y: cardsBottom + 8, text: showAll ? "Show fewer" : `Show ${lane.calls.length - shown.length} more`, icon: showAll ? "minus" : "plus" });
     }
@@ -75,6 +83,7 @@ export function layoutCallChain(chain: CallChain, open: Record<string, boolean>,
   const ports: PortView[] = [];
   const linkKeyOf = (side: CallDirection, levelIndex: number, linkedIndex: number) => (levelIndex === 0 ? ROOT_CARD_KEY : cardKeyOf(side, levelIndex - 1, linkedIndex));
   for (const side of ["callers", "callees"] as const) {
+    const color = SIDE_COLORS[side];
     chain[side].forEach((level, levelIndex) =>
       level.calls.forEach((call, callIndex) => {
         const card = cardByKey.get(cardKeyOf(side, levelIndex, callIndex));
@@ -83,9 +92,9 @@ export function layoutCallChain(chain: CallChain, open: Record<string, boolean>,
           const linked = cardByKey.get(linkKeyOf(side, levelIndex, linkedIndex));
           if (!linked) continue;
           const [upper, lower] = side === topSide ? [card, linked] : [linked, card];
-          const route = routeWire({ ...upper, h: NODE_H }, { ...lower, h: NODE_H });
-          wires.push({ cls: "grey", d: route.d });
-          ports.push({ cls: "grey", x: route.x1, y: route.y1, incoming: false }, { cls: "grey", x: route.x2, y: route.y2, incoming: true });
+          const route = routeWire(upper, lower);
+          wires.push({ cls: color, d: route.d });
+          ports.push({ cls: color, x: route.x1, y: route.y1, incoming: false }, { cls: color, x: route.x2, y: route.y2, incoming: true });
         }
       }),
     );

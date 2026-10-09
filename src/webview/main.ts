@@ -334,7 +334,8 @@ function renderCallChainView(callChain: CallChain, remeasured: boolean): void {
   const scrollLeft = previousScroller?.scrollLeft ?? 0;
   const scrollTop = previousScroller?.scrollTop ?? 0;
   renderedWidth = canvasWidth();
-  const result = layoutCallChain(callChain, chainOpen, renderedWidth, chainCallersOnTop);
+  const editorFontSize = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--vscode-editor-font-size")) || 13;
+  const result = layoutCallChain(callChain, chainOpen, renderedWidth, chainCallersOnTop, editorFontSize);
   map.classList.add("chain");
   map.classList.toggle("keep-nodes", sameRoot);
   map.innerHTML = renderCallChain(result, callChain, renderedWidth, chainHistory.at(-1)?.name);

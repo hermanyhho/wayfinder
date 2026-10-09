@@ -65,7 +65,7 @@ Put the cursor in a function or method and run **Wayfinder: Show call chain**, f
 - A call to an interface method is tagged interface, because the call hierarchy stops at the interface and does not name the class that runs.
 - With the cursor outside any function, VS Code shows "No function at the cursor."
 
-The chain replaces the map. Each depth is one row: callers above the selected function, callees below it, and wires between each call and the function it calls. A card shows the file name at the top, the function name, and the folder and line at the bottom. The selected function is green, all other cards and wires are grey, so colours stay the same when you move to another function.
+The chain replaces the map. Each depth is one row: callers above the selected function, callees below it, and wires between each call and the function it calls. A card shows the file name at the top, the function name, and the folder and line at the bottom. The selected function is green, callers and their wires are blue, callees and their wires are violet. A legend under the chain explains the colours. Text in the chain uses the editor font size (`editor.fontSize`), and the cards grow to fit it.
 
 - A row shows 4 cards. **Show N more** shows the rest.
 - **deeper** at the top or bottom loads one more level of callers or callees.
