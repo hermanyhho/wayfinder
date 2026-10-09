@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildViewData } from "../../../src/graph/neighbourhood";
-import { navigationCards, nextCardKey, type NavigationCard } from "../../../src/webview/keyboardNavigation";
+import { navigationCards, nextCardKey, nextChainCardKey, type NavigationCard } from "../../../src/webview/keyboardNavigation";
 import { layout } from "../../../src/webview/layout";
 import { DOCUMENT_SERVICE, serviceGraph } from "../helpers/fixtures";
 
@@ -113,5 +113,17 @@ describe("navigationCards", () => {
 
       expect(floorOf).toMatchObject({ "src/db/repositories/DocumentRepository.ts": "deps", "test/services/DocumentService.spec.ts": "tests" });
     });
+  });
+});
+
+describe("when moving through the call chain", () => {
+  const chainCards = [card("controller", "chain", 300, 30), card("handler", "chain", 500, 30), card("service", "chain", 400, 140), card("manager", "chain", 320, 250), card("repository", "chain", 480, 250)];
+
+  it("should move up and down to the nearest card in the next row", () => {
+    expect([nextChainCardKey(chainCards, "service", "ArrowUp"), nextChainCardKey(chainCards, "handler", "ArrowDown"), nextChainCardKey(chainCards, "service", "ArrowDown")]).toEqual(["controller", "service", "manager"]);
+  });
+
+  it("should move left and right inside a row only", () => {
+    expect([nextChainCardKey(chainCards, "manager", "ArrowRight"), nextChainCardKey(chainCards, "repository", "ArrowLeft"), nextChainCardKey(chainCards, "service", "ArrowRight")]).toEqual(["repository", "manager", undefined]);
   });
 });

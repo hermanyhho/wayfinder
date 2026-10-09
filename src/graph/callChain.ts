@@ -1,4 +1,4 @@
-import type { CallChain, CallDirection, ChainCall, Member } from "../shared/viewData";
+import type { CallChain, CallDirection, LevelCall, Member } from "../shared/viewData";
 import { baseNameOf, folderOf } from "./patterns";
 
 export const CALL_CHAIN_DEPTH = 3;
@@ -73,21 +73,30 @@ export class CallChainBuilder<Item> {
     const found = await Promise.all(this.lastLevelItems[direction].map((item) => this.hierarchy.callsOf(item, direction)));
     const depth = this.chain[direction].length + 1;
     const shownItems: Item[] = [];
-    const calls: ChainCall[] = [];
+    const calls: LevelCall[] = [];
+    const shownIndexByKey = new Map<string, number>();
     let moreCount = 0;
-    for (const item of found.flat()) {
-      const place = this.hierarchy.placeOf(item);
-      if (!place || PACKAGE_FILE.test(place.file)) continue;
-      const key = keyOf(place);
-      if (this.inChain[direction].has(key)) continue;
-      this.inChain[direction].add(key);
-      if (calls.length === CALLS_PER_LEVEL) {
-        moreCount++;
-        continue;
+    found.forEach((items, linkedIndex) => {
+      for (const item of items) {
+        const place = this.hierarchy.placeOf(item);
+        if (!place || PACKAGE_FILE.test(place.file)) continue;
+        const key = keyOf(place);
+        const shownIndex = shownIndexByKey.get(key);
+        if (shownIndex !== undefined) {
+          if (!calls[shownIndex].linkedTo.includes(linkedIndex)) calls[shownIndex].linkedTo.push(linkedIndex);
+          continue;
+        }
+        if (this.inChain[direction].has(key)) continue;
+        this.inChain[direction].add(key);
+        if (calls.length === CALLS_PER_LEVEL) {
+          moreCount++;
+          continue;
+        }
+        shownIndexByKey.set(key, calls.length);
+        calls.push({ ...place, layer: layerOf(place.file, depth), linkedTo: [linkedIndex] });
+        shownItems.push(item);
       }
-      calls.push({ ...place, layer: layerOf(place.file, depth) });
-      shownItems.push(item);
-    }
+    });
     if (!calls.length) {
       this.chain.canGoDeeper[direction] = false;
       return;

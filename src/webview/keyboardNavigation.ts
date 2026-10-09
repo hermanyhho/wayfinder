@@ -38,6 +38,14 @@ function nearestInSameRow(candidates: NavigationCard[], current: NavigationCard,
   return ahead.length ? nearestByX(ahead, current.x) : undefined;
 }
 
+/** in the call chain every row of cards is one lane, so the arrows move between rows and along a row */
+export function nextChainCardKey(cards: NavigationCard[], currentKey: string, arrow: ArrowKey): string | undefined {
+  const current = cards.find((card) => card.key === currentKey);
+  if (!current) return undefined;
+  if (arrow === "ArrowUp" || arrow === "ArrowDown") return nearestInNextRow(cards, current, arrow === "ArrowDown")?.key;
+  return nearestInSameRow(cards, current, arrow === "ArrowRight")?.key;
+}
+
 export function nextCardKey(cards: NavigationCard[], currentKey: string, arrow: ArrowKey, options: { loopColumns?: boolean } = {}): string | undefined {
   const current = cards.find((card) => card.key === currentKey);
   if (!current) return undefined;

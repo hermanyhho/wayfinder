@@ -60,13 +60,20 @@ Click **Second layer** to see one more step out: the files that import the calle
 
 ## Call chain
 
-Put the cursor in a function or method and run **Wayfinder: Show call chain**, from the Command Palette or the editor right-click menu. Wayfinder asks VS Code's call hierarchy (the data behind **Show Call Hierarchy**) for the callers up to 3 levels and the callees down to 3 levels, with at most 20 calls per level. Calls into `node_modules` and built-ins are left out.
+Put the cursor in a function or method and run **Wayfinder: Show call chain**, from the Command Palette or the editor right-click menu. You can also click the call chain icon on a function or method card in Members. Wayfinder asks VS Code's call hierarchy (the data behind **Show Call Hierarchy**) for the callers up to 3 levels and the callees down to 3 levels, with at most 20 calls per level. Calls into `node_modules` and built-ins are left out.
 
 - Each call gets a layer from its file name or folder: controller, handler, resolver, service, manager, repo or model. Other files are labelled by depth, such as "Depth 2".
 - A call to an interface method is tagged interface, because the call hierarchy stops at the interface and does not name the class that runs.
 - With the cursor outside any function, VS Code shows "No function at the cursor."
 
-The map does not draw the chain yet.
+The chain replaces the map. Each depth is one row, with its layer name on the left: callers above the selected function, callees below it, and wires from each call to the function it calls.
+
+- A row shows 4 cards. **Show N more** shows the rest.
+- **deeper** at the top or bottom loads one more level of callers or callees.
+- Click a card to show the chain of that function. The open icon on a card opens its file at that line.
+- Up and Down move between rows, Left and Right move inside a row. Enter shows the chain of the card. Esc or **Back to map** returns to the map.
+- Focus mode and its keys are off in the chain. Back on the map, focus mode is as you left it.
+- Opening another file keeps the chain. Back shows the map of that file.
 
 ## AI scan
 

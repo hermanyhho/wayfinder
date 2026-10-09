@@ -267,7 +267,7 @@ function wireState(view: ViewData, ui: UiState, ends: string[]): string {
   return ends.includes(ui.selected) ? " hi" : " lo";
 }
 
-export function routeWire(from: Box, to: Box) {
+export function routeWire(from: Omit<Box, "floor">, to: Omit<Box, "floor">) {
   const x1 = from.x + from.w / 2;
   const x2 = to.x + to.w / 2;
   const y1 = from.y + from.h;
@@ -514,7 +514,7 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
   columnDefs.forEach((def, index) => {
     const placed = carousel?.columns.find((column) => column.key === def.key);
     const wireEndX = placed ? placed.wireEndX : Math.round(columns.placed[index].x + columnWidth / 2);
-    const route = routeWire(openFileBox, { x: wireEndX, y: placed ? placed.y : columnsTop, w: 0, h: 0, floor: COLUMNS_FLOOR });
+    const route = routeWire(openFileBox, { x: wireEndX, y: placed ? placed.y : columnsTop, w: 0, h: 0 });
     wires.push({ cls: `${def.color}${wireState(view, ui, columnIds[index])}`, d: route.d, toColumn: def.key });
     ports.push({ cls: def.color, x: route.x2, y: route.y2, incoming: true, toColumn: def.key });
   });

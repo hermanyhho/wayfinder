@@ -122,8 +122,13 @@ export interface ChainCall {
   isInterfaceMethod: boolean;
 }
 
+export interface LevelCall extends ChainCall {
+  /** positions of the calls one level nearer the root that this call links to. The level next to the root links to the root at 0 */
+  linkedTo: number[];
+}
+
 export interface CallLevel {
-  calls: ChainCall[];
+  calls: LevelCall[];
   /** calls at this level past the per-level limit */
   moreCount: number;
 }

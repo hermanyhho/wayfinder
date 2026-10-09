@@ -1,5 +1,6 @@
 import type { AiScanState, AiStatus } from "../shared/messages";
-import type { Fact, MemberKind, MemberVisibility, NodeKind, ViewData } from "../shared/viewData";
+import type { CallChain, Fact, MemberKind, MemberVisibility, NodeKind, ViewData } from "../shared/viewData";
+import { LANE_LABEL_W, type CallChainLayout, type ChainCardView, type ChainDeeperView, type ChainLaneView } from "./callChainLayout";
 import { COLUMN_ORDER, TREE_INDENT, type BannerView, type CarouselView, type ColumnKey, type FloorView, type GroupHeadingView, type GroupKind, type GroupToggleView, type LayerView, type Layout, type MemberView, type NodeView, type PortView, type SecondLayerView, type TreeRowView, type UiState, type UsesListView, type WireView } from "./layout";
 import { groupChecks, panelFor, type Action, type PanelModel } from "./panelModel";
 
@@ -102,8 +103,12 @@ const memberClickAttributes = (member: MemberView) =>
   member.opensFile
     ? `data-action="open" data-id="${escapeHtml(member.opensFile)}" data-value="${member.line}"`
     : `data-action="reveal" data-value="${member.line}"`;
+const CHAIN_ICON = '<circle cx="12" cy="4.5" r="2.5"></circle><circle cx="12" cy="19.5" r="2.5"></circle><rect x="8.5" y="9" width="7" height="6" rx="1.5"></rect><path d="M12 7v2M12 15v2"></path>';
+const hasCallChain = (member: MemberView) => !member.opensFile && (member.kind === "function" || member.kind === "method");
+const renderCallChainIcon = (member: MemberView) =>
+  `<button class="ndopen" style="left:${member.x + member.w - 22}px;top:${member.y + 1}px" data-action="chain" data-value="${member.line}" title="Show call chain" aria-label="Show call chain of ${escapeHtml(member.name)}"><svg viewBox="0 0 24 24" aria-hidden="true">${CHAIN_ICON}</svg></button>`;
 const renderMember = (member: MemberView) =>
-  `<button class="nd ${member.cls}${member.usage ? " withusage" : ""}" style="left:${member.x}px;top:${member.y}px;width:${member.w}px" ${memberClickAttributes(member)} data-nav="${member.id}" title="${escapeHtml(member.tooltip)}"><span class="nh"><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${MEMBER_KIND_ICONS[member.kind]}</svg>${escapeHtml(member.tag)}${member.focus ? `<span class="chip">${member.focus}</span>` : ""}${member.visibility ? renderVisibilityTag(member.visibility) : ""}</span><span class="nn">${escapeHtml(member.name)}</span><span class="np">${escapeHtml(member.path)}</span></button>${renderMemberUsage(member)}`;
+  `<button class="nd ${member.cls}${member.usage ? " withusage" : ""}${hasCallChain(member) ? " withicon" : ""}" style="left:${member.x}px;top:${member.y}px;width:${member.w}px" ${memberClickAttributes(member)} data-nav="${member.id}" title="${escapeHtml(member.tooltip)}"><span class="nh"><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${MEMBER_KIND_ICONS[member.kind]}</svg>${escapeHtml(member.tag)}${member.focus ? `<span class="chip">${member.focus}</span>` : ""}${member.visibility ? renderVisibilityTag(member.visibility) : ""}</span><span class="nn">${escapeHtml(member.name)}</span><span class="np">${escapeHtml(member.path)}</span></button>${hasCallChain(member) ? renderCallChainIcon(member) : ""}${renderMemberUsage(member)}`;
 const GROUP_ICONS: Record<GroupKind, string> = { ...NODE_KIND_ICONS, ...MEMBER_KIND_ICONS };
 const CHEVRON_ICON = '<path d="m6 9 6 6 6-6"></path>';
 const renderGroupHeading = (heading: GroupHeadingView) =>
@@ -262,6 +267,38 @@ ${outer ? `<div class="layer2 late">${outer.nodes.map((node) => renderNode(node,
 ${ui.layer === 2 && !outer ? `<div class="nolayer">No second layer. Nothing is connected beyond the immediate layer.</div>` : ""}
 </div></div></div>
 ${LEGEND}`;
+}
+
+const renderChainLane = (lane: ChainLaneView) =>
+  `<div class="fl${lane.isRoot ? " mine" : ""}" style="left:${lane.x}px;top:${lane.y}px;width:${lane.w}px;height:${lane.h}px"><span class="lanel" style="width:${LANE_LABEL_W - 14}px">${escapeHtml(lane.label)}</span></div>`;
+const renderChainOpenIcon = (card: ChainCardView) =>
+  `<button class="ndopen" style="left:${card.x + card.w - 22}px;top:${card.y + 1}px" data-action="open" data-id="${escapeHtml(card.call.file)}" data-value="${card.call.line}" title="Open ${escapeHtml(card.call.file)} at line ${card.call.line}" aria-label="Open ${escapeHtml(card.call.name)}"><svg viewBox="0 0 24 24" aria-hidden="true">${OPEN_ICON}</svg></button>`;
+function renderChainCard(card: ChainCardView): string {
+  const { call } = card;
+  const centreAttributes = card.isRoot ? "" : ` data-action="chain-centre" data-id="${escapeHtml(call.file)}" data-value="${call.line}"`;
+  const title = card.isRoot ? `${call.file}:${call.line}` : `${call.file}:${call.line}\nShow the call chain of ${call.name}`;
+  return `<button class="nd ${card.cls} withicon" style="left:${card.x}px;top:${card.y}px;width:${card.w}px"${centreAttributes} data-nav="${card.key}" title="${escapeHtml(title)}"><span class="nh"><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${MEMBER_KIND_ICONS.method}</svg>${escapeHtml(call.layer)}${call.isInterfaceMethod ? '<span class="vis outline">interface</span>' : ""}</span><span class="nn">${escapeHtml(call.name)}</span><span class="np">${escapeHtml(fileNameOf(call.file))} · line ${call.line}</span></button>${renderChainOpenIcon(card)}`;
+}
+const renderChainToggle = (toggle: GroupToggleView) =>
+  `<button class="ftog" style="left:${toggle.x}px;top:${toggle.y}px" data-action="chain-toggle" data-value="${escapeHtml(toggle.key)}"><span class="ftic ${toggle.icon}"></span>${escapeHtml(toggle.text)}</button>`;
+const renderDeeper = (button: ChainDeeperView) =>
+  `<button class="ftog deeper" style="left:${button.x}px;top:${button.y}px" data-action="chain-deeper" data-value="${button.direction}" aria-label="Load one more level of ${button.direction}"><span class="ftic plus"></span>deeper</button>`;
+
+export function renderCallChain(result: CallChainLayout, chain: CallChain, width: number): string {
+  const levelCount = (levels: CallChain["callers"]) => `${levels.length} level${levels.length === 1 ? "" : "s"}`;
+  return `<div class="toolbar">
+<button class="openbtn back" data-action="back-to-map">Back to map</button>
+<div class="crumb"><span class="k">Call chain</span><b class="mono">${escapeHtml(chain.root.name)}</b><span class="mono">${escapeHtml(chain.root.file)}</span></div>
+<div class="count">Callers: ${levelCount(chain.callers)}. Callees: ${levelCount(chain.callees)}.</div>
+</div>
+<div class="ne"><div class="fit"><div class="cv" style="width:${width}px;height:${result.height}px">
+${result.lanes.map(renderChainLane).join("")}
+${renderWires(result.wires)}
+${result.cards.map(renderChainCard).join("")}
+${result.ports.map(renderPort).join("")}
+${result.toggles.map(renderChainToggle).join("")}
+${result.deeper.map(renderDeeper).join("")}
+</div></div></div>`;
 }
 
 function renderConnections(model: PanelModel): string {

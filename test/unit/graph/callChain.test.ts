@@ -188,3 +188,13 @@ describe("when a function calls itself", () => {
     expect(namesAtEachLevel(chain.callees)).toEqual([["helper"]]);
   });
 });
+
+describe("when two functions on one level call the same function", () => {
+  it("should show it once, linked to both", async () => {
+    const { build } = fakeHierarchy({ root: { callees: ["first", "second"] }, first: { callees: ["shared"] }, second: { callees: ["shared", "own"] }, shared: {}, own: {} });
+
+    const { chain } = await build("root");
+
+    expect(chain.callees.map((level) => level.calls.map((call) => `${call.name} ${call.linkedTo.join(",")}`))).toEqual([["first 0", "second 0"], ["shared 0,1", "own 1"]]);
+  });
+});
