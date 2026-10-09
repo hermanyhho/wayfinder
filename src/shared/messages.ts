@@ -25,7 +25,7 @@ export type HostMessage =
   | { type: "cursor"; line: number }
   | { type: "focusOpenFile" }
   | { type: "columnFocus"; change: ColumnFocusChange }
-  | { type: "callChain"; chain: CallChain };
+  | { type: "callChain"; chain: CallChain; callersOnTop: boolean };
 
 export type WebviewMessage =
   | { type: "ready" }
@@ -35,4 +35,5 @@ export type WebviewMessage =
   | { type: "scan" }
   | { type: "openSettings" }
   | { type: "showCallChain"; file: string; line: number }
-  | { type: "extendCallChain"; direction: CallDirection };
+  | { type: "extendCallChain"; direction: CallDirection }
+  | { type: "flipCallChain" };

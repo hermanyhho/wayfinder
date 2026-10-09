@@ -60,13 +60,22 @@ Click **Second layer** to see one more step out: the files that import the calle
 
 ## Call chain
 
-Put the cursor in a function or method and run **Wayfinder: Show call chain**, from the Command Palette or the editor right-click menu. Wayfinder asks VS Code's call hierarchy (the data behind **Show Call Hierarchy**) for the callers up to 3 levels and the callees down to 3 levels, with at most 20 calls per level. Calls into `node_modules` and built-ins are left out.
+Put the cursor in a function or method and run **Wayfinder: Show call chain**, from the Command Palette or the editor right-click menu. You can also click the call chain icon on a function or method card in Members. Wayfinder asks VS Code's call hierarchy (the data behind **Show Call Hierarchy**) for the callers up to 3 levels and the callees down to 3 levels, with at most 20 calls per level. Calls into `node_modules` and built-ins are left out.
 
-- Each call gets a layer from its file name or folder: controller, handler, resolver, service, manager, repo or model. Other files are labelled by depth, such as "Depth 2".
 - A call to an interface method is tagged interface, because the call hierarchy stops at the interface and does not name the class that runs.
 - With the cursor outside any function, VS Code shows "No function at the cursor."
 
-The map does not draw the chain yet.
+The chain replaces the map. Each depth is one row: callers above the selected function, callees below it, and wires between each call and the function it calls. A card shows the file name at the top, the function name, and the folder and line at the bottom. The selected function is green, callers and their wires are blue, callees and their wires are violet. A legend at the top, under the buttons, explains the colours. The map has its legend in the same place. Text in the chain uses the editor font size (`editor.fontSize`), and the cards grow to fit it.
+
+- A row shows 4 cards. **Show N more** shows the rest.
+- **deeper** at the top or bottom loads one more level of callers or callees.
+- Click a card to select it. Click its call chain icon or press Enter to show the chain of that function. The open icon on a card opens its file at that line. The selected function has only the open icon.
+- **Back**, next to **Back to map**, returns to the function you came from. It shows only after you moved to another function.
+- Up and Down move between rows, Left and Right move inside a row. Esc steps back like **Back**, and returns to the map when there is nothing to step back to. **Back to map** returns to the map.
+- Focus mode and its keys are off in the chain. Back on the map, focus mode is as you left it.
+- Opening another file keeps the chain. Back shows the map of that file.
+- The flip button next to **Back to map** puts callees on top and callers below. The choice is saved as `wayfinder.callChain.callersOnTop` in user settings.
+- The line under the chain is a reminder: only direct calls are shown. Calls through events, callbacks, decorators or dependency injection are not found, so a function with no callers may still be called indirectly.
 
 ## AI scan
 

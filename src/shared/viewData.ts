@@ -116,14 +116,17 @@ export interface ChainCall {
   file: string;
   name: string;
   line: number;
-  /** controller, service, repo and so on, from the file name or folder, else "Depth N" */
-  layer: string;
   /** the language server stops at an interface method and does not name the class that runs */
   isInterfaceMethod: boolean;
 }
 
+export interface LevelCall extends ChainCall {
+  /** positions of the calls one level nearer the root that this call links to. The level next to the root links to the root at 0 */
+  linkedTo: number[];
+}
+
 export interface CallLevel {
-  calls: ChainCall[];
+  calls: LevelCall[];
   /** calls at this level past the per-level limit */
   moreCount: number;
 }
