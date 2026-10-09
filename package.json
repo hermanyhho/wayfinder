@@ -202,6 +202,17 @@
             "markdownDescription": "While the map has focus, Cmd+Alt+Enter (Ctrl+Alt+Enter) turns focus mode on or off, and Alt+] and Alt+[ move the next or previous column to the centre. Turn off to free these keys. The focus icon in a column header still works."
           }
         }
+      },
+      {
+        "title": "Call chain",
+        "order": 5,
+        "properties": {
+          "wayfinder.callChain.callersOnTop": {
+            "type": "boolean",
+            "default": true,
+            "description": "Show callers above the selected function in the call chain. Turn off to show callees on top."
+          }
+        }
       }
     ]
   },

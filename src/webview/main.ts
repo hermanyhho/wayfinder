@@ -31,6 +31,7 @@ let cards: NavigationCard[] = [];
 const ARROW_KEYS = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
 let chain: CallChain | null = null;
 let showingChain = false;
+let chainCallersOnTop = true;
 /** lanes of the call chain with "Show N more" on, by lane key */
 let chainOpen: Record<string, boolean> = {};
 let renderedChainRoot = "";
@@ -64,6 +65,7 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
     newChainRoot = !chain || rootKeyOf(chain) !== rootKeyOf(message.chain);
     if (newChainRoot) chainOpen = {};
     chain = message.chain;
+    chainCallersOnTop = message.callersOnTop;
     showingChain = true;
   }
   render();
@@ -77,6 +79,7 @@ document.addEventListener("click", (event) => {
   const { action: kind, id, value } = target.dataset;
   if (kind === "back-to-map") return showMap();
   if (kind === "chain-centre" && id && value) return vscode.postMessage({ type: "showCallChain", file: id, line: Number(value) });
+  if (kind === "chain-flip") return vscode.postMessage({ type: "flipCallChain" });
   if (kind === "chain-deeper" && value) return vscode.postMessage({ type: "extendCallChain", direction: value as CallDirection });
   if (kind === "chain-toggle" && value) {
     chainOpen = { ...chainOpen, [value]: !chainOpen[value] };
@@ -292,7 +295,7 @@ function renderCallChainView(callChain: CallChain, remeasured: boolean): void {
   const scrollLeft = previousScroller?.scrollLeft ?? 0;
   const scrollTop = previousScroller?.scrollTop ?? 0;
   renderedWidth = canvasWidth();
-  const result = layoutCallChain(callChain, chainOpen, renderedWidth);
+  const result = layoutCallChain(callChain, chainOpen, renderedWidth, chainCallersOnTop);
   map.classList.add("chain");
   map.classList.toggle("keep-nodes", sameRoot);
   map.innerHTML = renderCallChain(result, callChain, renderedWidth);

@@ -109,10 +109,11 @@ body.vscode-light .nd { box-shadow: 0 2px 8px rgba(20, 30, 50, .10); }
 .ndopen:hover { background: var(--l2); }
 .nd.withicon .nh { padding-right: 26px; }
 
-.lanel { position: absolute; left: 14px; top: 0; bottom: 0; display: flex; align-items: center; font-size: 12px; font-weight: 700; line-height: 16px; color: var(--text); overflow-wrap: anywhere; }
-.fl.mine .lanel { color: var(--strong); }
 .ftog.deeper { transform: translateX(-50%); }
 .openbtn.back { margin-top: 0; }
+.openbtn.flip { display: flex; align-items: center; padding: 6px 8px; }
+.openbtn.flip svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.chainnote { padding: 8px 16px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--l1); }
 
 .grh { position: absolute; height: 20px; box-sizing: border-box; display: flex; align-items: center; gap: 6px; padding: 0; font: inherit; font-size: 13px; font-weight: 700; color: var(--strong); background: none; border: 0; border-radius: 5px; cursor: pointer; white-space: nowrap; text-align: left; }
 .grh:hover { color: var(--strong); background: var(--l1); }

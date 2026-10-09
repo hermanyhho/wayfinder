@@ -1,6 +1,6 @@
 import type { AiScanState, AiStatus } from "../shared/messages";
 import type { CallChain, Fact, MemberKind, MemberVisibility, NodeKind, ViewData } from "../shared/viewData";
-import { LANE_LABEL_W, type CallChainLayout, type ChainCardView, type ChainDeeperView, type ChainLaneView } from "./callChainLayout";
+import { type CallChainLayout, type ChainCardView, type ChainDeeperView, type ChainLaneView } from "./callChainLayout";
 import { COLUMN_ORDER, TREE_INDENT, type BannerView, type CarouselView, type ColumnKey, type FloorView, type GroupHeadingView, type GroupKind, type GroupToggleView, type LayerView, type Layout, type MemberView, type NodeView, type PortView, type SecondLayerView, type TreeRowView, type UiState, type UsesListView, type WireView } from "./layout";
 import { groupChecks, panelFor, type Action, type PanelModel } from "./panelModel";
 
@@ -84,6 +84,7 @@ const renderOpenIcon = (node: NodeView) =>
 const renderNode = (node: NodeView, canOpen: (id: string) => boolean) =>
   `<button class="nd ${node.cls}" style="left:${node.x}px;top:${node.y}px;width:${node.w}px" data-action="select" data-id="${escapeHtml(node.id)}" data-nav="${escapeHtml(node.id)}" title="${escapeHtml(node.id)}"><span class="nh"><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${NODE_KIND_ICONS[node.kind]}</svg>${escapeHtml(node.tag)}</span><span class="nn">${escapeHtml(node.name)}</span><span class="np">${escapeHtml(node.path)}</span></button>${canOpen(node.id) ? renderOpenIcon(node) : ""}`;
 const fileNameOf = (path: string) => path.slice(path.lastIndexOf("/") + 1);
+const folderOf = (path: string) => (path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "");
 const renderUsesList = (list: UsesListView) =>
   `<div class="uses" style="left:${list.x}px;top:${list.y}px;width:${list.w}px">${list.uses
     .map((use) => `<button class="use" data-action="open" data-id="${escapeHtml(use.file)}" data-value="${use.line}" title="${escapeHtml(use.file)}:${use.line}"><span class="usef">${escapeHtml(fileNameOf(use.file))}</span><span class="usel">line ${use.line}</span></button>`)
@@ -270,17 +271,18 @@ ${LEGEND}`;
 }
 
 const renderChainLane = (lane: ChainLaneView) =>
-  `<div class="fl${lane.isRoot ? " mine" : ""}" style="left:${lane.x}px;top:${lane.y}px;width:${lane.w}px;height:${lane.h}px"><span class="lanel" style="width:${LANE_LABEL_W - 14}px">${escapeHtml(lane.label)}</span></div>`;
+  `<div class="fl${lane.isRoot ? " mine" : ""}" style="left:${lane.x}px;top:${lane.y}px;width:${lane.w}px;height:${lane.h}px"></div>`;
 const renderChainOpenIcon = (card: ChainCardView) =>
   `<button class="ndopen" style="left:${card.x + card.w - 22}px;top:${card.y + 1}px" data-action="open" data-id="${escapeHtml(card.call.file)}" data-value="${card.call.line}" title="Open ${escapeHtml(card.call.file)} at line ${card.call.line}" aria-label="Open ${escapeHtml(card.call.name)}"><svg viewBox="0 0 24 24" aria-hidden="true">${OPEN_ICON}</svg></button>`;
 function renderChainCard(card: ChainCardView): string {
   const { call } = card;
   const centreAttributes = card.isRoot ? "" : ` data-action="chain-centre" data-id="${escapeHtml(call.file)}" data-value="${call.line}"`;
   const title = card.isRoot ? `${call.file}:${call.line}` : `${call.file}:${call.line}\nShow the call chain of ${call.name}`;
-  return `<button class="nd ${card.cls} withicon" style="left:${card.x}px;top:${card.y}px;width:${card.w}px"${centreAttributes} data-nav="${card.key}" title="${escapeHtml(title)}"><span class="nh"><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${MEMBER_KIND_ICONS.method}</svg>${escapeHtml(call.layer)}${call.isInterfaceMethod ? '<span class="vis outline">interface</span>' : ""}</span><span class="nn">${escapeHtml(call.name)}</span><span class="np">${escapeHtml(fileNameOf(call.file))} · line ${call.line}</span></button>${renderChainOpenIcon(card)}`;
+  return `<button class="nd ${card.cls} withicon" style="left:${card.x}px;top:${card.y}px;width:${card.w}px"${centreAttributes} data-nav="${card.key}" title="${escapeHtml(title)}"><span class="nh"><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${MEMBER_KIND_ICONS.method}</svg>${escapeHtml(fileNameOf(call.file))}${call.isInterfaceMethod ? '<span class="vis outline">interface</span>' : ""}</span><span class="nn">${escapeHtml(call.name)}</span><span class="np">${escapeHtml([folderOf(call.file), `line ${call.line}`].filter(Boolean).join(" · "))}</span></button>${renderChainOpenIcon(card)}`;
 }
 const renderChainToggle = (toggle: GroupToggleView) =>
   `<button class="ftog" style="left:${toggle.x}px;top:${toggle.y}px" data-action="chain-toggle" data-value="${escapeHtml(toggle.key)}"><span class="ftic ${toggle.icon}"></span>${escapeHtml(toggle.text)}</button>`;
+const FLIP_ICON = '<path d="M7 20V4m0 0L3 8m4-4 4 4"></path><path d="M17 4v16m0 0 4-4m-4 4-4-4"></path>';
 const renderDeeper = (button: ChainDeeperView) =>
   `<button class="ftog deeper" style="left:${button.x}px;top:${button.y}px" data-action="chain-deeper" data-value="${button.direction}" aria-label="Load one more level of ${button.direction}"><span class="ftic plus"></span>deeper</button>`;
 
@@ -288,6 +290,7 @@ export function renderCallChain(result: CallChainLayout, chain: CallChain, width
   const levelCount = (levels: CallChain["callers"]) => `${levels.length} level${levels.length === 1 ? "" : "s"}`;
   return `<div class="toolbar">
 <button class="openbtn back" data-action="back-to-map">Back to map</button>
+<button class="openbtn back flip" data-action="chain-flip" title="Flip call chain direction" aria-label="Flip call chain direction"><svg viewBox="0 0 24 24" aria-hidden="true">${FLIP_ICON}</svg></button>
 <div class="crumb"><span class="k">Call chain</span><b class="mono">${escapeHtml(chain.root.name)}</b><span class="mono">${escapeHtml(chain.root.file)}</span></div>
 <div class="count">Callers: ${levelCount(chain.callers)}. Callees: ${levelCount(chain.callees)}.</div>
 </div>
@@ -298,7 +301,8 @@ ${result.cards.map(renderChainCard).join("")}
 ${result.ports.map(renderPort).join("")}
 ${result.toggles.map(renderChainToggle).join("")}
 ${result.deeper.map(renderDeeper).join("")}
-</div></div></div>`;
+</div></div></div>
+<div class="chainnote">Only direct calls are shown. Calls through events, callbacks, decorators or dependency injection are not found, so a function with no callers may still be called indirectly.</div>`;
 }
 
 function renderConnections(model: PanelModel): string {

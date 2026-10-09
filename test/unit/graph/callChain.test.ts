@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { analyzeSource } from "../../../src/graph/analyzeSource";
-import { CALL_CHAIN_DEPTH, CALLS_PER_LEVEL, type CallHierarchy, type CallPlace, CallChainBuilder, isInsideInterface, layerOf } from "../../../src/graph/callChain";
+import { CALL_CHAIN_DEPTH, CALLS_PER_LEVEL, type CallHierarchy, type CallPlace, CallChainBuilder, isInsideInterface } from "../../../src/graph/callChain";
 import type { CallDirection } from "../../../src/shared/viewData";
 
 const CONTROLLER = "src/billing/InvoiceController.ts";
@@ -38,38 +38,6 @@ function straightLine(length: number): Record<string, Partial<FakeFunction>> {
 
 const namesAtEachLevel = (levels: { calls: { name: string }[] }[]) => levels.map((level) => level.calls.map((call) => call.name));
 
-describe("layerOf", () => {
-  it.each([
-    ["src/api/UserController.ts", "controller"],
-    ["src/events/user.handler.ts", "handler"],
-    ["src/graphql/UserResolver.ts", "resolver"],
-    ["src/users/user-service.ts", "service"],
-    ["src/users/UserManager.ts", "manager"],
-    ["src/users/UserRepo.ts", "repo"],
-    ["src/users/UserRepository.ts", "repo"],
-    ["src/users/user.model.ts", "model"],
-  ])("should name %s by its file name suffix as %s", (file, layer) => {
-    expect(layerOf(file, 1)).toBe(layer);
-  });
-
-  it.each([
-    ["src/controllers/users.ts", "controller"],
-    ["src/repositories/users.ts", "repo"],
-    ["src/db/repository/users.ts", "repo"],
-    ["src/services/billing/invoice.ts", "service"],
-  ])("should name %s by its folder as %s when the file name has no layer", (file, layer) => {
-    expect(layerOf(file, 1)).toBe(layer);
-  });
-
-  it("should prefer the file name over the folder", () => {
-    expect(layerOf("src/services/UserRepository.ts", 1)).toBe("repo");
-  });
-
-  it("should label a file with no layer by its depth", () => {
-    expect(layerOf("src/utils/formatDate.ts", 2)).toBe("Depth 2");
-  });
-});
-
 describe("isInsideInterface", () => {
   it("should find the interface method the sample manager calls, and not the class method", () => {
     const members = analyzeSource(MANAGER, readFileSync(`test/sample-project/${MANAGER}`, "utf8")).members;
@@ -90,17 +58,17 @@ describe("when building the call chain of the sample InvoiceService.sendInvoice"
     save: { place: at(REPOSITORY, "save", 11), callers: ["markSent"] },
   });
 
-  it("should put the controller above and the repo and manager below, with their layers", async () => {
+  it("should put the controller above and the repository and manager below, with their files", async () => {
     const { chain } = await build("sendInvoice");
 
     expect({
-      root: chain.root.layer,
-      callers: chain.callers.map((level) => level.calls.map((call) => `${call.layer} ${call.name}`)),
-      callees: chain.callees.map((level) => level.calls.map((call) => `${call.layer} ${call.name}${call.isInterfaceMethod ? " interface" : ""}`)),
+      root: chain.root.file,
+      callers: chain.callers.map((level) => level.calls.map((call) => `${call.file} ${call.name}`)),
+      callees: chain.callees.map((level) => level.calls.map((call) => `${call.file} ${call.name}${call.isInterfaceMethod ? " interface" : ""}`)),
     }).toEqual({
-      root: "service",
-      callers: [["controller send"]],
-      callees: [["repo findById", "manager markSent"], ["manager record interface", "repo save"]],
+      root: SERVICE,
+      callers: [[`${CONTROLLER} send`]],
+      callees: [[`${REPOSITORY} findById`, `${MANAGER} markSent`], [`${MANAGER} record interface`, `${REPOSITORY} save`]],
     });
   });
 

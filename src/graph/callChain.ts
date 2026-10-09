@@ -1,11 +1,8 @@
 import type { CallChain, CallDirection, LevelCall, Member } from "../shared/viewData";
-import { baseNameOf, folderOf } from "./patterns";
 
 export const CALL_CHAIN_DEPTH = 3;
 export const CALLS_PER_LEVEL = 20;
 
-const LAYER_AT_END_OF_FILE_NAME = /(controller|handler|resolver|service|manager|repository|repo|model)$/i;
-const LAYER_FOLDER = /^((controller|handler|resolver|service|manager|repo|model)s?|repositor(y|ies))$/i;
 const PACKAGE_FILE = /(^|\/)node_modules\//;
 
 export interface CallPlace {
@@ -20,18 +17,6 @@ export interface CallHierarchy<Item> {
   /** undefined for a function outside the workspace, such as a built-in */
   placeOf(item: Item): CallPlace | undefined;
   callsOf(item: Item, direction: CallDirection): Promise<Item[]>;
-}
-
-function layerWord(word: string): string {
-  const lower = word.toLowerCase();
-  return lower.startsWith("repo") ? "repo" : lower.replace(/s$/, "");
-}
-
-export function layerOf(file: string, depth: number): string {
-  const fromFileName = baseNameOf(file).match(LAYER_AT_END_OF_FILE_NAME)?.[1];
-  const fromFolder = folderOf(file).split("/").reverse().find((folder) => LAYER_FOLDER.test(folder));
-  const word = fromFileName ?? fromFolder;
-  return word ? layerWord(word) : `Depth ${depth}`;
 }
 
 export function isInsideInterface(members: Member[], line: number): boolean {
@@ -51,7 +36,7 @@ export class CallChainBuilder<Item> {
     root: Item,
     rootPlace: CallPlace,
   ) {
-    this.chain = { root: { ...rootPlace, layer: layerOf(rootPlace.file, 0) }, callers: [], callees: [], canGoDeeper: { callers: true, callees: true } };
+    this.chain = { root: rootPlace, callers: [], callees: [], canGoDeeper: { callers: true, callees: true } };
     this.lastLevelItems = { callers: [root], callees: [root] };
     this.inChain = { callers: new Set([keyOf(rootPlace)]), callees: new Set([keyOf(rootPlace)]) };
   }
@@ -71,7 +56,6 @@ export class CallChainBuilder<Item> {
   private async loadNextLevel(direction: CallDirection): Promise<void> {
     if (!this.chain.canGoDeeper[direction]) return;
     const found = await Promise.all(this.lastLevelItems[direction].map((item) => this.hierarchy.callsOf(item, direction)));
-    const depth = this.chain[direction].length + 1;
     const shownItems: Item[] = [];
     const calls: LevelCall[] = [];
     const shownIndexByKey = new Map<string, number>();
@@ -93,7 +77,7 @@ export class CallChainBuilder<Item> {
           continue;
         }
         shownIndexByKey.set(key, calls.length);
-        calls.push({ ...place, layer: layerOf(place.file, depth), linkedTo: [linkedIndex] });
+        calls.push({ ...place, linkedTo: [linkedIndex] });
         shownItems.push(item);
       }
     });

@@ -116,8 +116,6 @@ export interface ChainCall {
   file: string;
   name: string;
   line: number;
-  /** controller, service, repo and so on, from the file name or folder, else "Depth N" */
-  layer: string;
   /** the language server stops at an interface method and does not name the class that runs */
   isInterfaceMethod: boolean;
 }

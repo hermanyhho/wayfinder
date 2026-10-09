@@ -1,7 +1,6 @@
 import type { CallChain, CallDirection, ChainCall, LevelCall } from "../shared/viewData";
 import { COL_GAP, FLOOR_LEFT, MAX_PER_ROW, NODE_H, NODE_W, ROW_H, routeWire, type GroupToggleView, type PortView, type WireView } from "./layout";
 
-export const LANE_LABEL_W = 112;
 const LANE_PADDING = 14;
 const LANE_GAP = 40;
 const TOGGLE_H = 30;
@@ -10,30 +9,27 @@ const DEEPER_GAP = 14;
 export const ROOT_CARD_KEY = "chain:root";
 
 type ChainSide = CallDirection | "root";
-export interface ChainLaneView { key: string; label: string; x: number; y: number; w: number; h: number; isRoot: boolean; }
+export interface ChainLaneView { key: string; x: number; y: number; w: number; h: number; isRoot: boolean; }
 export interface ChainCardView { key: string; x: number; y: number; w: number; cls: string; call: ChainCall; isRoot: boolean; }
 export interface ChainDeeperView { direction: CallDirection; x: number; y: number; }
 export interface CallChainLayout { lanes: ChainLaneView[]; cards: ChainCardView[]; toggles: GroupToggleView[]; wires: WireView[]; ports: PortView[]; deeper: ChainDeeperView[]; height: number; }
 
-const LAYER_LABELS: Record<string, string> = { repo: "Repository" };
 const SIDE_COLORS: Record<ChainSide, string> = { callers: "blue", root: "green", callees: "violet" };
 
-const labelOfLayer = (layer: string) => LAYER_LABELS[layer] ?? layer.charAt(0).toUpperCase() + layer.slice(1);
-const laneLabelOf = (calls: ChainCall[]) => [...new Set(calls.map((call) => labelOfLayer(call.layer)))].join(" / ");
 const cardKeyOf = (side: CallDirection, levelIndex: number, callIndex: number) => `chain:${side}:${levelIndex}:${callIndex}`;
 
 interface Lane { key: string; side: ChainSide; levelIndex: number; calls: LevelCall[]; }
 
-function lanesTopToBottom(chain: CallChain): Lane[] {
+function lanesTopToBottom(chain: CallChain, topSide: CallDirection, bottomSide: CallDirection): Lane[] {
   const sideLanes = (side: CallDirection) => chain[side].map((level, levelIndex) => ({ key: `chain:${side}:${levelIndex}`, side, levelIndex, calls: level.calls }));
-  return [...sideLanes("callers").reverse(), { key: "chain:root", side: "root", levelIndex: 0, calls: [{ ...chain.root, linkedTo: [] }] }, ...sideLanes("callees")];
+  return [...sideLanes(topSide).reverse(), { key: "chain:root", side: "root", levelIndex: 0, calls: [{ ...chain.root, linkedTo: [] }] }, ...sideLanes(bottomSide)];
 }
 
 /** open holds the lanes whose "Show N more" toggle is on, by lane key */
-export function layoutCallChain(chain: CallChain, open: Record<string, boolean>, width: number): CallChainLayout {
-  const laneW = width - 2 * FLOOR_LEFT;
-  const cardsX = FLOOR_LEFT + LANE_LABEL_W;
-  const cardsW = laneW - LANE_LABEL_W;
+export function layoutCallChain(chain: CallChain, open: Record<string, boolean>, width: number, callersOnTop: boolean): CallChainLayout {
+  const [topSide, bottomSide]: CallDirection[] = callersOnTop ? ["callers", "callees"] : ["callees", "callers"];
+  const cardsX = FLOOR_LEFT;
+  const cardsW = width - 2 * FLOOR_LEFT;
   const deeperX = cardsX + Math.round(cardsW / 2);
   const lanes: ChainLaneView[] = [];
   const cards: ChainCardView[] = [];
@@ -42,11 +38,11 @@ export function layoutCallChain(chain: CallChain, open: Record<string, boolean>,
   const cardByKey = new Map<string, ChainCardView>();
   let y = 16;
 
-  if (chain.canGoDeeper.callers) {
-    deeper.push({ direction: "callers", x: deeperX, y });
+  if (chain.canGoDeeper[topSide]) {
+    deeper.push({ direction: topSide, x: deeperX, y });
     y += DEEPER_H + DEEPER_GAP;
   }
-  for (const lane of lanesTopToBottom(chain)) {
+  for (const lane of lanesTopToBottom(chain, topSide, bottomSide)) {
     const isRoot = lane.side === "root";
     const collapsible = lane.calls.length > MAX_PER_ROW;
     const showAll = !!open[lane.key];
@@ -66,12 +62,12 @@ export function layoutCallChain(chain: CallChain, open: Record<string, boolean>,
       toggles.push({ key: lane.key, x: cardsX, y: cardsBottom + 8, text: showAll ? "Show fewer" : `Show ${lane.calls.length - shown.length} more`, icon: showAll ? "minus" : "plus" });
     }
     const h = cardsBottom - y + LANE_PADDING + (collapsible ? TOGGLE_H : 0);
-    lanes.push({ key: lane.key, label: laneLabelOf(lane.calls), x: FLOOR_LEFT, y, w: laneW, h, isRoot });
+    lanes.push({ key: lane.key, x: FLOOR_LEFT, y, w: cardsW, h, isRoot });
     y += h + LANE_GAP;
   }
   y -= LANE_GAP;
-  if (chain.canGoDeeper.callees) {
-    deeper.push({ direction: "callees", x: deeperX, y: y + DEEPER_GAP });
+  if (chain.canGoDeeper[bottomSide]) {
+    deeper.push({ direction: bottomSide, x: deeperX, y: y + DEEPER_GAP });
     y += DEEPER_GAP + DEEPER_H;
   }
 
@@ -87,7 +83,7 @@ export function layoutCallChain(chain: CallChain, open: Record<string, boolean>,
         for (const linkedIndex of call.linkedTo) {
           const linked = cardByKey.get(linkKeyOf(side, levelIndex, linkedIndex));
           if (!linked) continue;
-          const [upper, lower] = side === "callers" ? [card, linked] : [linked, card];
+          const [upper, lower] = side === topSide ? [card, linked] : [linked, card];
           const route = routeWire({ ...upper, h: NODE_H }, { ...lower, h: NODE_H });
           wires.push({ cls: color, d: route.d });
           ports.push({ cls: color, x: route.x1, y: route.y1, incoming: false }, { cls: color, x: route.x2, y: route.y2, incoming: true });

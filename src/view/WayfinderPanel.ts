@@ -38,6 +38,8 @@ async function installedCloudClis(): Promise<CloudCli[]> {
   return CLOUD_CLIS.filter((_cli, index) => logins[index] !== "missing");
 }
 
+const callersOnTop = () => vscode.workspace.getConfiguration("wayfinder.callChain").get<boolean>("callersOnTop", true);
+
 const openWayfinderSettings = () => vscode.commands.executeCommand("workbench.action.openSettings", "wayfinder");
 
 export async function chooseAiModel(): Promise<void> {
@@ -201,6 +203,7 @@ export class WayfinderPanel implements vscode.Disposable {
       vscode.workspace.onDidChangeConfiguration((event) => {
         if (event.affectsConfiguration("wayfinder.ai.instructions") || event.affectsConfiguration("wayfinder.ai.scope")) this.dropStoredScans();
         if (event.affectsConfiguration("wayfinder.ai")) void this.refreshAiStatus();
+        if (event.affectsConfiguration("wayfinder.callChain") && this.callChain) this.sendChain(this.callChain);
       }),
       rulesWatcher,
       rulesWatcher.onDidChange(() => this.dropStoredScans()),
@@ -268,7 +271,7 @@ export class WayfinderPanel implements vscode.Disposable {
         this.post();
         if (this.focusOpenFileWhenReady) this.send({ type: "focusOpenFile" });
         this.focusOpenFileWhenReady = false;
-        if (this.callChain) this.send({ type: "callChain", chain: this.callChain.chain });
+        if (this.callChain) this.sendChain(this.callChain);
         return;
       case "select": {
         this.selected = message.id;
@@ -297,15 +300,22 @@ export class WayfinderPanel implements vscode.Disposable {
         const callChain = this.callChain;
         if (!callChain || !CALL_DIRECTIONS.includes(message.direction)) return;
         await callChain.deeper(message.direction);
-        if (callChain === this.callChain) this.send({ type: "callChain", chain: callChain.chain });
+        if (callChain === this.callChain) this.sendChain(callChain);
         return;
       }
+      case "flipCallChain":
+        await vscode.workspace.getConfiguration("wayfinder.callChain").update("callersOnTop", !callersOnTop(), vscode.ConfigurationTarget.Global);
+        return;
     }
   }
 
   private showChain(callChain: CallChainBuilder<vscode.CallHierarchyItem>): void {
     this.callChain = callChain;
-    this.send({ type: "callChain", chain: callChain.chain });
+    this.sendChain(callChain);
+  }
+
+  private sendChain(callChain: CallChainBuilder<vscode.CallHierarchyItem>): void {
+    this.send({ type: "callChain", chain: callChain.chain, callersOnTop: callersOnTop() });
   }
 
   private async showCallChainAtLine(file: string, line: number): Promise<void> {
