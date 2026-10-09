@@ -6,6 +6,7 @@ const LANE_GAP = 40;
 const TOGGLE_H = 30;
 const DEEPER_H = 22;
 const DEEPER_GAP = 14;
+const MAX_CARD_W = 240;
 export const ROOT_CARD_KEY = "chain:root";
 
 type ChainSide = CallDirection | "root";
@@ -30,6 +31,7 @@ export function layoutCallChain(chain: CallChain, open: Record<string, boolean>,
   const [topSide, bottomSide]: CallDirection[] = callersOnTop ? ["callers", "callees"] : ["callees", "callers"];
   const cardsX = FLOOR_LEFT;
   const cardsW = width - 2 * FLOOR_LEFT;
+  const cardW = Math.max(NODE_W, Math.min(MAX_CARD_W, Math.floor((cardsW - (MAX_PER_ROW - 1) * COL_GAP) / MAX_PER_ROW)));
   const deeperX = cardsX + Math.round(cardsW / 2);
   const lanes: ChainLaneView[] = [];
   const cards: ChainCardView[] = [];
@@ -50,9 +52,9 @@ export function layoutCallChain(chain: CallChain, open: Record<string, boolean>,
     shown.forEach((call, callIndex) => {
       const row = Math.floor(callIndex / MAX_PER_ROW);
       const inRow = Math.min(MAX_PER_ROW, shown.length - row * MAX_PER_ROW);
-      const startX = cardsX + Math.round((cardsW - (inRow * NODE_W + (inRow - 1) * COL_GAP)) / 2);
+      const startX = cardsX + Math.round((cardsW - (inRow * cardW + (inRow - 1) * COL_GAP)) / 2);
       const key = lane.side === "root" ? ROOT_CARD_KEY : cardKeyOf(lane.side, lane.levelIndex, callIndex);
-      const card = { key, x: startX + (callIndex % MAX_PER_ROW) * (NODE_W + COL_GAP), y: y + LANE_PADDING + row * ROW_H, w: NODE_W, cls: `${SIDE_COLORS[lane.side]}${isRoot ? " sel" : ""}`, call, isRoot };
+      const card = { key, x: startX + (callIndex % MAX_PER_ROW) * (cardW + COL_GAP), y: y + LANE_PADDING + row * ROW_H, w: cardW, cls: `${SIDE_COLORS[lane.side]}${isRoot ? " sel" : ""}`, call, isRoot };
       cards.push(card);
       cardByKey.set(key, card);
     });

@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { CallChain, ChainCall, LevelCall } from "../../../src/shared/viewData";
 import { ROOT_CARD_KEY, layoutCallChain } from "../../../src/webview/callChainLayout";
+import { NODE_W } from "../../../src/webview/layout";
 
-const WIDTH = 800;
-const TWO_CARD_X = [240, 408];
-const FOUR_CARD_X = [72, 240, 408, 576];
+const WIDTH = 1088;
+const NARROW_WIDTH = 600;
+const TWO_CARD_X = [296, 552];
+const FOUR_CARD_X = [40, 296, 552, 808];
 
 const call = (name: string, extra: Partial<LevelCall> = {}): LevelCall => ({ file: `src/billing/${name}.ts`, name, line: 1, isInterfaceMethod: false, linkedTo: [0], ...extra });
 const rootCall: ChainCall = { file: "src/billing/InvoiceService.ts", name: "sendInvoice", line: 10, isInterfaceMethod: false };
@@ -40,13 +42,25 @@ describe("when laying out the call chain of a service method", () => {
   it("should centre the cards of a lane across the full width", () => {
     const { cards } = layoutCallChain(invoiceChain(), {}, WIDTH, true);
 
-    expect({ root: cards.find((card) => card.key === ROOT_CARD_KEY)?.x, firstCallees: xsOfLane(cards, "chain:callees:0") }).toEqual({ root: 324, firstCallees: TWO_CARD_X });
+    expect({ root: cards.find((card) => card.key === ROOT_CARD_KEY)?.x, firstCallees: xsOfLane(cards, "chain:callees:0") }).toEqual({ root: 424, firstCallees: TWO_CARD_X });
   });
 
   it("should draw one wire for each link between neighbouring lanes", () => {
     const { wires } = layoutCallChain(invoiceChain(), {}, WIDTH, true);
 
     expect(wires.map((wire) => wire.cls)).toEqual(["blue", "violet", "violet", "violet", "violet"]);
+  });
+});
+
+describe("when choosing the width of the chain cards", () => {
+  const cardWidthsAt = (width: number) => new Set(layoutCallChain(sixCallers(), { "chain:callers:0": true }, width, true).cards.map((card) => card.w));
+
+  it("should make every card 240px wide when the pane has room for 4 of them", () => {
+    expect(cardWidthsAt(WIDTH)).toEqual(new Set([240]));
+  });
+
+  it("should keep every card at the map card width when the pane is narrow", () => {
+    expect(cardWidthsAt(NARROW_WIDTH)).toEqual(new Set([NODE_W]));
   });
 });
 
@@ -62,7 +76,7 @@ describe("when a lane has more calls than one row holds", () => {
 
     const callerCards = cards.filter((card) => card.key.startsWith("chain:callers:0:"));
     expect({ positions: callerCards.map((card) => [card.x, card.y]), toggles: toggles.map((toggle) => toggle.text) }).toEqual({
-      positions: [[72, 30], [240, 30], [408, 30], [576, 30], [240, 104], [408, 104]],
+      positions: [[40, 30], [296, 30], [552, 30], [808, 30], [296, 104], [552, 104]],
       toggles: ["Show fewer"],
     });
   });

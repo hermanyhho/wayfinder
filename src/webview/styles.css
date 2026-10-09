@@ -108,6 +108,8 @@ body.vscode-light .nd { box-shadow: 0 2px 8px rgba(20, 30, 50, .10); }
 .nd:hover + .ndopen, .nd.sel + .ndopen, .ndopen:hover, .ndopen:focus-visible { opacity: 1; color: var(--strong); }
 .ndopen:hover { background: var(--l2); }
 .nd.withicon .nh { padding-right: 26px; }
+.nd.chaincard .nh { overflow: hidden; text-transform: none; letter-spacing: normal; }
+.nd.chaincard .nh .fname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .ftog.deeper { transform: translateX(-50%); }
 .openbtn.back { margin-top: 0; }
