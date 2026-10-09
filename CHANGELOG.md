@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.0
+
+- Call chain view: callers above and callees below a function, one row per layer (Controller, Service, Repository and so on). Open it with **Wayfinder: Show call chain**, the editor right-click menu, or the icon on a function card. "+ deeper" loads one more level.
+- Focus mode: one column in the centre with the other two at its sides. Cmd+Alt+Enter (Ctrl+Alt+Enter) turns it on or off, Alt+] and Alt+[ move between columns. `wayfinder.shortcut.columnFocus` turns off these keys.
+- Interface files: the third column is "Implemented by", with the classes that implement it and the interfaces that extend it.
+- React component files: a "Component tree" tab with the components that render this one and the ones it renders, and a Props group in Members.
+- Member cards: a PUBLIC, PROTECTED, PRIVATE, EXPORTED or NOT EXPORTED tag, a usage count with the files that use the member, and the full name in the tooltip.
+- Test files: the test outline in Members, other tests of the same subject, a "Tested code" column, and test groups from more test frameworks.
+- Fixed: the tested file of a test was not always found.
+- Fixed: clicking a card reset the map scroll position.
+
 ## 0.2.0
 
 - Cmd+Alt+M (Ctrl+Alt+M) opens or shows the map and moves keyboard focus to the current file card. Press it again from the map to go back to the editor at the same cursor. `wayfinder.shortcut.focusMap` and `wayfinder.shortcut.returnToEditor` turn off each part.
