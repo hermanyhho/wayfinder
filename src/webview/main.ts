@@ -86,6 +86,7 @@ document.addEventListener("click", (event) => {
   const { action: kind, id, value } = target.dataset;
   if (kind === "back-to-map") return showMap();
   if (kind === "chain-centre") return;
+  if (kind === "chain-recentre") return centreChainOn(target);
   if (kind === "chain-back") return showPreviousChainRoot();
   if (kind === "chain-flip") return vscode.postMessage({ type: "flipCallChain" });
   if (kind === "chain-deeper" && value) return vscode.postMessage({ type: "extendCallChain", direction: value as CallDirection });
@@ -116,11 +117,6 @@ document.addEventListener("click", (event) => {
     vscode.postMessage({ type: "scan" });
   }
   render();
-});
-
-document.addEventListener("dblclick", (event) => {
-  const card = (event.target as HTMLElement).closest<HTMLElement>('[data-action="chain-centre"]');
-  if (card) centreChainOn(card);
 });
 
 document.addEventListener("input", (event) => {

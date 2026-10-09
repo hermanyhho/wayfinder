@@ -267,24 +267,26 @@ export function renderMap(result: Layout, view: ViewData, ui: UiState): string {
 </div>
 <div class="count">${escapeHtml(countLabel(view))}</div>
 </div>
+${LEGEND}
 <div class="ne"><div class="fit"><div class="cv" style="width:${result.width}px;height:${outer ? outer.height : inner.height}px">
 ${outer ? renderOuterBack(outer, open.name, immediateCount(view)) : ""}
 <div class="cluster" style="height:${inner.height}px">${renderLayer(inner, canOpen, result.carousel)}</div>
 ${outer ? `<div class="layer2 late">${outer.nodes.map((node) => renderNode(node, canOpen)).join("")}${outer.ports.map(renderPort).join("")}${renderToggles(outer.floors)}</div>` : ""}
 ${ui.layer === 2 && !outer ? `<div class="nolayer">No second layer. Nothing is connected beyond the immediate layer.</div>` : ""}
-</div></div></div>
-${LEGEND}`;
+</div></div></div>`;
 }
 
 const renderChainLane = (lane: ChainLaneView) =>
   `<div class="fl${lane.isRoot ? " mine" : ""}" style="left:${lane.x}px;top:${lane.y}px;width:${lane.w}px;height:${lane.h}px"></div>`;
 const renderChainOpenIcon = (card: ChainCardView) =>
   `<button class="ndopen" style="left:${card.x + card.w - 22}px;top:${card.y + 1}px" data-action="open" data-id="${escapeHtml(card.call.file)}" data-value="${card.call.line}" title="Open ${escapeHtml(card.call.file)} at line ${card.call.line}" aria-label="Open ${escapeHtml(card.call.name)}"><svg viewBox="0 0 24 24" aria-hidden="true">${OPEN_ICON}</svg></button>`;
+const renderChainCentreIcon = (card: ChainCardView) =>
+  `<button class="ndopen" style="left:${card.x + card.w - 42}px;top:${card.y + 1}px" data-action="chain-recentre" data-id="${escapeHtml(card.call.file)}" data-value="${card.call.line}" title="Show call chain of ${escapeHtml(card.call.name)}" aria-label="Show call chain of ${escapeHtml(card.call.name)}"><svg viewBox="0 0 24 24" aria-hidden="true">${CHAIN_ICON}</svg></button>`;
 function renderChainCard(card: ChainCardView): string {
   const { call } = card;
   const centreAttributes = card.isRoot ? "" : ` data-action="chain-centre" data-id="${escapeHtml(call.file)}" data-value="${call.line}"`;
-  const title = card.isRoot ? `${call.file}:${call.line}` : `${call.file}:${call.line}\nDouble-click to show the call chain of ${call.name}`;
-  return `<button class="nd chaincard ${card.cls} withicon" style="left:${card.x}px;top:${card.y}px;width:${card.w}px;height:${card.h}px"${centreAttributes} data-nav="${card.key}" title="${escapeHtml(title)}"><span class="nh"><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${MEMBER_KIND_ICONS.method}</svg><span class="fname">${escapeHtml(fileNameOf(call.file))}</span>${call.isInterfaceMethod ? '<span class="vis outline">interface</span>' : ""}</span><span class="nn">${escapeHtml(call.name)}</span><span class="np">${escapeHtml([folderOf(call.file), `line ${call.line}`].filter(Boolean).join(" · "))}</span></button>${renderChainOpenIcon(card)}`;
+  const title = card.isRoot ? `${call.file}:${call.line}` : `${call.file}:${call.line}\nPress Enter or the call chain icon to show the call chain of ${call.name}`;
+  return `<button class="nd chaincard ${card.cls} withicon${card.isRoot ? "" : " withchainicon"}" style="left:${card.x}px;top:${card.y}px;width:${card.w}px;height:${card.h}px"${centreAttributes} data-nav="${card.key}" title="${escapeHtml(title)}"><span class="nh"><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${MEMBER_KIND_ICONS.method}</svg><span class="fname">${escapeHtml(fileNameOf(call.file))}</span>${call.isInterfaceMethod ? '<span class="vis outline">interface</span>' : ""}</span><span class="nn">${escapeHtml(call.name)}</span><span class="np">${escapeHtml([folderOf(call.file), `line ${call.line}`].filter(Boolean).join(" · "))}</span></button>${card.isRoot ? "" : renderChainCentreIcon(card)}${renderChainOpenIcon(card)}`;
 }
 const renderChainToggle = (toggle: GroupToggleView) =>
   `<button class="ftog" style="left:${toggle.x}px;top:${toggle.y}px" data-action="chain-toggle" data-value="${escapeHtml(toggle.key)}"><span class="ftic ${toggle.icon}"></span>${escapeHtml(toggle.text)}</button>`;
@@ -301,6 +303,7 @@ ${previousRootName === undefined ? "" : `<button class="openbtn back" data-actio
 <div class="crumb"><span class="k">Call chain</span><b class="mono">${escapeHtml(chain.root.name)}</b><span class="mono">${escapeHtml(chain.root.file)}</span></div>
 <div class="count">Callers: ${levelCount(chain.callers)}. Callees: ${levelCount(chain.callees)}.</div>
 </div>
+${CHAIN_LEGEND}
 <div class="ne"><div class="fit"><div class="cv" style="width:${width}px;height:${result.height}px">
 ${result.lanes.map(renderChainLane).join("")}
 ${renderWires(result.wires)}
@@ -309,7 +312,6 @@ ${result.ports.map(renderPort).join("")}
 ${result.toggles.map(renderChainToggle).join("")}
 ${result.deeper.map(renderDeeper).join("")}
 </div></div></div>
-${CHAIN_LEGEND}
 <div class="chainnote">Only direct calls are shown. Calls through events, callbacks, decorators or dependency injection are not found, so a function with no callers may still be called indirectly.</div>`;
 }
 
