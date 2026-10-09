@@ -24,6 +24,16 @@ export function activate(context: vscode.ExtensionContext) {
         WayfinderPanel.restore(panel, context, scanningIndex, savedState);
       },
     }),
+    vscode.commands.registerCommand("wayfinder.showCallChain", () => {
+      const scanningIndex = startIndex(context);
+      if (!scanningIndex) {
+        void vscode.window.showInformationMessage("Wayfinder needs an open folder.");
+        return;
+      }
+      return WayfinderPanel.showCallChain(context, scanningIndex).catch((error: unknown) => {
+        void vscode.window.showErrorMessage(`Wayfinder could not build the call chain: ${String(error)}`);
+      });
+    }),
     vscode.commands.registerCommand("wayfinder.chooseAiModel", chooseAiModel),
     vscode.commands.registerCommand("wayfinder.createAiRules", createAiRulesFile),
     vscode.commands.registerCommand("wayfinder.returnToEditor", () => WayfinderPanel.returnToEditor()),

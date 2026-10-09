@@ -78,7 +78,7 @@ src/extension.ts       command wayfinder.showMap
 src/shared/            types shared by the extension host and the webview
 src/graph/             source analysis, import resolution, graph, pattern rules, view data
 src/workspace/         workspace scan, tsconfig loading, git history
-src/view/              webview panel host, editor gutter marks
+src/view/              webview panel host, editor gutter marks, call chain from VS Code call hierarchy
 src/webview/           layout engine, panel model, HTML rendering, styles, webview entry
 src/ai/                AI scan prompt, reply checks and AI status (pure)
 src/providers/         AI providers: Ollama over HTTP, and the runner for the Claude Code and Codex CLIs

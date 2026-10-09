@@ -58,6 +58,16 @@ Click **Second layer** to see one more step out: the files that import the calle
 
 ![The second layer: the immediate layer shrunk in the middle, the files that import the callers above it and the files the imports use below it](media/second-layer.png)
 
+## Call chain
+
+Put the cursor in a function or method and run **Wayfinder: Show call chain**, from the Command Palette or the editor right-click menu. Wayfinder asks VS Code's call hierarchy (the data behind **Show Call Hierarchy**) for the callers up to 3 levels and the callees down to 3 levels, with at most 20 calls per level. Calls into `node_modules` and built-ins are left out.
+
+- Each call gets a layer from its file name or folder: controller, handler, resolver, service, manager, repo or model. Other files are labelled by depth, such as "Depth 2".
+- A call to an interface method is tagged interface, because the call hierarchy stops at the interface and does not name the class that runs.
+- With the cursor outside any function, VS Code shows "No function at the cursor."
+
+The map does not draw the chain yet.
+
 ## AI scan
 
 1. Install [Ollama](https://ollama.com) and pull a model, for example `ollama pull qwen2.5-coder:1.5b`.
