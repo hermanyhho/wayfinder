@@ -15,8 +15,6 @@ export interface ChainCardView { key: string; x: number; y: number; w: number; c
 export interface ChainDeeperView { direction: CallDirection; x: number; y: number; }
 export interface CallChainLayout { lanes: ChainLaneView[]; cards: ChainCardView[]; toggles: GroupToggleView[]; wires: WireView[]; ports: PortView[]; deeper: ChainDeeperView[]; height: number; }
 
-const SIDE_COLORS: Record<ChainSide, string> = { callers: "blue", root: "green", callees: "violet" };
-
 const cardKeyOf = (side: CallDirection, levelIndex: number, callIndex: number) => `chain:${side}:${levelIndex}:${callIndex}`;
 
 interface Lane { key: string; side: ChainSide; levelIndex: number; calls: LevelCall[]; }
@@ -54,7 +52,7 @@ export function layoutCallChain(chain: CallChain, open: Record<string, boolean>,
       const inRow = Math.min(MAX_PER_ROW, shown.length - row * MAX_PER_ROW);
       const startX = cardsX + Math.round((cardsW - (inRow * cardW + (inRow - 1) * COL_GAP)) / 2);
       const key = lane.side === "root" ? ROOT_CARD_KEY : cardKeyOf(lane.side, lane.levelIndex, callIndex);
-      const card = { key, x: startX + (callIndex % MAX_PER_ROW) * (cardW + COL_GAP), y: y + LANE_PADDING + row * ROW_H, w: cardW, cls: `${SIDE_COLORS[lane.side]}${isRoot ? " sel" : ""}`, call, isRoot };
+      const card = { key, x: startX + (callIndex % MAX_PER_ROW) * (cardW + COL_GAP), y: y + LANE_PADDING + row * ROW_H, w: cardW, cls: isRoot ? "green sel" : "grey", call, isRoot };
       cards.push(card);
       cardByKey.set(key, card);
     });
@@ -77,7 +75,6 @@ export function layoutCallChain(chain: CallChain, open: Record<string, boolean>,
   const ports: PortView[] = [];
   const linkKeyOf = (side: CallDirection, levelIndex: number, linkedIndex: number) => (levelIndex === 0 ? ROOT_CARD_KEY : cardKeyOf(side, levelIndex - 1, linkedIndex));
   for (const side of ["callers", "callees"] as const) {
-    const color = SIDE_COLORS[side];
     chain[side].forEach((level, levelIndex) =>
       level.calls.forEach((call, callIndex) => {
         const card = cardByKey.get(cardKeyOf(side, levelIndex, callIndex));
@@ -87,8 +84,8 @@ export function layoutCallChain(chain: CallChain, open: Record<string, boolean>,
           if (!linked) continue;
           const [upper, lower] = side === topSide ? [card, linked] : [linked, card];
           const route = routeWire({ ...upper, h: NODE_H }, { ...lower, h: NODE_H });
-          wires.push({ cls: color, d: route.d });
-          ports.push({ cls: color, x: route.x1, y: route.y1, incoming: false }, { cls: color, x: route.x2, y: route.y2, incoming: true });
+          wires.push({ cls: "grey", d: route.d });
+          ports.push({ cls: "grey", x: route.x1, y: route.y1, incoming: false }, { cls: "grey", x: route.x2, y: route.y2, incoming: true });
         }
       }),
     );

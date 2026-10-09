@@ -1,5 +1,5 @@
 import type { AiScanState, AiStatus, ColumnFocusChange, HostMessage, WebviewMessage } from "../shared/messages";
-import type { CallChain, CallDirection, Fact, ViewData } from "../shared/viewData";
+import type { CallChain, CallDirection, ChainCall, Fact, ViewData } from "../shared/viewData";
 import { ROOT_CARD_KEY, layoutCallChain } from "./callChainLayout";
 import { COLUMN_ORDER, MAX_CANVAS_W, MIN_CANVAS_W, columnAfter, layout, visibleColumnBoxes, type ColumnKey, type Layout, type SearchByColumn, type UiState } from "./layout";
 import { navigationCards, nextCardKey, nextChainCardKey, type ArrowKey, type NavigationCard } from "./keyboardNavigation";
@@ -35,6 +35,9 @@ let chainCallersOnTop = true;
 /** lanes of the call chain with "Show N more" on, by lane key */
 let chainOpen: Record<string, boolean> = {};
 let renderedChainRoot = "";
+let chainHistory: ChainCall[] = [];
+/** set while the webview waits for a re-centre or Back; a new root that arrives without it is a fresh open */
+let chainRequestKeepsHistory = false;
 const rootKeyOf = (callChain: CallChain) => `${callChain.root.file}:${callChain.root.line}:${callChain.root.name}`;
 
 window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
@@ -63,7 +66,11 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
   let newChainRoot = false;
   if (message.type === "callChain") {
     newChainRoot = !chain || rootKeyOf(chain) !== rootKeyOf(message.chain);
-    if (newChainRoot) chainOpen = {};
+    if (newChainRoot) {
+      chainOpen = {};
+      if (!chainRequestKeepsHistory) chainHistory = [];
+      chainRequestKeepsHistory = false;
+    }
     chain = message.chain;
     chainCallersOnTop = message.callersOnTop;
     showingChain = true;
@@ -78,7 +85,8 @@ document.addEventListener("click", (event) => {
   if (!target) return;
   const { action: kind, id, value } = target.dataset;
   if (kind === "back-to-map") return showMap();
-  if (kind === "chain-centre" && id && value) return vscode.postMessage({ type: "showCallChain", file: id, line: Number(value) });
+  if (kind === "chain-centre") return;
+  if (kind === "chain-back") return showPreviousChainRoot();
   if (kind === "chain-flip") return vscode.postMessage({ type: "flipCallChain" });
   if (kind === "chain-deeper" && value) return vscode.postMessage({ type: "extendCallChain", direction: value as CallDirection });
   if (kind === "chain-toggle" && value) {
@@ -108,6 +116,11 @@ document.addEventListener("click", (event) => {
     vscode.postMessage({ type: "scan" });
   }
   render();
+});
+
+document.addEventListener("dblclick", (event) => {
+  const card = (event.target as HTMLElement).closest<HTMLElement>('[data-action="chain-centre"]');
+  if (card) centreChainOn(card);
 });
 
 document.addEventListener("input", (event) => {
@@ -169,7 +182,13 @@ function handleCallChainKey(event: KeyboardEvent, target: HTMLElement): void {
   if (event.metaKey || event.ctrlKey || event.altKey) return;
   if (event.key === "Escape") {
     event.preventDefault();
-    showMap();
+    if (chainHistory.length) showPreviousChainRoot();
+    else showMap();
+    return;
+  }
+  if (event.key === "Enter" && target.dataset.action === "chain-centre") {
+    event.preventDefault();
+    centreChainOn(target);
     return;
   }
   if (!ARROW_KEYS.has(event.key)) return;
@@ -179,7 +198,27 @@ function handleCallChainKey(event: KeyboardEvent, target: HTMLElement): void {
   if (nextKey) focusCard(nextKey);
 }
 
+function requestChainKeepingHistory(file: string, line: number): void {
+  chainRequestKeepsHistory = true;
+  vscode.postMessage({ type: "showCallChain", file, line });
+}
+
+function centreChainOn(card: HTMLElement): void {
+  const { id: file, value: line } = card.dataset;
+  if (!chain || !file || !line) return;
+  chainHistory = [...chainHistory, chain.root];
+  requestChainKeepingHistory(file, Number(line));
+}
+
+function showPreviousChainRoot(): void {
+  const previousRoot = chainHistory.at(-1);
+  if (!previousRoot) return;
+  chainHistory = chainHistory.slice(0, -1);
+  requestChainKeepingHistory(previousRoot.file, previousRoot.line);
+}
+
 function showMap(): void {
+  chainHistory = [];
   showingChain = false;
   render();
   if (view) focusCard(view.openFile);
@@ -298,7 +337,7 @@ function renderCallChainView(callChain: CallChain, remeasured: boolean): void {
   const result = layoutCallChain(callChain, chainOpen, renderedWidth, chainCallersOnTop);
   map.classList.add("chain");
   map.classList.toggle("keep-nodes", sameRoot);
-  map.innerHTML = renderCallChain(result, callChain, renderedWidth);
+  map.innerHTML = renderCallChain(result, callChain, renderedWidth, chainHistory.at(-1)?.name);
   renderedChainRoot = rootKey;
   // the map renders from scratch when it comes back, so its scroll and pop-in do not carry over from the chain
   renderedView = null;

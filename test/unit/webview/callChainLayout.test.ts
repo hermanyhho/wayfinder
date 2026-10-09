@@ -48,7 +48,16 @@ describe("when laying out the call chain of a service method", () => {
   it("should draw one wire for each link between neighbouring lanes", () => {
     const { wires } = layoutCallChain(invoiceChain(), {}, WIDTH, true);
 
-    expect(wires.map((wire) => wire.cls)).toEqual(["blue", "violet", "violet", "violet", "violet"]);
+    expect(wires).toHaveLength(5);
+  });
+
+  it("should colour the root card green and every other card, wire and port grey", () => {
+    const { cards, wires, ports } = layoutCallChain(invoiceChain(), {}, WIDTH, true);
+
+    expect({
+      root: cards.filter((card) => card.isRoot).map((card) => card.cls),
+      others: new Set([...cards.filter((card) => !card.isRoot), ...wires, ...ports].map((item) => item.cls)),
+    }).toEqual({ root: ["green sel"], others: new Set(["grey"]) });
   });
 });
 
@@ -82,9 +91,10 @@ describe("when a lane has more calls than one row holds", () => {
   });
 
   it("should not draw wires to the hidden calls", () => {
-    const { wires } = layoutCallChain(sixCallers(), {}, WIDTH, true);
+    const collapsed = layoutCallChain(sixCallers(), {}, WIDTH, true);
+    const expanded = layoutCallChain(sixCallers(), { "chain:callers:0": true }, WIDTH, true);
 
-    expect(wires.filter((wire) => wire.cls === "blue")).toHaveLength(4);
+    expect(expanded.wires.length - collapsed.wires.length).toBe(2);
   });
 });
 

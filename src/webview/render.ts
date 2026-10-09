@@ -277,7 +277,7 @@ const renderChainOpenIcon = (card: ChainCardView) =>
 function renderChainCard(card: ChainCardView): string {
   const { call } = card;
   const centreAttributes = card.isRoot ? "" : ` data-action="chain-centre" data-id="${escapeHtml(call.file)}" data-value="${call.line}"`;
-  const title = card.isRoot ? `${call.file}:${call.line}` : `${call.file}:${call.line}\nShow the call chain of ${call.name}`;
+  const title = card.isRoot ? `${call.file}:${call.line}` : `${call.file}:${call.line}\nDouble-click to show the call chain of ${call.name}`;
   return `<button class="nd chaincard ${card.cls} withicon" style="left:${card.x}px;top:${card.y}px;width:${card.w}px"${centreAttributes} data-nav="${card.key}" title="${escapeHtml(title)}"><span class="nh"><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${MEMBER_KIND_ICONS.method}</svg><span class="fname">${escapeHtml(fileNameOf(call.file))}</span>${call.isInterfaceMethod ? '<span class="vis outline">interface</span>' : ""}</span><span class="nn">${escapeHtml(call.name)}</span><span class="np">${escapeHtml([folderOf(call.file), `line ${call.line}`].filter(Boolean).join(" · "))}</span></button>${renderChainOpenIcon(card)}`;
 }
 const renderChainToggle = (toggle: GroupToggleView) =>
@@ -286,10 +286,11 @@ const FLIP_ICON = '<path d="M7 20V4m0 0L3 8m4-4 4 4"></path><path d="M17 4v16m0 
 const renderDeeper = (button: ChainDeeperView) =>
   `<button class="ftog deeper" style="left:${button.x}px;top:${button.y}px" data-action="chain-deeper" data-value="${button.direction}" aria-label="Load one more level of ${button.direction}"><span class="ftic plus"></span>deeper</button>`;
 
-export function renderCallChain(result: CallChainLayout, chain: CallChain, width: number): string {
+export function renderCallChain(result: CallChainLayout, chain: CallChain, width: number, previousRootName: string | undefined): string {
   const levelCount = (levels: CallChain["callers"]) => `${levels.length} level${levels.length === 1 ? "" : "s"}`;
   return `<div class="toolbar">
 <button class="openbtn back" data-action="back-to-map">Back to map</button>
+${previousRootName === undefined ? "" : `<button class="openbtn back" data-action="chain-back" title="Back to ${escapeHtml(previousRootName)}" aria-label="Back to ${escapeHtml(previousRootName)}">Back</button>`}
 <button class="openbtn back flip" data-action="chain-flip" title="Flip call chain direction" aria-label="Flip call chain direction"><svg viewBox="0 0 24 24" aria-hidden="true">${FLIP_ICON}</svg></button>
 <div class="crumb"><span class="k">Call chain</span><b class="mono">${escapeHtml(chain.root.name)}</b><span class="mono">${escapeHtml(chain.root.file)}</span></div>
 <div class="count">Callers: ${levelCount(chain.callers)}. Callees: ${levelCount(chain.callees)}.</div>
