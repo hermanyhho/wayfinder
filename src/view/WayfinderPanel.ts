@@ -16,12 +16,14 @@ import {
   parseExplainReply,
   parseScanReply,
 } from "../ai/scanFile";
+import { buildBranchView } from "../graph/branchChanges";
 import type { CallChainBuilder } from "../graph/callChain";
 import { buildViewData } from "../graph/neighbourhood";
 import { cliLoginState, runCliScan } from "../providers/cliRunner";
 import { OllamaProvider } from "../providers/index";
 import { type AiScanState, type AiStatus, type ColumnFocusChange, type HostMessage, type MemberExplainState, type WebviewMessage, memberKeyOf } from "../shared/messages";
-import type { CallDirection, Member, ViewData } from "../shared/viewData";
+import type { BranchView, CallDirection, Member, ViewData } from "../shared/viewData";
+import { branchDiff } from "../workspace/branchDiff";
 import { gitHistory } from "../workspace/gitFacts";
 import type { WorkspaceIndex } from "../workspace/WorkspaceIndex";
 import { buildCallChainAt } from "./callChain";
@@ -32,6 +34,7 @@ const NUM_CTX = 8192;
 const SCAN_TIMEOUT_MS = 120_000;
 const STATUS_TIMEOUT_MS = 3_000;
 const CURSOR_THROTTLE_MS = 100;
+const BRANCH_REFRESH_DELAY_MS = 500;
 const CALL_DIRECTIONS: readonly unknown[] = ["callers", "callees"] satisfies CallDirection[];
 
 const hashOf = (text: string) => createHash("sha1").update(text).digest("hex");
@@ -115,6 +118,10 @@ export class WayfinderPanel implements vscode.Disposable {
   private latestStatusCheck = 0;
   private readonly stopScansOnClose = new AbortController();
   private callChain: CallChainBuilder<vscode.CallHierarchyItem> | undefined;
+  private showingBranch = false;
+  private lastBranch: BranchView | undefined;
+  private branchTimer: NodeJS.Timeout | undefined;
+  private latestBranchRead = 0;
 
   // the index keeps the folder it was first opened with, and the scan reads the rules file from there
   static rulesRoot(): vscode.Uri | undefined {
@@ -191,6 +198,11 @@ export class WayfinderPanel implements vscode.Disposable {
     WayfinderPanel.current?.showChain(callChain);
   }
 
+  static async showBranchChanges(context: vscode.ExtensionContext, index: WorkspaceIndex): Promise<void> {
+    WayfinderPanel.show(context, index);
+    await WayfinderPanel.current?.setBranchMode(true);
+  }
+
   static changeColumnFocus(change: ColumnFocusChange): void {
     WayfinderPanel.current?.send({ type: "columnFocus", change });
   }
@@ -216,7 +228,10 @@ export class WayfinderPanel implements vscode.Disposable {
       ),
       vscode.window.onDidChangeActiveTextEditor((editor) => this.followEditor(editor)),
       vscode.window.onDidChangeTextEditorSelection((event) => this.scheduleCursor(event.textEditor)),
-      index.onDidChange(() => this.scheduleRefresh()),
+      index.onDidChange(() => {
+        this.scheduleRefresh();
+        this.scheduleBranchRefresh();
+      }),
       vscode.workspace.onDidChangeConfiguration((event) => {
         if (event.affectsConfiguration("wayfinder.ai.instructions") || event.affectsConfiguration("wayfinder.ai.scope")) this.dropStoredScans();
         if (event.affectsConfiguration("wayfinder.ai")) void this.refreshAiStatus();
@@ -237,6 +252,7 @@ export class WayfinderPanel implements vscode.Disposable {
     WayfinderPanel.current = undefined;
     clearTimeout(this.refreshTimer);
     clearTimeout(this.cursorTimer);
+    clearTimeout(this.branchTimer);
     this.marks.dispose();
     for (const disposable of this.disposables) disposable.dispose();
     closeGroupIfOnlyMapLeft(this.mapColumn);
@@ -290,6 +306,7 @@ export class WayfinderPanel implements vscode.Disposable {
         if (this.focusOpenFileWhenReady) this.send({ type: "focusOpenFile" });
         this.focusOpenFileWhenReady = false;
         if (this.callChain) this.sendChain(this.callChain);
+        if (this.showingBranch) await this.sendBranch();
         return;
       case "select": {
         this.selected = message.id;
@@ -327,7 +344,41 @@ export class WayfinderPanel implements vscode.Disposable {
       case "flipCallChain":
         await vscode.workspace.getConfiguration("wayfinder.callChain").update("callersOnTop", !callersOnTop(), vscode.ConfigurationTarget.Global);
         return;
+      case "showBranch":
+        await this.setBranchMode(message.on === true);
+        return;
+      case "copyTestFiles":
+        await this.copyTestFiles();
+        return;
     }
+  }
+
+  private async setBranchMode(on: boolean): Promise<void> {
+    this.showingBranch = on;
+    if (on) await this.sendBranch();
+  }
+
+  private scheduleBranchRefresh(): void {
+    if (!this.showingBranch) return;
+    clearTimeout(this.branchTimer);
+    this.branchTimer = setTimeout(() => void this.sendBranch(), BRANCH_REFRESH_DELAY_MS);
+  }
+
+  // a half-read workspace would list changed files as not in the map, so the view waits for the scan to finish
+  private async sendBranch(): Promise<void> {
+    if (this.index.progress) return;
+    const branchRead = ++this.latestBranchRead;
+    const diff = await branchDiff(this.index.root.fsPath);
+    if (branchRead !== this.latestBranchRead || !this.showingBranch) return;
+    this.lastBranch = buildBranchView(this.index.graph, diff);
+    this.send({ type: "branch", branch: this.lastBranch });
+  }
+
+  private async copyTestFiles(): Promise<void> {
+    if (this.lastBranch?.state !== "changes" || !this.lastBranch.testsToRun.length) return;
+    const tests = this.lastBranch.testsToRun.map((testToRun) => testToRun.test);
+    await vscode.env.clipboard.writeText(tests.join(" "));
+    void vscode.window.showInformationMessage(`Copied ${tests.length} test file path${tests.length === 1 ? "" : "s"}.`);
   }
 
   private showChain(callChain: CallChainBuilder<vscode.CallHierarchyItem>): void {

@@ -1,4 +1,4 @@
-import type { CallChain, CallDirection, Fact, ViewData } from "./viewData";
+import type { BranchView, CallChain, CallDirection, Fact, ViewData } from "./viewData";
 
 export interface AiFinding {
   file: string;
@@ -43,7 +43,8 @@ export type HostMessage =
   | { type: "cursor"; line: number }
   | { type: "focusOpenFile" }
   | { type: "columnFocus"; change: ColumnFocusChange }
-  | { type: "callChain"; chain: CallChain; callersOnTop: boolean };
+  | { type: "callChain"; chain: CallChain; callersOnTop: boolean }
+  | { type: "branch"; branch: BranchView };
 
 export type WebviewMessage =
   | { type: "ready" }
@@ -55,4 +56,6 @@ export type WebviewMessage =
   | { type: "openSettings" }
   | { type: "showCallChain"; file: string; line: number }
   | { type: "extendCallChain"; direction: CallDirection }
-  | { type: "flipCallChain" };
+  | { type: "flipCallChain" }
+  | { type: "showBranch"; on: boolean }
+  | { type: "copyTestFiles" };

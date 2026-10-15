@@ -34,6 +34,16 @@ export function activate(context: vscode.ExtensionContext) {
         void vscode.window.showErrorMessage(`Wayfinder could not build the call chain: ${String(error)}`);
       });
     }),
+    vscode.commands.registerCommand("wayfinder.showBranchChanges", () => {
+      const scanningIndex = startIndex(context);
+      if (!scanningIndex) {
+        void vscode.window.showInformationMessage("Wayfinder needs an open folder.");
+        return;
+      }
+      return WayfinderPanel.showBranchChanges(context, scanningIndex).catch((error: unknown) => {
+        void vscode.window.showErrorMessage(`Wayfinder could not show the branch changes: ${String(error)}`);
+      });
+    }),
     vscode.commands.registerCommand("wayfinder.chooseAiModel", chooseAiModel),
     vscode.commands.registerCommand("wayfinder.createAiRules", createAiRulesFile),
     vscode.commands.registerCommand("wayfinder.returnToEditor", () => WayfinderPanel.returnToEditor()),
