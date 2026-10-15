@@ -294,6 +294,8 @@ const FLIP_ICON = '<path d="M7 20V4m0 0L3 8m4-4 4 4"></path><path d="M17 4v16m0 
 const renderDeeper = (button: ChainDeeperView) =>
   `<button class="ftog deeper" style="left:${button.x}px;top:${button.y}px" data-action="chain-deeper" data-value="${button.direction}" aria-label="Load one more level of ${button.direction}"><span class="ftic plus"></span>deeper</button>`;
 
+export const NO_MAP = `<div class="toolbar"><div class="crumb">Open a TypeScript or JavaScript file to see its map.</div></div>`;
+
 export function renderCallChain(result: CallChainLayout, chain: CallChain, width: number, previousRootName: string | undefined): string {
   const levelCount = (levels: CallChain["callers"]) => `${levels.length} level${levels.length === 1 ? "" : "s"}`;
   return `<div class="toolbar">
