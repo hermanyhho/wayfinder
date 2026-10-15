@@ -113,11 +113,20 @@ const MEMBER_GROUPS: { kind: MemberKind; title: string }[] = [
   { kind: "let", title: "Variables" },
   { kind: "property", title: "Properties" },
   { kind: "method", title: "Methods" },
-  { kind: "suite", title: "Test groups" },
-  { kind: "test", title: "Test cases" },
+  { kind: "suite", title: "Tests" },
 ];
 const SOURCE_ORDER_KINDS: MemberKind[] = ["suite", "test", "prop"];
 const MEMBER_TAGS: Partial<Record<MemberKind, string>> = { suite: "test group", test: "test case" };
+const MAX_TEST_DEPTH = 4;
+const groupKindOf = (member: Member): MemberKind => (member.kind === "test" ? "suite" : member.kind);
+
+// members are in source order, so the test groups around a test case come before it
+function testDepthOf(members: Member[], index: number): number {
+  const member = members[index];
+  if (member.kind !== "suite" && member.kind !== "test") return 0;
+  const depth = members.slice(0, index).filter((outer) => outer.kind === "suite" && outer.endLine >= member.endLine).length;
+  return Math.min(depth, MAX_TEST_DEPTH);
+}
 
 interface ColumnGroup { key: string; heading: { kind: GroupKind; title: string; cls: string } | null; ids: string[]; }
 
@@ -255,7 +264,7 @@ function memberView(member: Member, id: string, box: Box, atCursor: boolean, ui:
   return {
     id, x: box.x, y: box.y, w: box.w, column: "members", cls: atCursor ? "green cur" : "green", tag: tagOf(member), kind: member.kind, name: member.name, line: member.line,
     tooltip: [member.name, member.suiteTitle, `Go to line ${member.line}`].filter(Boolean).join("\n"),
-    path: member.className ?? member.suiteTitle ?? "",
+    path: member.className ?? "",
     ...(member.focus ? { focus: member.focus } : {}),
     ...(member.visibility ? { visibility: member.visibility } : {}),
     ...(usage ? { usage } : {}),
@@ -276,7 +285,7 @@ export function routeWire(from: Omit<Box, "floor">, to: Omit<Box, "floor">) {
   return { d: `M${x1} ${y1} C${x1} ${y1 + k}, ${x2} ${y2 - k}, ${x2} ${y2}`, x1, y1, x2, y2 };
 }
 
-interface CardSizes { heightOf: (id: string) => number; spaceBelowOf: (id: string) => number; }
+interface CardSizes { heightOf: (id: string) => number; spaceBelowOf: (id: string) => number; indentOf: (id: string) => number; }
 
 function layoutColumns(columns: ColumnGroup[][], slots: { key: ColumnKey; x: number }[], searchingColumns: boolean[], ui: UiState, top: number, columnWidth: number, cardSizes: CardSizes) {
   const boxes: Record<string, Box> = {};
@@ -309,7 +318,8 @@ function layoutColumns(columns: ColumnGroup[][], slots: { key: ColumnKey; x: num
           return;
         }
         const height = cardSizes.heightOf(id);
-        boxes[id] = { x: cardX, y: cursor, w: cardW, h: height, floor: COLUMNS_FLOOR };
+        const indent = cardSizes.indentOf(id);
+        boxes[id] = { x: cardX + indent, y: cursor, w: cardW - indent, h: height, floor: COLUMNS_FLOOR };
         cursor += height + ROW_H - NODE_H + cardSizes.spaceBelowOf(id);
       });
       if (!searching && !collapsed && group.ids.length > MAX_PER_GROUP) {
@@ -401,6 +411,7 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
   const dependencyNodes = nodesInColumn("deps");
   const memberIds = view.members.map((_member, index) => memberIdOf(index));
   const memberById = new Map(view.members.map((member, index) => [memberIds[index], member]));
+  const indentByMemberId = new Map(view.members.map((_member, index) => [memberIds[index], testDepthOf(view.members, index) * TREE_INDENT]));
   const implementations = view.members.flatMap((member) => member.implementedBy ?? []);
   const implementationIds = implementations.map((_implementation, index) => `implementation:${index}`);
   const implementationById = new Map(implementations.map((implementation, index) => [implementationIds[index], implementation]));
@@ -412,6 +423,7 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
       const openUseCount = member ? openUsesOf(member, ui).length : 0;
       return openUseCount ? USES_LIST_GAP + openUseCount * USE_ENTRY_H : 0;
     },
+    indentOf: (id) => (indentByMemberId.get(id) ?? 0),
   };
   function testsColumnOf(): { def: ColumnDef; groups: ColumnGroup[] } {
     if (showsImplementations) {
@@ -442,7 +454,7 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
     })),
     members: MEMBER_GROUPS.map((group) => ({
       key: `members:${group.kind}`, heading: { kind: group.kind, title: group.title, cls: "green" },
-      ids: membersInGroupOrder(view.members.flatMap((member, index) => (member.kind === group.kind ? [{ id: memberIds[index], name: member.name }] : [])), group.kind),
+      ids: membersInGroupOrder(view.members.flatMap((member, index) => (groupKindOf(member) === group.kind ? [{ id: memberIds[index], name: member.name }] : [])), group.kind),
     })),
     tests: testsColumn.groups,
   };

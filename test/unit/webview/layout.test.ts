@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildViewData } from "../../../src/graph/neighbourhood";
 import type { ComponentTree, Member } from "../../../src/shared/viewData";
-import { IMPORTS_TAB_KEY, columnAfter, layout, memberAtLine, visibleColumnBoxes, type ColumnKey, type UiState } from "../../../src/webview/layout";
+import { IMPORTS_TAB_KEY, TREE_INDENT, columnAfter, layout, memberAtLine, visibleColumnBoxes, type ColumnKey, type UiState } from "../../../src/webview/layout";
 import { DOCUMENT_SERVICE, analysisOf, graphOf, serviceGraph } from "../helpers/fixtures";
 
 const ui = (patch: Partial<UiState> = {}): UiState => ({ selected: DOCUMENT_SERVICE, layer: 1, open: {}, ...patch });
@@ -346,33 +346,40 @@ describe("when the open file is a test file", () => {
   ];
   const layoutTestFile = (patch: Partial<UiState> = {}) => layout({ ...view(), members: unlinkRelatedTestCases }, ui(patch), 800).inner;
 
-  it("should group suites then tests, each in source order, with the describe title and focus on each card", () => {
+  it("should list test groups and test cases in one group in source order, with the focus on each card", () => {
     const inner = layoutTestFile();
 
-    expect(inner.groupHeadings.filter((heading) => heading.key.startsWith("members:")).map((heading) => heading.text)).toEqual(["Test groups (2)", "Test cases (3)"]);
+    expect(inner.groupHeadings.filter((heading) => heading.key.startsWith("members:")).map((heading) => heading.text)).toEqual(["Tests (5)"]);
     expect(inner.members.map((member) => [member.tag, member.name, member.path, member.line, member.focus])).toEqual([
       ["test group", "Group/hooks/UnlinkRelated", "", 5, undefined],
-      ["test group", "when nothing is linked", "Group/hooks/UnlinkRelated", 13, undefined],
-      ["test case", "unlinks the related group", "Group/hooks/UnlinkRelated", 6, undefined],
-      ["test case", "keeps the group", "Group/hooks/UnlinkRelated", 10, "skip"],
-      ["test case", "does nothing", "when nothing is linked", 14, "only"],
+      ["test case", "unlinks the related group", "", 6, undefined],
+      ["test case", "keeps the group", "", 10, "skip"],
+      ["test group", "when nothing is linked", "", 13, undefined],
     ]);
   });
 
+  it("should indent each card by the number of test groups around it", () => {
+    const inner = layoutTestFile({ open: { "members:suite:more": true } });
+
+    const indents = inner.members.map((member) => member.x - inner.members[0].x);
+
+    expect(indents).toEqual([0, TREE_INDENT, TREE_INDENT, TREE_INDENT, 2 * TREE_INDENT]);
+  });
+
   it("should give each card a tooltip with the full name, the parent test group and the line", () => {
-    const inner = layoutTestFile();
+    const inner = layoutTestFile({ open: { "members:suite:more": true } });
 
     expect(inner.members.map((member) => member.tooltip)).toEqual([
       "Group/hooks/UnlinkRelated\nGo to line 5",
-      "when nothing is linked\nGroup/hooks/UnlinkRelated\nGo to line 13",
       "unlinks the related group\nGroup/hooks/UnlinkRelated\nGo to line 6",
       "keeps the group\nGroup/hooks/UnlinkRelated\nGo to line 10",
+      "when nothing is linked\nGroup/hooks/UnlinkRelated\nGo to line 13",
       "does nothing\nwhen nothing is linked\nGo to line 14",
     ]);
   });
 
   it("should mark the innermost test the cursor is in", () => {
-    const inner = layoutTestFile({ cursorLine: 16 });
+    const inner = layoutTestFile({ cursorLine: 16, open: { "members:suite:more": true } });
 
     expect(inner.members.filter((member) => member.cls.includes("cur")).map((member) => member.name)).toEqual(["does nothing"]);
   });

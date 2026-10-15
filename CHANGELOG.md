@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.0
+
+- Test files: Members shows the test cases nested under their test groups, in source order, in one Tests group.
+
 ## 0.3.0
 
 - Call chain view: callers above and callees below a function, one row per layer (Controller, Service, Repository and so on). Open it with **Wayfinder: Show call chain**, the editor right-click menu, or the icon on a function card. "+ deeper" loads one more level.
