@@ -17,7 +17,7 @@ The columns change with the file:
 
 - **Interface:** the third column is **Implemented by**, with the classes that implement it and the interfaces that extend it.
 - **React component:** the first column has a **Component tree** tab, and Members gets a **Props** group.
-- **Test file:** Members lists the test groups and cases, and the third column is **Tested code**.
+- **Test file:** Members lists the test groups with their test cases nested under them, and the third column is **Tested code**.
 
 ![The map of EmployeeService.ts with ContractService.ts as a red circular import card](media/circular-import.png)
 
