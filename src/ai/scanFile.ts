@@ -1,5 +1,5 @@
-import type { AiFinding, AiScan, AiStatus } from "../shared/messages";
-import type { NodeKind, ViewData } from "../shared/viewData";
+import type { AiFinding, AiScan, AiStatus, MemberExplanation, MemberFinding } from "../shared/messages";
+import type { Member, NodeKind, ViewData } from "../shared/viewData";
 
 // num_ctx 8192 tokens is roughly 24,000 characters; source and rules together take 20,000, which leaves room for the reply
 export const MAX_SOURCE_CHARS = 18_000;
@@ -10,6 +10,11 @@ export const SCAN_SYSTEM_PROMPT = `You review one TypeScript or JavaScript file 
 Reply with JSON only, in this form:
 {"summary": "<two or three plain sentences: what the file does and who uses it>", "findings": [{"file": "<a path from the open file or the related files>", "line": <line number>, "text": "<one sentence: something worth checking>"}]}
 Only name files from the open file or the related files. Return an empty findings list when nothing is worth checking.`;
+
+export const EXPLAIN_SYSTEM_PROMPT = `You explain one part of a TypeScript or JavaScript file to a developer who is new to the codebase.
+Reply with JSON only, in this form:
+{"summary": "<two or three plain sentences: what it does, or for a test what it checks>", "findings": [{"line": <line number>, "text": "<one sentence: something worth checking>"}]}
+Only name line numbers from the lines you were given. Return an empty findings list when nothing is worth checking.`;
 
 export const BUILT_IN_RULES = `- Flag missing error handling around file, network and database calls.
 - Flag code that does something different from what its name says.`;
@@ -78,8 +83,8 @@ function rulesWithin(repoRules: string, userRules: string): { text: string; cut:
   return text.length > MAX_RULES_CHARS ? { text: text.slice(0, MAX_RULES_CHARS), cut: true } : { text, cut: false };
 }
 
-function numberedLinesWithin(source: string, maxChars: number): { text: string; shownCount: number; totalCount: number } {
-  const numberedLines = source.split(/\r?\n/).map((line, index) => `${index + 1}| ${line}`);
+function numberedLinesWithin(source: string, maxChars: number, firstLineNumber = 1): { text: string; shownCount: number; totalCount: number } {
+  const numberedLines = source.split(/\r?\n/).map((line, index) => `${firstLineNumber + index}| ${line}`);
   let shownCount = 0;
   let shownChars = 0;
   while (shownCount < numberedLines.length && shownChars + numberedLines[shownCount].length < maxChars) {
@@ -106,6 +111,47 @@ export function parseScanReply(reply: string, lineCountByFile: ReadonlyMap<strin
   }
   return { summary: parsed.summary.trim(), findings };
 }
+
+const EXPLAINED_KIND_LABELS: Partial<Record<Member["kind"], string>> = { suite: "test group", test: "test case" };
+
+export function buildExplainPrompt(source: string, file: string, member: Member): { prompt: string; firstLine: number; lastLine: number } {
+  const memberSource = source.split(/\r?\n/).slice(member.line - 1, member.endLine).join("\n");
+  const memberLines = numberedLinesWithin(memberSource, MAX_SOURCE_CHARS, member.line);
+  const lastLine = member.line + memberLines.shownCount - 1;
+  const isTest = member.kind === "suite" || member.kind === "test";
+  return {
+    prompt: [
+      `File: ${file}`,
+      `Explain the ${EXPLAINED_KIND_LABELS[member.kind] ?? member.kind} ${[member.className, member.name].filter(Boolean).join(".")}.`,
+      isTest ? "The summary says what it checks." : "The summary says what it does.",
+      memberLines.shownCount < memberLines.totalCount ? `Its source was cut after line ${lastLine} of ${member.endLine}.` : "",
+      "Source, with line numbers:",
+      memberLines.text,
+    ]
+      .filter(Boolean)
+      .join("\n"),
+    firstLine: member.line,
+    lastLine,
+  };
+}
+
+export function parseExplainReply(reply: string, sentLines: { firstLine: number; lastLine: number }): MemberExplanation | undefined {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(reply);
+  } catch {
+    return undefined;
+  }
+  if (!isRecord(parsed) || typeof parsed.summary !== "string" || !parsed.summary.trim()) return undefined;
+  const findings: MemberFinding[] = [];
+  for (const candidate of Array.isArray(parsed.findings) ? parsed.findings : []) {
+    if (isRecord(candidate) && isLineWithin(candidate.line, sentLines) && typeof candidate.text === "string" && candidate.text.trim()) findings.push({ line: candidate.line, text: candidate.text.trim() });
+  }
+  return { summary: parsed.summary.trim(), findings };
+}
+
+const isLineWithin = (line: unknown, sentLines: { firstLine: number; lastLine: number }): line is number =>
+  Number.isInteger(line) && (line as number) >= sentLines.firstLine && (line as number) <= sentLines.lastLine;
 
 export function aiStatusFor(model: string, baseUrl: string, installedModels: string[] | null): AiStatus {
   if (!model) return { ready: false, reason: "no model is set" };

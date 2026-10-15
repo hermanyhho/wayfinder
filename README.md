@@ -68,6 +68,8 @@ Optional. Adds a summary and things worth checking, under the facts from code.
   <img src="media/ai-summary.png" width="290" alt="The Why tab after a scan, with an AI summary of DocumentService">
 </p>
 
+To explain one card in Members (a test group, test case, function, method or class), press the gold sparkle on the card. The answer opens under the card. Press the **AI** tag to hide or show it again without a new request.
+
 Add team rules in `.wayfinder/rules.md` (**Wayfinder: Create AI rules file**), or your own in `wayfinder.ai.instructions`.
 
 ![Wayfinder settings](media/settings.png)
@@ -77,6 +79,7 @@ Add team rules in `.wayfinder/rules.md` (**Wayfinder: Create AI rules file**), o
 - The map and the checks run on your machine and send nothing.
 - Ollama: code goes only to `wayfinder.ai.baseUrl`, by default your own machine.
 - Claude Code or Codex: the open file goes to Anthropic or OpenAI. Wayfinder asks before the first cloud scan in a workspace.
+- Explaining a card sends only that member's own lines.
 - `wayfinder.ai.scope` set to `neighbours` also sends its imports, tests and callers.
 - No model set means AI is off and nothing is sent.
 

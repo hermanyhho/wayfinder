@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { buildViewData } from "../../../src/graph/neighbourhood";
 import type { ComponentTree, Member } from "../../../src/shared/viewData";
-import { IMPORTS_TAB_KEY, TREE_INDENT, columnAfter, layout, memberAtLine, visibleColumnBoxes, type ColumnKey, type UiState } from "../../../src/webview/layout";
+import type { MemberExplainState } from "../../../src/shared/messages";
+import { EXPLAIN_GAP, EXPLAIN_SIDE_BY_SIDE_MIN_W, IMPORTS_TAB_KEY, TREE_INDENT, columnAfter, explainBoxHeight, explainOpenKeyOf, layout, memberAtLine, visibleColumnBoxes, type ColumnKey, type UiState } from "../../../src/webview/layout";
 import { DOCUMENT_SERVICE, analysisOf, graphOf, serviceGraph } from "../helpers/fixtures";
 
 const ui = (patch: Partial<UiState> = {}): UiState => ({ selected: DOCUMENT_SERVICE, layer: 1, open: {}, ...patch });
@@ -748,5 +749,73 @@ describe("when focus mode and the second layer are both on", () => {
 
     const cardCentreInLeftColumn = 16 + 0.9 * (14 + (672 - 28) / 2);
     expect(startX).toBeCloseTo(176 + cardCentreInLeftColumn * 0.56);
+  });
+});
+
+describe("when a member card is explained", () => {
+  const TEST_FILE = "src/services/__tests__/DocumentService.int.test.ts";
+  const suite = { name: "DocumentService", kind: "suite" as const, line: 5, endLine: 40, exported: false };
+  const saves = { name: "should save it with a storage key", kind: "test" as const, line: 10, endLine: 14, exported: false };
+  const rejects = { name: "should reject an empty file", kind: "test" as const, line: 16, endLine: 20, exported: false };
+  const limit = { name: "LIMIT", kind: "const" as const, line: 2, endLine: 2, exported: false };
+  const SAVES_KEY = "10:should save it with a storage key";
+  const done = (summary: string, findingTexts: string[] = []): MemberExplainState => ({
+    state: "done", result: { summary, findings: findingTexts.map((text, index) => ({ line: 11 + index, text })) }, model: "qwen2.5-coder:1.5b", firstLine: 10, lastLine: 14,
+  });
+  const membersLaidOut = (explanations: Record<string, MemberExplainState> | null, open: Record<string, boolean> = {}, focusedColumn?: ColumnKey) => {
+    const testView = { ...buildViewData(graphOf([analysisOf(TEST_FILE)]), TEST_FILE), members: [limit, suite, saves, rejects] };
+    return layout(testView, ui({ selected: TEST_FILE, open, focusedColumn }), 800, {}, explanations).inner.members;
+  };
+  const cardNamed = (members: ReturnType<typeof membersLaidOut>, name: string) => members.find((member) => member.name === name)!;
+
+  it("should give test groups and test cases an explain icon and leave constants out", () => {
+    const members = membersLaidOut({});
+
+    expect(members.filter((member) => member.explain).map((member) => member.name)).toEqual([suite.name, saves.name, rejects.name]);
+  });
+
+  it("should give no card an explain icon when no AI model is ready", () => {
+    const members = membersLaidOut(null);
+
+    expect(members.some((member) => member.explain)).toBe(false);
+  });
+
+  it("should open the box under the card and move the next card down by its height", () => {
+    const closed = membersLaidOut({ [SAVES_KEY]: { state: "loading" } });
+    const opened = membersLaidOut({ [SAVES_KEY]: { state: "loading" } }, { [explainOpenKeyOf(SAVES_KEY)]: true });
+
+    const card = cardNamed(opened, saves.name);
+
+    expect(card.explain?.box).toMatchObject({ x: card.x, y: card.y + 56 + EXPLAIN_GAP, w: card.w, isTest: true });
+    expect(cardNamed(opened, rejects.name).y - cardNamed(closed, rejects.name).y).toBe(EXPLAIN_GAP + card.explain!.box!.h);
+  });
+
+  it("should keep a hidden explanation on the card without a box", () => {
+    const card = cardNamed(membersLaidOut({ [SAVES_KEY]: done("Checks the storage key.") }), saves.name);
+
+    expect(card.explain).toMatchObject({ explanation: { state: "done" }, box: null });
+  });
+
+  it("should put the two sections side by side in focus mode", () => {
+    const card = cardNamed(membersLaidOut({ [SAVES_KEY]: done("Checks the storage key.") }, { [explainOpenKeyOf(SAVES_KEY)]: true }, "members"), saves.name);
+
+    expect(card.explain?.box?.sideBySide).toBe(true);
+  });
+
+  describe("when the box height is estimated", () => {
+    const narrow = 217;
+
+    it("should grow with a longer summary and with more findings", () => {
+      const short = explainBoxHeight(done("Checks the key."), narrow);
+
+      expect(explainBoxHeight(done("Checks the key. ".repeat(20)), narrow)).toBeGreaterThan(short);
+      expect(explainBoxHeight(done("Checks the key.", ["One thing.", "Another thing."]), narrow)).toBeGreaterThan(short);
+    });
+
+    it("should be shorter side by side than stacked for the same text", () => {
+      const explanation = done("Checks the storage key.", ["The key is not checked."]);
+
+      expect(explainBoxHeight(explanation, EXPLAIN_SIDE_BY_SIDE_MIN_W)).toBeLessThan(explainBoxHeight(explanation, EXPLAIN_SIDE_BY_SIDE_MIN_W - 1));
+    });
   });
 });

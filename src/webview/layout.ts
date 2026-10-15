@@ -1,3 +1,4 @@
+import { type MemberExplainState, memberKeyOf } from "../shared/messages";
 import type { ComponentLink, ComponentTree, Fact, Implementation, Member, MemberKind, MemberUse, MemberVisibility, NodeKind, ViewData, ViewNode } from "../shared/viewData";
 
 export const NODE_W = 152;
@@ -24,6 +25,16 @@ const COLUMN_SEARCH_ROW_H = 34;
 export const CLUSTER_SCALE = 0.56;
 export const CAROUSEL_MARGIN = 48;
 export const CAROUSEL_SIDE_SCALE = 0.9;
+export const EXPLAIN_GAP = 6;
+export const EXPLAIN_SIDE_BY_SIDE_MIN_W = 480;
+export const EXPLAIN_PADDING = 10;
+export const EXPLAIN_HEADING_H = 18;
+export const EXPLAIN_TEXT_LINE_H = 18;
+export const EXPLAIN_SECTION_GAP = 12;
+export const EXPLAIN_FOOTER_H = 26;
+export const EXPLAIN_LINE_LINK_W = 52;
+// a wide average for the 12.5px font, so the estimate leaves room rather than cutting text
+const EXPLAIN_CHAR_W = 7;
 
 export interface UiState {
   selected: string;
@@ -50,7 +61,10 @@ export interface TreeRowView { x: number; y: number; w: number; cls: string; nam
 export interface NodeView { id: string; x: number; y: number; w: number; cls: string; kind: NodeKind; tag: string; name: string; path: string; column?: ColumnKey; }
 export interface UsesListView { x: number; y: number; w: number; uses: MemberUse[]; }
 export interface MemberUsageView { text: string; listKey: string | null; list: UsesListView | null; }
-export interface MemberView extends Omit<NodeView, "kind"> { kind: MemberKind; line: number; tooltip: string; focus?: Member["focus"]; visibility?: MemberVisibility; usage?: MemberUsageView; opensFile?: string; }
+export interface ExplainBoxView { x: number; y: number; w: number; h: number; sideBySide: boolean; isTest: boolean; explanation: MemberExplainState; }
+/** box: set while the explanation box under the card is open */
+export interface MemberExplainView { memberKey: string; openKey: string; explanation?: MemberExplainState; box: ExplainBoxView | null; }
+export interface MemberView extends Omit<NodeView, "kind"> { kind: MemberKind; line: number; tooltip: string; focus?: Member["focus"]; visibility?: MemberVisibility; usage?: MemberUsageView; opensFile?: string; explain?: MemberExplainView; }
 /** column: drawn inside that column and moves with it. toColumn: leads from the open file to that column */
 export interface WireView { cls: string; d: string; column?: ColumnKey; toColumn?: ColumnKey; }
 export interface PortView { cls: string; x: number; y: number; incoming: boolean; toColumn?: ColumnKey; }
@@ -141,9 +155,9 @@ const CALLERS_FLOOR = 0;
 const OPEN_FILE_FLOOR = 1;
 const COLUMNS_FLOOR = 2;
 
-export function layout(view: ViewData, ui: UiState, width: number, search: SearchByColumn = {}): Layout {
+export function layout(view: ViewData, ui: UiState, width: number, search: SearchByColumn = {}, explanations: Record<string, MemberExplainState> | null = null): Layout {
   const floorWidth = width - 2 * FLOOR_LEFT;
-  const inner = layoutImmediate(view, ui, floorWidth, search);
+  const inner = layoutImmediate(view, ui, floorWidth, search, explanations);
   return { width, inner: inner.layer, outer: ui.layer === 2 ? layoutSecond(view, ui, inner, width) : null, carousel: inner.carousel };
 }
 
@@ -237,6 +251,11 @@ function openUsesOf(member: Member, ui: UiState): MemberUse[] {
   return usesList && ui.open[usesList.key] ? usesList.uses : [];
 }
 
+function usesListHeight(member: Member, ui: UiState): number {
+  const openUseCount = openUsesOf(member, ui).length;
+  return openUseCount ? USES_LIST_GAP + openUseCount * USE_ENTRY_H : 0;
+}
+
 function memberUsageView(member: Member, box: Box, ui: UiState): MemberUsageView | undefined {
   if (!member.usedIn) return undefined;
   const usesList = usesListOf(member);
@@ -244,6 +263,46 @@ function memberUsageView(member: Member, box: Box, ui: UiState): MemberUsageView
   const openUses = openUsesOf(member, ui);
   const list = openUses.length ? { x: box.x + USES_LIST_INDENT, y: box.y + box.h + USES_LIST_GAP, w: box.w - USES_LIST_INDENT, uses: openUses } : null;
   return { text: usesList.text, listKey: usesList.key, list };
+}
+
+const EXPLAINED_KINDS: MemberKind[] = ["suite", "test", "function", "method", "class"];
+export const explainOpenKeyOf = (memberKey: string) => `explain:${memberKey}`;
+
+function openExplanationOf(member: Member, ui: UiState, explanations: Record<string, MemberExplainState> | null): MemberExplainState | undefined {
+  const memberKey = memberKeyOf(member);
+  return ui.open[explainOpenKeyOf(memberKey)] ? explanations?.[memberKey] : undefined;
+}
+
+const wrappedLineCount = (text: string, width: number) => Math.max(1, Math.ceil((text.length * EXPLAIN_CHAR_W) / Math.max(1, width)));
+
+export function explainBoxHeight(explanation: MemberExplainState, width: number): number {
+  const textWidth = width - 2 * EXPLAIN_PADDING;
+  if (explanation.state === "loading") return 2 * EXPLAIN_PADDING + EXPLAIN_HEADING_H + 2 * EXPLAIN_TEXT_LINE_H;
+  if (explanation.state === "error") return 2 * EXPLAIN_PADDING + EXPLAIN_HEADING_H + wrappedLineCount(explanation.message, textWidth) * EXPLAIN_TEXT_LINE_H + EXPLAIN_FOOTER_H;
+  const sideBySide = width >= EXPLAIN_SIDE_BY_SIDE_MIN_W;
+  const sectionWidth = sideBySide ? (textWidth - EXPLAIN_SECTION_GAP) / 2 : textWidth;
+  const summaryHeight = EXPLAIN_HEADING_H + wrappedLineCount(explanation.result.summary, sectionWidth) * EXPLAIN_TEXT_LINE_H;
+  const findingLineCount = explanation.result.findings.reduce((count, finding) => count + wrappedLineCount(finding.text, sectionWidth - EXPLAIN_LINE_LINK_W), 0);
+  const findingsHeight = EXPLAIN_HEADING_H + Math.max(1, findingLineCount) * EXPLAIN_TEXT_LINE_H;
+  const sectionsHeight = sideBySide ? Math.max(summaryHeight, findingsHeight) : summaryHeight + EXPLAIN_SECTION_GAP + findingsHeight;
+  return 2 * EXPLAIN_PADDING + sectionsHeight + EXPLAIN_FOOTER_H;
+}
+
+function explainSpaceBelow(member: Member, width: number, ui: UiState, explanations: Record<string, MemberExplainState> | null): number {
+  const explanation = openExplanationOf(member, ui, explanations);
+  return explanation ? EXPLAIN_GAP + explainBoxHeight(explanation, width) : 0;
+}
+
+function memberExplainView(member: Member, box: Box, ui: UiState, explanations: Record<string, MemberExplainState> | null): MemberExplainView | undefined {
+  if (!explanations || !EXPLAINED_KINDS.includes(member.kind)) return undefined;
+  const memberKey = memberKeyOf(member);
+  const explanation = explanations[memberKey];
+  const openExplanation = openExplanationOf(member, ui, explanations);
+  const explainBox = openExplanation && {
+    x: box.x, y: box.y + box.h + usesListHeight(member, ui) + EXPLAIN_GAP, w: box.w, h: explainBoxHeight(openExplanation, box.w),
+    sideBySide: box.w >= EXPLAIN_SIDE_BY_SIDE_MIN_W, isTest: member.kind === "suite" || member.kind === "test", explanation: openExplanation,
+  };
+  return { memberKey, openKey: explainOpenKeyOf(memberKey), ...(explanation ? { explanation } : {}), box: explainBox ?? null };
 }
 
 function implementationView(implementation: Implementation, id: string, box: Box): MemberView {
@@ -259,8 +318,9 @@ function tagOf(member: Member): string {
   return MEMBER_TAGS[member.kind] ?? member.kind;
 }
 
-function memberView(member: Member, id: string, box: Box, atCursor: boolean, ui: UiState): MemberView {
+function memberView(member: Member, id: string, box: Box, atCursor: boolean, ui: UiState, explanations: Record<string, MemberExplainState> | null): MemberView {
   const usage = memberUsageView(member, box, ui);
+  const explain = memberExplainView(member, box, ui, explanations);
   return {
     id, x: box.x, y: box.y, w: box.w, column: "members", cls: atCursor ? "green cur" : "green", tag: tagOf(member), kind: member.kind, name: member.name, line: member.line,
     tooltip: [member.name, member.suiteTitle, `Go to line ${member.line}`].filter(Boolean).join("\n"),
@@ -268,6 +328,7 @@ function memberView(member: Member, id: string, box: Box, atCursor: boolean, ui:
     ...(member.focus ? { focus: member.focus } : {}),
     ...(member.visibility ? { visibility: member.visibility } : {}),
     ...(usage ? { usage } : {}),
+    ...(explain ? { explain } : {}),
   };
 }
 
@@ -285,7 +346,8 @@ export function routeWire(from: Omit<Box, "floor">, to: Omit<Box, "floor">) {
   return { d: `M${x1} ${y1} C${x1} ${y1 + k}, ${x2} ${y2 - k}, ${x2} ${y2}`, x1, y1, x2, y2 };
 }
 
-interface CardSizes { heightOf: (id: string) => number; spaceBelowOf: (id: string) => number; indentOf: (id: string) => number; }
+/** spaceBelowOf gets the card width, because an open explanation box wraps its text to it */
+interface CardSizes { heightOf: (id: string) => number; spaceBelowOf: (id: string, width: number) => number; indentOf: (id: string) => number; }
 
 function layoutColumns(columns: ColumnGroup[][], slots: { key: ColumnKey; x: number }[], searchingColumns: boolean[], ui: UiState, top: number, columnWidth: number, cardSizes: CardSizes) {
   const boxes: Record<string, Box> = {};
@@ -320,7 +382,7 @@ function layoutColumns(columns: ColumnGroup[][], slots: { key: ColumnKey; x: num
         const height = cardSizes.heightOf(id);
         const indent = cardSizes.indentOf(id);
         boxes[id] = { x: cardX + indent, y: cursor, w: cardW - indent, h: height, floor: COLUMNS_FLOOR };
-        cursor += height + ROW_H - NODE_H + cardSizes.spaceBelowOf(id);
+        cursor += height + ROW_H - NODE_H + cardSizes.spaceBelowOf(id, cardW - indent);
       });
       if (!searching && !collapsed && group.ids.length > MAX_PER_GROUP) {
         groupToggles.push({ key: moreKey, x: cardX, y: cursor - 6, text: showAll ? "Show fewer" : `Show ${group.ids.length - shownCount} more`, icon: showAll ? "minus" : "plus", column });
@@ -377,7 +439,7 @@ function layoutComponentTree(tree: ComponentTree, componentName: string, ui: UiS
   return { rows, headings, wires: branchPaths.length ? [{ cls: "tree", d: branchPaths.join(" "), column: "deps" as const }] : [], bottom: cursor };
 }
 
-function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search: SearchByColumn): { layer: LayerView; boxes: Record<string, Box>; carousel: CarouselView | null } {
+function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search: SearchByColumn, explanations: Record<string, MemberExplainState> | null): { layer: LayerView; boxes: Record<string, Box>; carousel: CarouselView | null } {
   const immediate = view.nodes.filter((node) => !node.secondLayer);
   const byId = new Map(view.nodes.map((node) => [node.id, node]));
   const center = byId.get(view.openFile)!;
@@ -418,10 +480,9 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
   const showsImplementations = !view.openFileIsTest && view.members.some((member) => member.implementedBy) && nodesInColumn("tests").length === 0;
   const cardSizes: CardSizes = {
     heightOf: (id) => (memberById.get(id)?.usedIn ? MEMBER_WITH_USAGE_H : NODE_H),
-    spaceBelowOf: (id) => {
+    spaceBelowOf: (id, width) => {
       const member = memberById.get(id);
-      const openUseCount = member ? openUsesOf(member, ui).length : 0;
-      return openUseCount ? USES_LIST_GAP + openUseCount * USE_ENTRY_H : 0;
+      return member ? usesListHeight(member, ui) + explainSpaceBelow(member, width, ui, explanations) : 0;
     },
     indentOf: (id) => (indentByMemberId.get(id) ?? 0),
   };
@@ -536,7 +597,7 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
   const cursorIndex = ui.cursorLine === undefined ? -1 : memberAtLine(view.members, ui.cursorLine);
   const cursorMemberId = cursorIndex === -1 ? undefined : memberIds[cursorIndex];
   const members = [
-    ...groupsByColumn.members.flatMap((group) => group.ids).filter((id) => boxes[id]).map((id) => memberView(memberById.get(id)!, id, boxes[id], id === cursorMemberId, ui)),
+    ...groupsByColumn.members.flatMap((group) => group.ids).filter((id) => boxes[id]).map((id) => memberView(memberById.get(id)!, id, boxes[id], id === cursorMemberId, ui, explanations)),
     ...groupsByColumn.tests.flatMap((group) => group.ids).filter((id) => implementationById.has(id) && boxes[id]).map((id) => implementationView(implementationById.get(id)!, id, boxes[id])),
   ];
   const hiddenCursorGroup = cursorMemberId && !boxes[cursorMemberId] ? groupsByColumn.members.find((group) => group.ids.includes(cursorMemberId)) : undefined;

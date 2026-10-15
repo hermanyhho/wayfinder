@@ -35,6 +35,7 @@ The approved design is the Design canvas at https://claude.ai/artifact/MUHcCKRXF
 | Panel: four question tabs at the top (Context, Why, Where, Checks), Context selected first. Context holds the facts and connections, Why holds the AI summary, Checks the AI findings. Replaced the What it does and Connections sections | `<aside class="panel">`, `describe`, `codeAnswer` | 10, 11 |
 | Light and dark themes | `.app` and `.app.light` tokens | 11 |
 | Addition, not in the mockup: focus mode. One column takes the map width less 48px on each side, the other two sit behind it at 0.9 size with their outer edge at the map edge, and moving to another column rotates the three in a loop with an animation. The wires from the open file follow the columns | none | #110 |
+| Addition, not in the mockup: explain a member card. A gold sparkle in the card header (left of the call chain icon) asks the AI about that member only; a gold box opens under the card and moves the cards below down, with "What it checks" or "What it does", "Worth checking" line links, and a footer with the model, the lines sent, "explain again" and close. After an answer the sparkle becomes an AI tag that hides or shows the box. Side by side in focus mode | none (canvas boards 4a, 4b, 4c) | #124 |
 
 Deviations, decided here:
 - Fonts: the extension uses VS Code's own UI and editor fonts. A webview cannot load Google Fonts offline.

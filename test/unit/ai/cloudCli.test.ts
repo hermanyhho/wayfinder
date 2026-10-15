@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cloudCliFor, cloudCliStatus, cloudConsentQuestion, readClaudeReply, readCodexReply } from "../../../src/ai/cloudCli";
+import { CLOUD_CLIS, cloudCliFor, cloudCliStatus, cloudConsentQuestion, readClaudeReply, readCodexReply } from "../../../src/ai/cloudCli";
 import { parseScanReply } from "../../../src/ai/scanFile";
 
 const FILE = "src/services/DocumentService.ts";
@@ -96,5 +96,13 @@ describe("cloudConsentQuestion", () => {
 describe("cloudCliFor", () => {
   it("returns nothing for an Ollama model name", () => {
     expect(cloudCliFor("qwen2.5-coder:1.5b")).toBeUndefined();
+  });
+});
+
+describe("when a cloud CLI is given a system prompt", () => {
+  it("should send that system prompt with every cloud CLI", () => {
+    const sentByCli = CLOUD_CLIS.map((cli) => [...cli.scanArgs("the system prompt"), cli.scanInput("the system prompt", "the prompt")].join("\n"));
+
+    for (const sent of sentByCli) expect(sent).toContain("the system prompt");
   });
 });

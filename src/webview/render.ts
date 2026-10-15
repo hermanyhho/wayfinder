@@ -1,7 +1,7 @@
 import type { AiScanState, AiStatus } from "../shared/messages";
 import type { CallChain, Fact, MemberKind, MemberVisibility, NodeKind, ViewData } from "../shared/viewData";
 import { type CallChainLayout, type ChainCardView, type ChainDeeperView, type ChainLaneView } from "./callChainLayout";
-import { COLUMN_ORDER, TREE_INDENT, type BannerView, type CarouselView, type ColumnKey, type FloorView, type GroupHeadingView, type GroupKind, type GroupToggleView, type LayerView, type Layout, type MemberView, type NodeView, type PortView, type SecondLayerView, type TreeRowView, type UiState, type UsesListView, type WireView } from "./layout";
+import { COLUMN_ORDER, TREE_INDENT, type BannerView, type ExplainBoxView, type CarouselView, type ColumnKey, type FloorView, type GroupHeadingView, type GroupKind, type GroupToggleView, type LayerView, type Layout, type MemberView, type NodeView, type PortView, type SecondLayerView, type TreeRowView, type UiState, type UsesListView, type WireView } from "./layout";
 import { groupChecks, panelFor, type Action, type PanelModel } from "./panelModel";
 
 const HTML_ESCAPES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
@@ -114,8 +114,38 @@ const CHAIN_ICON = '<circle cx="12" cy="4.5" r="2.5"></circle><circle cx="12" cy
 const hasCallChain = (member: MemberView) => !member.opensFile && (member.kind === "function" || member.kind === "method");
 const renderCallChainIcon = (member: MemberView) =>
   `<button class="ndopen" style="left:${member.x + member.w - 22}px;top:${member.y + 1}px" data-action="chain" data-value="${member.line}" title="Show call chain" aria-label="Show call chain of ${escapeHtml(member.name)}"><svg viewBox="0 0 24 24" aria-hidden="true">${CHAIN_ICON}</svg></button>`;
+const SPARKLE_ICON = '<path d="M11 3 12.9 8.6 18.5 10.5l-5.6 1.9L11 18l-1.9-5.6L3.5 10.5l5.6-1.9z"></path><path d="M19 15v6M16 18h6"></path>';
+function renderExplainIcon(member: MemberView): string {
+  const explain = member.explain!;
+  const left = member.x + member.w - (hasCallChain(member) ? 42 : 22);
+  if (explain.explanation?.state === "done") {
+    const label = explain.box ? "Hide explanation" : "Show explanation";
+    return `<button class="ndexplain tagged" style="left:${left}px;top:${member.y + 1}px" data-action="explain" data-value="${escapeHtml(explain.memberKey)}" aria-expanded="${!!explain.box}" title="${label}" aria-label="${label} of ${escapeHtml(member.name)}">AI</button>`;
+  }
+  return `<button class="ndexplain" style="left:${left}px;top:${member.y + 1}px" data-action="explain" data-value="${escapeHtml(explain.memberKey)}" title="Explain" aria-label="Explain ${escapeHtml(member.name)}"><svg viewBox="0 0 24 24" aria-hidden="true">${SPARKLE_ICON}</svg></button>`;
+}
+function renderExplainFooter(memberKey: string, openKey: string, sentText: string): string {
+  return `<div class="exfoot"><span class="exsent">${escapeHtml(sentText)}</span><button class="exagain" data-action="explain-again" data-value="${escapeHtml(memberKey)}">explain again</button><button class="exclose" data-action="toggle" data-value="${escapeHtml(openKey)}" title="Close" aria-label="Close explanation">×</button></div>`;
+}
+function renderExplainBox(member: MemberView, box: ExplainBoxView): string {
+  const { memberKey, openKey } = member.explain!;
+  const style = `left:${box.x}px;top:${box.y}px;width:${box.w}px;height:${box.h}px`;
+  const { explanation } = box;
+  if (explanation.state === "loading") return `<div class="explain loading" style="${style}">${aiHead("Explaining")}<span class="skl"></span><span class="skl short"></span></div>`;
+  if (explanation.state === "error") return `<div class="explain" style="${style}">${aiHead("Explain")}<p>${escapeHtml(explanation.message)}</p>${renderExplainFooter(memberKey, openKey, "")}</div>`;
+  const { summary, findings } = explanation.result;
+  const findingItems = findings.length
+    ? `<ul class="exfind">${findings.map((finding) => `<li><button class="exline" data-action="reveal" data-value="${finding.line}">line ${finding.line}</button><span>${escapeHtml(finding.text)}</span></li>`).join("")}</ul>`
+    : `<p class="exnone">Nothing worth checking.</p>`;
+  const sentLines = explanation.firstLine === explanation.lastLine ? `line ${explanation.firstLine}` : `lines ${explanation.firstLine}-${explanation.lastLine}`;
+  return `<div class="explain${box.sideBySide ? " sidebyside" : ""}" style="${style}"><div class="exsecs"><div class="exsec">${aiHead(box.isTest ? "What it checks" : "What it does")}<p>${escapeHtml(summary)}</p></div><div class="exsec">${aiHead("Worth checking")}${findingItems}</div></div>${renderExplainFooter(memberKey, openKey, `${explanation.model} · sent ${sentLines}`)}</div>`;
+}
+const iconPaddingClass = (member: MemberView) => {
+  const iconCount = (hasCallChain(member) ? 1 : 0) + (member.explain ? 1 : 0);
+  return ["", " withicon", " withicon withchainicon"][iconCount];
+};
 const renderMember = (member: MemberView) =>
-  `<button class="nd ${member.cls}${member.usage ? " withusage" : ""}${hasCallChain(member) ? " withicon" : ""}" style="left:${member.x}px;top:${member.y}px;width:${member.w}px" ${memberClickAttributes(member)} data-nav="${member.id}" title="${escapeHtml(member.tooltip)}"><span class="nh"><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${MEMBER_KIND_ICONS[member.kind]}</svg>${escapeHtml(member.tag)}${member.focus ? `<span class="chip">${member.focus}</span>` : ""}${member.visibility ? renderVisibilityTag(member.visibility) : ""}</span><span class="nn">${escapeHtml(member.name)}</span><span class="np">${escapeHtml(member.path)}</span></button>${hasCallChain(member) ? renderCallChainIcon(member) : ""}${renderMemberUsage(member)}`;
+  `<button class="nd ${member.cls}${member.usage ? " withusage" : ""}${iconPaddingClass(member)}" style="left:${member.x}px;top:${member.y}px;width:${member.w}px" ${memberClickAttributes(member)} data-nav="${member.id}" title="${escapeHtml(member.tooltip)}"><span class="nh"><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${MEMBER_KIND_ICONS[member.kind]}</svg>${escapeHtml(member.tag)}${member.focus ? `<span class="chip">${member.focus}</span>` : ""}${member.visibility ? renderVisibilityTag(member.visibility) : ""}</span><span class="nn">${escapeHtml(member.name)}</span><span class="np">${escapeHtml(member.path)}</span></button>${hasCallChain(member) ? renderCallChainIcon(member) : ""}${member.explain ? renderExplainIcon(member) : ""}${renderMemberUsage(member)}${member.explain?.box ? renderExplainBox(member, member.explain.box) : ""}`;
 const GROUP_ICONS: Record<GroupKind, string> = { ...NODE_KIND_ICONS, ...MEMBER_KIND_ICONS };
 const CHEVRON_ICON = '<path d="m6 9 6 6 6-6"></path>';
 const renderGroupHeading = (heading: GroupHeadingView) =>

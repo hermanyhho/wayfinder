@@ -2,7 +2,7 @@ body { margin: 0; padding: 0; font-family: var(--vscode-font-family, system-ui, 
 .app {
   --bg: #0E1116; --bg2: #0B0E12; --panel: #151A21; --raise: #1A2029; --node: #232A35; --nodehead: #1B212A;
   --floor: #181E27; --floormine: #1C2430; --l1: #232A34; --l2: #2C343F; --l3: #3A4452; --l4: #4D5866;
-  --text: #E7EAEE; --strong: #F2F4F7; --text2: #C3CAD3; --muted: #98A2AE; --faint: #7F8996; --green: #5DD68A; --goldtext: #F2B33D;
+  --text: #E7EAEE; --strong: #F2F4F7; --text2: #C3CAD3; --muted: #98A2AE; --faint: #7F8996; --green: #5DD68A; --goldtext: #F2B33D; --gold: #F2B33D; --goldhover: #F6C565; --ongold: #0E1116;
   --mono: var(--vscode-editor-font-family, ui-monospace, Menlo, monospace);
   display: grid; grid-template-columns: minmax(0, 1fr) 360px; height: 100vh; background: var(--bg); color: var(--text);
 }
@@ -164,7 +164,7 @@ button.tr:hover { color: var(--strong); background: var(--l1); }
 .cluster { position: absolute; left: 0; top: 0; width: 100%; transform-origin: 0 0; transition: transform .6s cubic-bezier(.2, .7, .2, 1); }
 .layer2 { animation: fade .45s ease-out .25s both; }
 .layer2.late { animation-delay: .45s; }
-.keep-nodes .nd, .keep-nodes .ndopen, .keep-nodes .nu, .keep-nodes .tr, .keep-layer2 .layer2 { animation: none; }
+.keep-nodes .nd, .keep-nodes .ndopen, .keep-nodes .ndexplain, .keep-nodes .explain, .keep-nodes .nu, .keep-nodes .tr, .keep-layer2 .layer2 { animation: none; }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 .frame { position: absolute; border: 1.5px solid var(--green); border-radius: 18px; box-shadow: 0 0 0 6px rgba(93, 214, 138, .08); pointer-events: none; }
 .framelabel { position: absolute; left: 16px; width: 136px; display: flex; flex-direction: column; gap: 3px; text-align: left; background: none; border: 0; padding: 0; cursor: pointer; font: inherit; color: inherit; }
@@ -232,3 +232,27 @@ body.vscode-light .aiblock { background: rgba(242, 179, 61, .12); }
 .askai.busy { animation: blink 1.2s ease-in-out infinite; }
 @keyframes blink { 50% { opacity: .35; } }
 .aihint { margin-top: 10px; font-size: 12px; line-height: 17px; color: var(--goldtext); }
+.ndexplain { position: absolute; width: 18px; height: 16px; display: flex; align-items: center; justify-content: center; padding: 0; font: inherit; background: none; border: 0; border-radius: 4px; color: var(--goldtext); opacity: .45; cursor: pointer; animation: pop .35s ease-out both; }
+.ndexplain svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.nd:hover + .ndexplain, .nd:hover + .ndopen + .ndexplain, .ndexplain:hover, .ndexplain:focus-visible, .ndexplain.tagged { opacity: 1; }
+.ndexplain:hover { background: rgba(242, 179, 61, .18); }
+.ndexplain.tagged { height: 14px; margin-top: 1px; font-size: 8.5px; font-weight: 800; letter-spacing: .06em; color: var(--ongold); background: var(--gold); }
+.ndexplain.tagged:hover, .ndexplain.tagged[aria-expanded="true"] { background: var(--goldhover); }
+/* border and padding add up to the 10px padding the layout counts on */
+.explain { position: absolute; box-sizing: border-box; display: flex; flex-direction: column; padding: 9px; font-size: 12.5px; line-height: 18px; color: var(--text); background: color-mix(in oklab, #F2B33D 8%, var(--node)); border: 1px solid rgba(242, 179, 61, .45); border-radius: 7px; overflow-y: auto; box-shadow: 0 6px 16px rgba(0, 0, 0, .35); animation: pop .35s ease-out both; }
+.explain .aih { flex: none; height: 18px; }
+.explain p { margin: 0; text-wrap: pretty; }
+.exsecs { display: flex; flex-direction: column; gap: 12px; }
+.explain.sidebyside .exsecs { flex-direction: row; }
+.explain.sidebyside .exsec { flex: 1; min-width: 0; }
+.exfind { margin: 0; padding: 0; list-style: none; }
+.exfind li { display: flex; gap: 6px; }
+.exline { flex: none; width: 46px; padding: 0; font-family: var(--mono); font-size: 10.5px; line-height: 18px; color: var(--goldtext); text-align: left; background: none; border: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.exline:hover { color: var(--strong); }
+.exnone { color: var(--muted); }
+.exfoot { flex: none; display: flex; align-items: flex-end; gap: 10px; height: 26px; margin-top: auto; font-size: 11px; line-height: 16px; color: var(--muted); }
+.exsent { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.exagain { flex: none; padding: 0; font: inherit; color: var(--goldtext); background: none; border: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.exagain:hover { color: var(--strong); }
+.exclose { flex: none; width: 18px; height: 16px; padding: 0; font: inherit; font-size: 14px; line-height: 16px; color: var(--muted); background: none; border: 0; border-radius: 4px; cursor: pointer; }
+.exclose:hover { color: var(--strong); background: var(--l2); }
