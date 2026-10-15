@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { BUILT_IN_RULES, MAX_RULES_CHARS, MAX_SOURCE_CHARS, aiStatusFor, buildScanPrompt, neighbourFiles, parseScanReply } from "../../../src/ai/scanFile";
+import {
+  BUILT_IN_RULES,
+  MAX_RULES_CHARS,
+  MAX_SOURCE_CHARS,
+  aiStatusFor,
+  buildExplainPrompt,
+  buildScanPrompt,
+  neighbourFiles,
+  parseExplainReply,
+  parseScanReply,
+} from "../../../src/ai/scanFile";
+import type { Member } from "../../../src/shared/viewData";
 import { buildViewData } from "../../../src/graph/neighbourhood";
 import { DOCUMENT_SERVICE, serviceGraph } from "../helpers/fixtures";
 
@@ -172,4 +183,80 @@ describe("aiStatusFor", () => {
     expect(aiStatusFor("qwen2.5-coder:1.5b", baseUrl, ["qwen2.5-coder:1.5b"])).toEqual({ ready: true, model: "qwen2.5-coder:1.5b" });
     expect(aiStatusFor("llama3.2", baseUrl, ["llama3.2:latest"])).toEqual({ ready: true, model: "llama3.2" });
   });
+});
+
+describe("when a member card is explained", () => {
+  const TEST_FILE = "src/services/__tests__/DocumentService.int.test.ts";
+  const fileSource = Array.from({ length: 30 }, (_, index) => `line text ${index + 1}`).join("\n");
+  const memberAt = (line: number, endLine: number, patch: Partial<Member> = {}): Member => ({ name: "should save it with a storage key", kind: "test", line, endLine, exported: false, ...patch });
+
+  describe("when the prompt is built", () => {
+    it("should send only the member's own lines, numbered as in the file", () => {
+      const { prompt } = buildExplainPrompt(fileSource, TEST_FILE, memberAt(10, 12));
+
+      expect(prompt).toContain("10| line text 10\n11| line text 11\n12| line text 12");
+      expect(prompt).not.toContain("line text 9");
+      expect(prompt).not.toContain("line text 13");
+    });
+
+    it("should report the lines that were sent", () => {
+      const sent = buildExplainPrompt(fileSource, TEST_FILE, memberAt(10, 12));
+
+      expect({ firstLine: sent.firstLine, lastLine: sent.lastLine }).toEqual({ firstLine: 10, lastLine: 12 });
+    });
+
+    it("should ask what a test checks and what other members do", () => {
+      const testPrompt = buildExplainPrompt(fileSource, TEST_FILE, memberAt(10, 12)).prompt;
+      const methodPrompt = buildExplainPrompt(fileSource, TEST_FILE, memberAt(10, 12, { kind: "method", name: "save", className: "DocumentService" })).prompt;
+
+      expect(testPrompt).toContain("what it checks");
+      expect(methodPrompt).toContain("what it does");
+      expect(methodPrompt).toContain("DocumentService.save");
+    });
+
+    it("should cut a long member after a whole line and report the last line sent", () => {
+      const longSource = Array.from({ length: 3000 }, (_, index) => `const value${index + 1} = ${index + 1};`).join("\n");
+
+      const sent = buildExplainPrompt(longSource, TEST_FILE, memberAt(1, 3000, { kind: "class" }));
+
+      expect(sent.lastLine).toBeLessThan(3000);
+      expect(sent.prompt).toContain(`${sent.lastLine}| const value${sent.lastLine} = ${sent.lastLine};`);
+      expect(sent.prompt).not.toContain(`${sent.lastLine + 1}| `);
+      expect(sent.prompt).toContain(`cut after line ${sent.lastLine} of 3000`);
+    });
+  });
+
+  describe("when the reply is read", () => {
+    const sentLines = { firstLine: 10, lastLine: 12 };
+
+    it("should read the summary and the findings", () => {
+      const result = parseExplainReply(reply({ summary: " Checks the storage key. ", findings: [{ line: 11, text: " The key is not checked. " }] }), sentLines);
+
+      expect(result).toEqual({ summary: "Checks the storage key.", findings: [{ line: 11, text: "The key is not checked." }] });
+    });
+
+    it("should return undefined when the reply is not JSON or has no summary", () => {
+      expect(parseExplainReply("Sure, here it is", sentLines)).toBeUndefined();
+      expect(parseExplainReply(reply({ summary: " ", findings: [] }), sentLines)).toBeUndefined();
+    });
+
+    it("should drop findings outside the sent lines, on a part line, or with no text", () => {
+      const result = parseExplainReply(
+        reply({
+          summary: "Checks the storage key.",
+          findings: [
+            { line: 9, text: "Before the member." },
+            { line: 13, text: "After the member." },
+            { line: 11.5, text: "Not a whole line." },
+            { line: 11, text: "" },
+            { line: 12, text: "Kept." },
+          ],
+        }),
+        sentLines,
+      );
+
+      expect(result?.findings).toEqual([{ line: 12, text: "Kept." }]);
+    });
+  });
+
 });

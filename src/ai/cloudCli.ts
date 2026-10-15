@@ -1,5 +1,4 @@
 import type { AiStatus } from "../shared/messages";
-import { SCAN_SYSTEM_PROMPT } from "./scanFile";
 
 export type CliLogin = "missing" | "loggedOut" | "loggedIn";
 
@@ -10,8 +9,8 @@ export type CloudCli = {
   company: string;
   loginCheckArgs: string[];
   loginCommand: string;
-  scanArgs: string[];
-  scanInput: (prompt: string) => string;
+  scanArgs: (systemPrompt: string) => string[];
+  scanInput: (systemPrompt: string, prompt: string) => string;
   readReply: (stdout: string) => string;
 };
 
@@ -45,8 +44,8 @@ export const CLOUD_CLIS: CloudCli[] = [
     company: "Anthropic",
     loginCheckArgs: ["auth", "status"],
     loginCommand: "claude auth login",
-    scanArgs: ["-p", "--output-format", "json", "--system-prompt", SCAN_SYSTEM_PROMPT, "--tools", "", "--strict-mcp-config", "--setting-sources", "", "--disable-slash-commands", "--no-session-persistence"],
-    scanInput: (prompt) => prompt,
+    scanArgs: (systemPrompt) => ["-p", "--output-format", "json", "--system-prompt", systemPrompt, "--tools", "", "--strict-mcp-config", "--setting-sources", "", "--disable-slash-commands", "--no-session-persistence"],
+    scanInput: (_systemPrompt, prompt) => prompt,
     readReply: readClaudeReply,
   },
   {
@@ -56,8 +55,8 @@ export const CLOUD_CLIS: CloudCli[] = [
     company: "OpenAI",
     loginCheckArgs: ["login", "status"],
     loginCommand: "codex login",
-    scanArgs: ["exec", "--json", "--skip-git-repo-check", "--ephemeral", "--sandbox", "read-only", "--disable", "shell_tool", "--color", "never", "-"],
-    scanInput: (prompt) => `${SCAN_SYSTEM_PROMPT}\n\n${prompt}`,
+    scanArgs: () => ["exec", "--json", "--skip-git-repo-check", "--ephemeral", "--sandbox", "read-only", "--disable", "shell_tool", "--color", "never", "-"],
+    scanInput: (systemPrompt, prompt) => `${systemPrompt}\n\n${prompt}`,
     readReply: readCodexReply,
   },
 ];

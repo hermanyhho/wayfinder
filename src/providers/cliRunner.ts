@@ -18,10 +18,10 @@ export function cliLoginState(cli: CloudCli, timeoutMs: number): Promise<CliLogi
   });
 }
 
-export function runCliScan(cli: CloudCli, prompt: string, signal: AbortSignal): Promise<string> {
+export function runCliScan(cli: CloudCli, systemPrompt: string, prompt: string, signal: AbortSignal): Promise<string> {
   return new Promise((resolve, reject) => {
     // running outside the workspace stops the CLI from loading the project's CLAUDE.md or AGENTS.md
-    const child = execFile(cli.command, cli.scanArgs, { cwd: tmpdir(), signal, maxBuffer: MAX_OUTPUT_BYTES }, (error, stdout, stderr) => {
+    const child = execFile(cli.command, cli.scanArgs(systemPrompt), { cwd: tmpdir(), signal, maxBuffer: MAX_OUTPUT_BYTES }, (error, stdout, stderr) => {
       if (signal.aborted) return reject(signal.reason);
       // a CLI can exit with an error and still print output that says what went wrong, so the reply reader gets it
       if (error && (isMissingCommand(error) || !stdout.trim())) return reject(new Error(lastLine(stderr) || error.message));
@@ -34,6 +34,6 @@ export function runCliScan(cli: CloudCli, prompt: string, signal: AbortSignal): 
     });
     // the CLI can exit before reading the prompt, and the exit error above already reports that
     child.stdin?.on("error", () => undefined);
-    child.stdin?.end(cli.scanInput(prompt));
+    child.stdin?.end(cli.scanInput(systemPrompt, prompt));
   });
 }

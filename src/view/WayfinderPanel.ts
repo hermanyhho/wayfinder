@@ -3,13 +3,25 @@ import { basename } from "node:path";
 import * as vscode from "vscode";
 import { CLOUD_CLIS, type CloudCli, cloudCliFor, cloudCliStatus, cloudConsentQuestion } from "../ai/cloudCli";
 import { type InstalledModel, type ModelPickerItem, modelPickerItems } from "../ai/modelPicker";
-import { RULES_FILE, SCAN_SYSTEM_PROMPT, STARTER_RULES_FILE, type ScanPromptExtras, aiStatusFor, buildScanPrompt, neighbourFiles, parseScanReply } from "../ai/scanFile";
+import {
+  EXPLAIN_SYSTEM_PROMPT,
+  RULES_FILE,
+  SCAN_SYSTEM_PROMPT,
+  STARTER_RULES_FILE,
+  type ScanPromptExtras,
+  aiStatusFor,
+  buildExplainPrompt,
+  buildScanPrompt,
+  neighbourFiles,
+  parseExplainReply,
+  parseScanReply,
+} from "../ai/scanFile";
 import type { CallChainBuilder } from "../graph/callChain";
 import { buildViewData } from "../graph/neighbourhood";
 import { cliLoginState, runCliScan } from "../providers/cliRunner";
 import { OllamaProvider } from "../providers/index";
-import type { AiScanState, AiStatus, ColumnFocusChange, HostMessage, WebviewMessage } from "../shared/messages";
-import type { CallDirection, ViewData } from "../shared/viewData";
+import { type AiScanState, type AiStatus, type ColumnFocusChange, type HostMessage, type MemberExplainState, type WebviewMessage, memberKeyOf } from "../shared/messages";
+import type { CallDirection, Member, ViewData } from "../shared/viewData";
 import { gitHistory } from "../workspace/gitFacts";
 import type { WorkspaceIndex } from "../workspace/WorkspaceIndex";
 import { buildCallChainAt } from "./callChain";
@@ -81,6 +93,10 @@ function isMapTab(tab: vscode.Tab): boolean {
   return tab.input instanceof vscode.TabInputWebview && tab.input.viewType.endsWith("wayfinder.map");
 }
 
+function explanationsToSend(byMember: Map<string, { explanation: MemberExplainState }> | undefined): Record<string, MemberExplainState> {
+  return Object.fromEntries([...(byMember ?? [])].map(([memberKey, stored]) => [memberKey, stored.explanation]));
+}
+
 export class WayfinderPanel implements vscode.Disposable {
   private static current: WayfinderPanel | undefined;
   private readonly marks = new EditorMarks();
@@ -95,6 +111,7 @@ export class WayfinderPanel implements vscode.Disposable {
   private disposed = false;
   private aiStatus: AiStatus = { ready: false, reason: "checking Ollama" };
   private readonly scans = new Map<string, { textHash: string; scan: AiScanState }>();
+  private readonly explanationsByFileThenMember = new Map<string, Map<string, { textHash: string; explanation: MemberExplainState }>>();
   private latestStatusCheck = 0;
   private readonly stopScansOnClose = new AbortController();
   private callChain: CallChainBuilder<vscode.CallHierarchyItem> | undefined;
@@ -263,6 +280,7 @@ export class WayfinderPanel implements vscode.Disposable {
     this.sendCursor(this.editorFor(this.openFile));
     this.marks.apply(this.editorFor(this.openFile), this.lastView, this.selected ?? this.openFile);
     this.sendScanState(this.openFile).catch(() => undefined);
+    this.sendExplanations(this.openFile).catch(() => undefined);
   }
 
   private async onMessage(message: WebviewMessage): Promise<void> {
@@ -289,6 +307,9 @@ export class WayfinderPanel implements vscode.Disposable {
         return;
       case "scan":
         await this.scanOpenFile();
+        return;
+      case "explain":
+        await this.explainMember(message.line, message.name);
         return;
       case "openSettings":
         await openWayfinderSettings();
@@ -370,20 +391,81 @@ export class WayfinderPanel implements vscode.Disposable {
   private async runScan(text: string, view: ViewData, baseUrl: string, model: string, cloudCli: CloudCli | undefined): Promise<AiScanState> {
     try {
       const { prompt, rulesCut } = buildScanPrompt(text, view, await this.scanExtras(view));
-      const reply = cloudCli
-        ? await runCliScan(cloudCli, prompt, AbortSignal.any([AbortSignal.timeout(SCAN_TIMEOUT_MS), this.stopScansOnClose.signal]))
-        : await new OllamaProvider({ name: "ollama", baseUrl, model }).chat([{ role: "user", content: prompt }], SCAN_SYSTEM_PROMPT, {
-            format: "json",
-            numCtx: NUM_CTX,
-            signal: AbortSignal.timeout(SCAN_TIMEOUT_MS),
-          });
+      const reply = await this.askModel(prompt, SCAN_SYSTEM_PROMPT, baseUrl, model, cloudCli);
       const result = parseScanReply(reply, this.lineCountByFile(view, text));
       return result ? { state: "done", result, rulesCut } : { state: "error", message: "The model's reply could not be read. Try again." };
     } catch (error) {
-      if (error instanceof Error && error.name === "TimeoutError") return { state: "error", message: "The model took too long. Try again." };
-      void this.refreshAiStatus();
-      return { state: "error", message: `The scan failed: ${error instanceof Error ? error.message : String(error)}` };
+      return this.modelFailure(error, "The scan failed");
     }
+  }
+
+  private askModel(prompt: string, systemPrompt: string, baseUrl: string, model: string, cloudCli: CloudCli | undefined): Promise<string> {
+    if (cloudCli) return runCliScan(cloudCli, systemPrompt, prompt, AbortSignal.any([AbortSignal.timeout(SCAN_TIMEOUT_MS), this.stopScansOnClose.signal]));
+    return new OllamaProvider({ name: "ollama", baseUrl, model }).chat([{ role: "user", content: prompt }], systemPrompt, {
+      format: "json",
+      numCtx: NUM_CTX,
+      signal: AbortSignal.timeout(SCAN_TIMEOUT_MS),
+    });
+  }
+
+  private modelFailure(error: unknown, failedText: string): { state: "error"; message: string } {
+    if (error instanceof Error && error.name === "TimeoutError") return { state: "error", message: "The model took too long. Try again." };
+    void this.refreshAiStatus();
+    return { state: "error", message: `${failedText}: ${error instanceof Error ? error.message : String(error)}` };
+  }
+
+  private async explainMember(line: number, name: string): Promise<void> {
+    const file = this.openFile;
+    if (!file) return;
+    const memberKey = memberKeyOf({ line, name });
+    const member = this.lastView?.members.find((candidate) => candidate.line === line && candidate.name === name);
+    // the webview already shows this member as loading, so every early return must send a state back
+    if (!member) return this.storeExplanation(file, memberKey, "", { state: "error", message: "The member is no longer in the file." });
+    if (!this.aiStatus.ready) return this.storeExplanation(file, memberKey, "", { state: "error", message: `AI not set up: ${this.aiStatus.reason}.` });
+    if (this.explanationsByFileThenMember.get(file)?.get(memberKey)?.explanation.state === "loading") return;
+    const modelLabel = this.aiStatus.model;
+    const settings = aiSettings();
+    const cloudCli = cloudCliFor(settings.model);
+    if (cloudCli && !(await this.cloudScanAllowed(file, cloudCli))) {
+      await this.sendExplanations(file);
+      return;
+    }
+    const text = await this.textOf(file).catch(() => undefined);
+    if (text === undefined) return this.storeExplanation(file, memberKey, "", { state: "error", message: "The file could not be read." });
+    const textHash = hashOf(text);
+    this.storeExplanation(file, memberKey, textHash, { state: "loading" });
+    const explanation = await this.runExplain(text, file, member, modelLabel, settings, cloudCli);
+    const textAfterExplain = await this.textOf(file).catch(() => "");
+    if (hashOf(textAfterExplain) === textHash) this.storeExplanation(file, memberKey, textHash, explanation);
+    else {
+      this.explanationsByFileThenMember.get(file)?.delete(memberKey);
+      await this.sendExplanations(file);
+    }
+  }
+
+  private async runExplain(text: string, file: string, member: Member, modelLabel: string, settings: { baseUrl: string; model: string }, cloudCli: CloudCli | undefined): Promise<MemberExplainState> {
+    try {
+      const { prompt, firstLine, lastLine } = buildExplainPrompt(text, file, member);
+      const result = parseExplainReply(await this.askModel(prompt, EXPLAIN_SYSTEM_PROMPT, settings.baseUrl, settings.model, cloudCli), { firstLine, lastLine });
+      return result ? { state: "done", result, model: modelLabel, firstLine, lastLine } : { state: "error", message: "The model's reply could not be read. Try again." };
+    } catch (error) {
+      return this.modelFailure(error, "The explanation failed");
+    }
+  }
+
+  private storeExplanation(file: string, memberKey: string, textHash: string, explanation: MemberExplainState): void {
+    const byMember = this.explanationsByFileThenMember.get(file) ?? new Map();
+    this.explanationsByFileThenMember.set(file, byMember.set(memberKey, { textHash, explanation }));
+    if (file === this.openFile) this.send({ type: "explanations", openFile: file, byMember: explanationsToSend(byMember) });
+  }
+
+  private async sendExplanations(file: string): Promise<void> {
+    const byMember = this.explanationsByFileThenMember.get(file);
+    if (byMember?.size) {
+      const textHash = hashOf(await this.textOf(file));
+      for (const [memberKey, stored] of byMember) if (stored.explanation.state !== "loading" && stored.textHash !== textHash) byMember.delete(memberKey);
+    }
+    if (file === this.openFile) this.send({ type: "explanations", openFile: file, byMember: explanationsToSend(byMember) });
   }
 
   private async cloudScanAllowed(file: string, cloudCli: CloudCli): Promise<boolean> {

@@ -1,7 +1,7 @@
-import type { AiScanState, AiStatus, ColumnFocusChange, HostMessage, WebviewMessage } from "../shared/messages";
+import { type AiScanState, type AiStatus, type ColumnFocusChange, type HostMessage, type MemberExplainState, type WebviewMessage, memberKeyOf } from "../shared/messages";
 import type { CallChain, CallDirection, ChainCall, Fact, ViewData } from "../shared/viewData";
 import { ROOT_CARD_KEY, layoutCallChain } from "./callChainLayout";
-import { COLUMN_ORDER, MAX_CANVAS_W, MIN_CANVAS_W, columnAfter, layout, visibleColumnBoxes, type ColumnKey, type Layout, type SearchByColumn, type UiState } from "./layout";
+import { COLUMN_ORDER, MAX_CANVAS_W, MIN_CANVAS_W, columnAfter, explainOpenKeyOf, layout, visibleColumnBoxes, type ColumnKey, type Layout, type SearchByColumn, type UiState } from "./layout";
 import { navigationCards, nextCardKey, nextChainCardKey, type ArrowKey, type NavigationCard } from "./keyboardNavigation";
 import { answerFor, panelFor, type Action } from "./panelModel";
 import { NO_MAP, renderCallChain, renderMap, renderPanel } from "./render";
@@ -27,6 +27,7 @@ const savedUiByFile = new Map<string, Pick<UiState, "layer" | "open">>();
 const IDLE_SCAN: AiScanState = { state: "idle" };
 let aiStatus: AiStatus | null = null;
 let aiScan: { openFile: string; scan: AiScanState } | null = null;
+let explanations: { openFile: string; byMember: Record<string, MemberExplainState> } | null = null;
 let cards: NavigationCard[] = [];
 const ARROW_KEYS = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
 let chain: CallChain | null = null;
@@ -60,6 +61,7 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
   if (message.type === "git") gitFactsById.set(message.id, message.facts);
   if (message.type === "aiStatus") aiStatus = message.status;
   if (message.type === "ai") aiScan = { openFile: message.openFile, scan: message.scan };
+  if (message.type === "explanations") explanations = { openFile: message.openFile, byMember: message.byMember };
   if (message.type === "cursor") ui = { ...ui, cursorLine: message.line };
   // the carousel keys stay bound while the chain shows, and focus mode would otherwise change behind it
   if (message.type === "columnFocus" && !showingChain) ui = { ...ui, focusedColumn: changedFocusedColumn(message.change) };
@@ -112,12 +114,31 @@ document.addEventListener("click", (event) => {
   if (kind === "ask" && value) action = value as Action;
   if (kind === "reveal" && value) vscode.postMessage({ type: "reveal", line: Number(value) });
   if (kind === "ai-settings") vscode.postMessage({ type: "openSettings" });
+  if (kind === "explain" && value) explainOrToggle(value);
+  if (kind === "explain-again" && value) requestExplanation(value);
   if (kind === "scan") {
     aiScan = { openFile: view.openFile, scan: { state: "loading" } };
     vscode.postMessage({ type: "scan" });
   }
   render();
 });
+
+const explanationsOfOpenFile = () => (view && explanations?.openFile === view.openFile ? explanations.byMember : {});
+
+function explainOrToggle(memberKey: string): void {
+  const explanation = explanationsOfOpenFile()[memberKey];
+  if (!explanation || explanation.state === "error") return requestExplanation(memberKey);
+  const openKey = explainOpenKeyOf(memberKey);
+  ui = { ...ui, open: { ...ui.open, [openKey]: !ui.open[openKey] } };
+}
+
+function requestExplanation(memberKey: string): void {
+  const member = view?.members.find((candidate) => memberKeyOf(candidate) === memberKey);
+  if (!view || !member) return;
+  explanations = { openFile: view.openFile, byMember: { ...explanationsOfOpenFile(), [memberKey]: { state: "loading" } } };
+  ui = { ...ui, open: { ...ui.open, [explainOpenKeyOf(memberKey)]: true } };
+  vscode.postMessage({ type: "explain", line: member.line, name: member.name });
+}
 
 document.addEventListener("input", (event) => {
   const input = event.target as HTMLInputElement;
@@ -274,7 +295,7 @@ function render(remeasured = false): void {
   if (showingChain && chain) return renderCallChainView(chain, remeasured);
   if (!view) return renderNoMap();
   renderedWidth = canvasWidth();
-  const result = layout(view, ui, renderedWidth, searchByColumn);
+  const result = layout(view, ui, renderedWidth, searchByColumn, aiStatus?.ready ? explanationsOfOpenFile() : null);
   const map = document.getElementById("map")!;
   map.classList.remove("chain");
   // every render replaces the html, so without these classes all nodes pop in again on each click
