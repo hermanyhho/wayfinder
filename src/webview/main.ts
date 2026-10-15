@@ -321,9 +321,8 @@ function render(remeasured = false): void {
   else fitMap();
 }
 
-// the call chain can open from a file the map does not cover, and Back to map then has no file to show
+// the host sends no view for a file the map does not cover, so this stays until a supported file opens
 function renderNoMap(): void {
-  if (!chain) return;
   const map = document.getElementById("map")!;
   map.classList.remove("chain");
   map.innerHTML = NO_MAP;
@@ -383,4 +382,5 @@ new ResizeObserver(() => {
     else fitMap();
   });
 }).observe(document.body);
+render();
 vscode.postMessage({ type: "ready" });
