@@ -5,6 +5,8 @@ node_modules/
 out/
 dist/
 build/
+bin/
+obj/
 
 # VS Code extension packages
 *.vsix
