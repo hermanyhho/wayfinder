@@ -54,6 +54,7 @@ Put the cursor in a function and run **Wayfinder: Show call chain**, or click th
 - Callers above, callees below, one row per depth, up to 3 levels each way.
 - **deeper** loads one more level. The flip button swaps callers and callees.
 - Only direct calls are shown. Calls through events, callbacks or dependency injection are not found.
+- Works in any language whose extension gives VS Code a call hierarchy, for example C# (C# Dev Kit), Python (Pylance), Go or Java.
 
 ## AI scan
 
@@ -82,7 +83,7 @@ Add team rules in `.wayfinder/rules.md` (**Wayfinder: Create AI rules file**), o
 
 ## Limits
 
-- TypeScript and JavaScript only.
+- The map covers TypeScript and JavaScript only. The call chain needs the language's extension to provide a call hierarchy.
 - Uses the first workspace folder and its root `tsconfig.json` or `jsconfig.json`.
 - Unsaved changes show after the file is saved.
 
