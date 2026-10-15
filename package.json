@@ -105,14 +105,14 @@
       "editor/context": [
         {
           "command": "wayfinder.showCallChain",
-          "when": "editorLangId =~ /^(typescript|javascript)(react)?$/",
+          "when": "editorHasCallHierarchyProvider",
           "group": "navigation"
         }
       ],
       "commandPalette": [
         {
           "command": "wayfinder.showCallChain",
-          "when": "editorLangId =~ /^(typescript|javascript)(react)?$/"
+          "when": "editorHasCallHierarchyProvider"
         },
         {
           "command": "wayfinder.returnToEditor",

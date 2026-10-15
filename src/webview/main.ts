@@ -4,7 +4,7 @@ import { ROOT_CARD_KEY, layoutCallChain } from "./callChainLayout";
 import { COLUMN_ORDER, MAX_CANVAS_W, MIN_CANVAS_W, columnAfter, explainOpenKeyOf, layout, visibleColumnBoxes, type ColumnKey, type Layout, type SearchByColumn, type UiState } from "./layout";
 import { navigationCards, nextCardKey, nextChainCardKey, type ArrowKey, type NavigationCard } from "./keyboardNavigation";
 import { answerFor, panelFor, type Action } from "./panelModel";
-import { renderCallChain, renderMap, renderPanel } from "./render";
+import { NO_MAP, renderCallChain, renderMap, renderPanel } from "./render";
 
 declare function acquireVsCodeApi(): { postMessage(message: WebviewMessage): void; setState(state: { openFile: string }): void };
 
@@ -96,6 +96,7 @@ document.addEventListener("click", (event) => {
     chainOpen = { ...chainOpen, [value]: !chainOpen[value] };
     return render();
   }
+  if (kind === "open" && id) return vscode.postMessage({ type: "open", id, ...(value ? { line: Number(value) } : {}) });
   if (!view) return;
   if (kind === "chain" && value) return vscode.postMessage({ type: "showCallChain", file: view.openFile, line: Number(value) });
   if (kind === "select" && id && (event.metaKey || event.ctrlKey) && panelFor(view, id).canOpen) {
@@ -111,7 +112,6 @@ document.addEventListener("click", (event) => {
   if (kind === "focus-mode" && value) ui = { ...ui, focusedColumn: ui.focusedColumn === value ? undefined : (value as ColumnKey) };
   if (kind === "focus-column" && value) ui = { ...ui, focusedColumn: value as ColumnKey };
   if (kind === "ask" && value) action = value as Action;
-  if (kind === "open" && id) vscode.postMessage({ type: "open", id, ...(value ? { line: Number(value) } : {}) });
   if (kind === "reveal" && value) vscode.postMessage({ type: "reveal", line: Number(value) });
   if (kind === "ai-settings") vscode.postMessage({ type: "openSettings" });
   if (kind === "explain" && value) explainOrToggle(value);
@@ -293,7 +293,7 @@ document.addEventListener("dblclick", (event) => {
 
 function render(remeasured = false): void {
   if (showingChain && chain) return renderCallChainView(chain, remeasured);
-  if (!view) return;
+  if (!view) return renderNoMap();
   renderedWidth = canvasWidth();
   const result = layout(view, ui, renderedWidth, searchByColumn, aiStatus?.ready ? explanationsOfOpenFile() : null);
   const map = document.getElementById("map")!;
@@ -340,6 +340,14 @@ function render(remeasured = false): void {
   // the first render measures #map, which is wider than .fit by the scrollbar gutter
   if (!remeasured && canvasWidth() !== renderedWidth) render(true);
   else fitMap();
+}
+
+// the host sends no view for a file the map does not cover, so this stays until a supported file opens
+function renderNoMap(): void {
+  const map = document.getElementById("map")!;
+  map.classList.remove("chain");
+  map.innerHTML = NO_MAP;
+  cards = [];
 }
 
 function renderCallChainView(callChain: CallChain, remeasured: boolean): void {
@@ -395,4 +403,5 @@ new ResizeObserver(() => {
     else fitMap();
   });
 }).observe(document.body);
+render();
 vscode.postMessage({ type: "ready" });

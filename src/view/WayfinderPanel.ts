@@ -300,7 +300,7 @@ export class WayfinderPanel implements vscode.Disposable {
         return;
       }
       case "open":
-        if (this.index.graph.files.has(message.id)) await this.showFile(message.id, message.line);
+        if (this.isWorkspaceFile(message.id)) await this.showFile(message.id, message.line);
         return;
       case "reveal":
         if (this.openFile) await this.showFile(this.openFile, message.line);
@@ -340,12 +340,17 @@ export class WayfinderPanel implements vscode.Disposable {
   }
 
   private async showCallChainAtLine(file: string, line: number): Promise<void> {
-    if (!this.index.graph.files.has(file) || !Number.isInteger(line)) return;
+    if (!this.isWorkspaceFile(file) || !Number.isInteger(line)) return;
     const document = await vscode.workspace.openTextDocument(this.index.uriOf(file));
     const textLine = document.lineAt(Math.min(Math.max(line, 1), document.lineCount) - 1);
     const callChain = await buildCallChainAt(this.index, document.uri, new vscode.Position(textLine.lineNumber, textLine.firstNonWhitespaceCharacterIndex));
     if (callChain) this.showChain(callChain);
     else void vscode.window.showInformationMessage(`No function at line ${line} of ${basename(file)}.`);
+  }
+
+  // call chain cards can point at files of any language, and the graph holds only TypeScript and JavaScript
+  private isWorkspaceFile(relativePath: string): boolean {
+    return this.index.relativePath(this.index.uriOf(relativePath)) === relativePath;
   }
 
   private async showFile(path: string, line?: number): Promise<void> {
