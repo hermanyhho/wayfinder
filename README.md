@@ -33,11 +33,13 @@ Open a TypeScript or JavaScript file and press **Cmd+Alt+M** (Ctrl+Alt+M), or cl
 |---|---|
 | Cmd+Alt+M | Open the map, or go back to the editor |
 | Arrow keys | Move between cards |
-| Enter | Select a card, or jump to a member's line |
-| Cmd+Enter | Open the file |
+| Enter | Select a file card |
+| Cmd+Enter | Open the file, or jump to a member's line |
 | `/` | Search the column |
 | Cmd+Alt+Enter | Focus mode on or off |
 | Alt+] / Alt+[ | Next or previous column in focus mode |
+
+To go to a member or test case, press the open icon on its card, or ⌘/Ctrl+click the card. A plain click on the card does nothing. Rows in the **Component tree** tab work the same way.
 
 Use Ctrl in place of Cmd on Windows and Linux. To change a key, search `Wayfinder` in Keyboard Shortcuts. The `wayfinder.shortcut.*` settings turn shortcuts off.
 

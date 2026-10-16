@@ -323,7 +323,7 @@ function memberView(member: Member, id: string, box: Box, atCursor: boolean, ui:
   const explain = memberExplainView(member, box, ui, explanations);
   return {
     id, x: box.x, y: box.y, w: box.w, column: "members", cls: atCursor ? "green cur" : "green", tag: tagOf(member), kind: member.kind, name: member.name, line: member.line,
-    tooltip: [member.name, member.suiteTitle, `Go to line ${member.line}`].filter(Boolean).join("\n"),
+    tooltip: [member.name, member.suiteTitle].filter(Boolean).join("\n"),
     path: member.className ?? "",
     ...(member.focus ? { focus: member.focus } : {}),
     ...(member.visibility ? { visibility: member.visibility } : {}),

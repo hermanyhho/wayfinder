@@ -110,10 +110,11 @@ body.vscode-light .nd { box-shadow: 0 2px 8px rgba(20, 30, 50, .10); }
 .usel { flex: none; font-family: var(--mono); font-size: 10px; color: var(--muted); }
 .ndopen { position: absolute; width: 18px; height: 16px; display: flex; align-items: center; justify-content: center; padding: 0; background: none; border: 0; border-radius: 4px; color: var(--muted); opacity: .6; cursor: pointer; animation: pop .35s ease-out both; }
 .ndopen svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.nd:hover + .ndopen, .nd.sel + .ndopen, .nd.withchainicon:hover + .ndopen + .ndopen, .ndopen:hover, .ndopen:focus-visible { opacity: 1; color: var(--strong); }
+.nd:hover + .ndopen, .nd.sel + .ndopen, .nd.withchainicon:hover + .ndopen + .ndopen, .tr.opens:hover + .ndopen, .ndopen:hover, .ndopen:focus-visible { opacity: 1; color: var(--strong); }
 .ndopen:hover { background: var(--l2); }
 .nd.withicon .nh { padding-right: 26px; }
 .nd.withchainicon .nh { padding-right: 46px; }
+.nd.withthreeicons .nh { padding-right: 66px; }
 div.nd { cursor: default; }
 .nd.chaincard .nh { overflow: hidden; text-transform: none; letter-spacing: normal; }
 .nd.chaincard .nh .fname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -148,8 +149,8 @@ div.nd { cursor: default; }
 .seg.coltabs button { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; padding: 4px 9px 3px; border-radius: 5px; }
 .seg.coltabs button.on { cursor: default; }
 .tr { position: absolute; height: 22px; box-sizing: border-box; display: flex; align-items: baseline; gap: 8px; padding: 0 6px; font: inherit; font-size: 12px; line-height: 22px; color: var(--text2); background: none; border: 0; border-radius: 4px; text-align: left; white-space: nowrap; animation: pop .35s ease-out both; }
-button.tr { cursor: pointer; }
-button.tr:hover { color: var(--strong); background: var(--l1); }
+.tr.opens { padding-right: 26px; }
+.tr.opens:hover { color: var(--strong); background: var(--l1); }
 .trn { overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
 .trl { flex: none; margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--muted); }
 .tr.here { color: var(--c); background: color-mix(in oklab, var(--c) 14%, transparent); box-shadow: inset 0 0 0 1px var(--c); }
@@ -240,7 +241,7 @@ body.vscode-light .aiblock { background: rgba(242, 179, 61, .12); }
 .aihint { margin-top: 10px; font-size: 12px; line-height: 17px; color: var(--goldtext); }
 .ndexplain { position: absolute; width: 18px; height: 16px; display: flex; align-items: center; justify-content: center; padding: 0; font: inherit; background: none; border: 0; border-radius: 4px; color: var(--goldtext); opacity: .45; cursor: pointer; animation: pop .35s ease-out both; }
 .ndexplain svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.nd:hover + .ndexplain, .nd:hover + .ndopen + .ndexplain, .ndexplain:hover, .ndexplain:focus-visible, .ndexplain.tagged { opacity: 1; }
+.nd:hover + .ndopen + .ndexplain, .nd:hover + .ndopen + .ndopen + .ndexplain, .ndexplain:hover, .ndexplain:focus-visible, .ndexplain.tagged { opacity: 1; }
 .ndexplain:hover { background: rgba(242, 179, 61, .18); }
 .ndexplain.tagged { height: 14px; margin-top: 1px; font-size: 8.5px; font-weight: 800; letter-spacing: .06em; color: var(--ongold); background: var(--gold); }
 .ndexplain.tagged:hover, .ndexplain.tagged[aria-expanded="true"] { background: var(--goldhover); }

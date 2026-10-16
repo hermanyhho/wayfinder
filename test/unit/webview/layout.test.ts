@@ -367,15 +367,15 @@ describe("when the open file is a test file", () => {
     expect(indents).toEqual([0, TREE_INDENT, TREE_INDENT, TREE_INDENT, 2 * TREE_INDENT]);
   });
 
-  it("should give each card a tooltip with the full name, the parent test group and the line", () => {
+  it("should give each card a tooltip with the full name and the parent test group", () => {
     const inner = layoutTestFile({ open: { "members:suite:more": true } });
 
     expect(inner.members.map((member) => member.tooltip)).toEqual([
-      "Group/hooks/UnlinkRelated\nGo to line 5",
-      "unlinks the related group\nGroup/hooks/UnlinkRelated\nGo to line 6",
-      "keeps the group\nGroup/hooks/UnlinkRelated\nGo to line 10",
-      "when nothing is linked\nGroup/hooks/UnlinkRelated\nGo to line 13",
-      "does nothing\nwhen nothing is linked\nGo to line 14",
+      "Group/hooks/UnlinkRelated",
+      "unlinks the related group\nGroup/hooks/UnlinkRelated",
+      "keeps the group\nGroup/hooks/UnlinkRelated",
+      "when nothing is linked\nGroup/hooks/UnlinkRelated",
+      "does nothing\nwhen nothing is linked",
     ]);
   });
 
