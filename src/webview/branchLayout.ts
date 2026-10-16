@@ -3,7 +3,8 @@ import { FLOOR_LEFT, MAX_PER_GROUP, NODE_H, ROW_H, type BannerView, type FloorVi
 
 const COLUMN_GAP = 40;
 const COLUMN_PADDING = 14;
-const COLUMN_HEADING_H = 34;
+// leaves room for the title and a two-line description, see .fdesc in styles.css
+const COLUMN_HEADING_H = 64;
 const TOGGLE_H = 28;
 const EMPTY_COLUMN_H = 70;
 const BANNER_GAP = 24;
@@ -35,7 +36,7 @@ const viaText = (file: AffectedFile) => withFolder(`via ${file.via.map(fileNameO
 
 const moreKeyOf = (column: BranchColumnKey) => `branch:${column}:more`;
 
-interface ColumnDef { key: BranchColumnKey; title: string; path: string; cls: string; emptyText: string; cards: { path: string; detail: string; change?: ChangedFile["change"] }[]; }
+interface ColumnDef { key: BranchColumnKey; title: string; description: string; path: string; cls: string; emptyText: string; cards: { path: string; detail: string; change?: ChangedFile["change"] }[]; }
 
 function columnDefs(changes: BranchChanges): ColumnDef[] {
   const others = changes.otherFileCount;
@@ -43,13 +44,14 @@ function columnDefs(changes: BranchChanges): ColumnDef[] {
     {
       key: "changed",
       title: "Changed",
+      description: `Edited on this branch since it left ${changes.base}.`,
       path: others ? `and ${others} other file${others === 1 ? "" : "s"}` : "",
       cls: "green",
       emptyText: "",
       cards: changes.changed.map((file) => ({ path: file.path, change: file.change, detail: withFolder(file.change === "deleted" ? "deleted" : `+${file.linesAdded} −${file.linesRemoved}`, file.path) })),
     },
-    { key: "importsChanged", title: "Imports a changed file", path: "", cls: "blue", emptyText: "No file imports a changed file.", cards: changes.importsChanged.map((file) => ({ path: file.path, detail: viaText(file) })) },
-    { key: "oneStepFurther", title: "One step further", path: "", cls: "blue two", emptyText: "Nothing is one step further.", cards: changes.oneStepFurther.map((file) => ({ path: file.path, detail: viaText(file) })) },
+    { key: "importsChanged", title: "Imports a changed file", description: "Uses a changed file directly. Most likely to break.", path: "", cls: "blue", emptyText: "No file imports a changed file.", cards: changes.importsChanged.map((file) => ({ path: file.path, detail: viaText(file) })) },
+    { key: "oneStepFurther", title: "One step further", description: "Uses a file from the middle column. Less likely to break.", path: "", cls: "blue two", emptyText: "Nothing is one step further.", cards: changes.oneStepFurther.map((file) => ({ path: file.path, detail: viaText(file) })) },
   ];
 }
 
@@ -88,7 +90,7 @@ export function layoutBranch(changes: BranchChanges, open: Record<string, boolea
   });
   const columnsH = Math.max(...placedColumns.map((column) => column.bottom)) - top + 4;
   const floors: FloorView[] = placedColumns.map(({ def, x }) => ({
-    key: def.key, title: def.title, path: def.path, cls: def.cards.length ? "" : "empty", x, y: top, w: columnW, h: columnsH, emptyText: def.cards.length ? "" : def.emptyText, toggle: null,
+    key: def.key, title: def.title, description: def.description, path: def.path, cls: def.cards.length ? "" : "empty", x, y: top, w: columnW, h: columnsH, emptyText: def.cards.length ? "" : def.emptyText, toggle: null,
   }));
 
   const wires: WireView[] = [];

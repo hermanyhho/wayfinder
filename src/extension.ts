@@ -41,7 +41,7 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
       return WayfinderPanel.showBranchChanges(context, scanningIndex).catch((error: unknown) => {
-        void vscode.window.showErrorMessage(`Wayfinder could not show the branch changes: ${String(error)}`);
+        void vscode.window.showErrorMessage(`Wayfinder could not show the impact analysis: ${String(error)}`);
       });
     }),
     vscode.commands.registerCommand("wayfinder.chooseAiModel", chooseAiModel),

@@ -38,7 +38,7 @@ const BRANCH_LEGEND = `<div class="legend">
 
 const renderModeSwitch = (showingBranch: boolean) => `<div class="seg" role="group" aria-label="What to show">
 <button class="${showingBranch ? "" : "on"}" data-action="mode" data-value="file" aria-pressed="${!showingBranch}">This file</button>
-<button class="${showingBranch ? "on" : ""}" data-action="mode" data-value="branch" aria-pressed="${showingBranch}">Branch changes</button>
+<button class="${showingBranch ? "on" : ""}" data-action="mode" data-value="branch" aria-pressed="${showingBranch}">Impact analysis</button>
 </div>`;
 
 const immediateCount = (view: ViewData) => view.nodes.filter((node) => !node.secondLayer && node.kind !== "here" && node.kind !== "expected").length;
@@ -377,7 +377,7 @@ const renderBranchToggle = (toggle: GroupToggleView) =>
   `<button class="ftog" style="left:${toggle.x}px;top:${toggle.y}px" data-action="branch-toggle" data-value="${escapeHtml(toggle.key)}"><span class="ftic ${toggle.icon}"></span>${escapeHtml(toggle.text)}</button>`;
 
 function branchToolbar(branch: BranchView | null): string {
-  if (branch?.state !== "changes") return `<div class="toolbar">${renderModeSwitch(true)}<div class="crumb">${branch ? escapeHtml(branch.reason) : "Reading the branch changes"}</div></div>`;
+  if (branch?.state !== "changes") return `<div class="toolbar">${renderModeSwitch(true)}<div class="crumb">${branch ? escapeHtml(branch.reason) : "Reading the branch diff"}</div></div>`;
   const affected = branch.importsChanged.length + branch.oneStepFurther.length;
   return `<div class="toolbar">
 ${renderModeSwitch(true)}
@@ -386,14 +386,19 @@ ${renderModeSwitch(true)}
 </div>`;
 }
 
+const renderFloorDescription = (floor: FloorView) =>
+  floor.description ? `<div class="fdesc" style="left:${floor.x + 14}px;top:${floor.y + 28}px;width:${floor.w - 28}px">${escapeHtml(floor.description)}</div>` : "";
+
 export function renderBranch(result: BranchLayout | null, branch: BranchView | null, width: number): string {
   if (!result) return branchToolbar(branch);
   return `${branchToolbar(branch)}
+${branch?.state === "changes" ? `<div class="intro">Files this branch changes, and the files that import them. Check these before you merge.</div>` : ""}
 ${BRANCH_LEGEND}
 <div class="ne"><div class="fit"><div class="cv" style="width:${width}px;height:${result.height}px">
 ${result.floors.map(renderFloor).join("")}
 ${renderWires(result.wires)}
 ${result.floors.map(renderFloorHeader).join("")}
+${result.floors.map(renderFloorDescription).join("")}
 ${result.cards.map(renderBranchCard).join("")}
 ${result.toggles.map(renderBranchToggle).join("")}
 ${result.ports.map(renderPort).join("")}
@@ -402,7 +407,7 @@ ${result.banner ? renderBanner(result.banner) : ""}
 }
 
 export function renderBranchPanel(branch: BranchView | null): string {
-  if (branch?.state !== "changes") return `<div class="pcard"><div class="kickrow"><span class="chip pink">Tests to run</span></div><div class="path">${branch ? "No changed files to test." : "Reading the branch changes"}</div></div>`;
+  if (branch?.state !== "changes") return `<div class="pcard"><div class="kickrow"><span class="chip pink">Tests to run</span></div><div class="path">${branch ? "No changed files to test." : "Reading the branch diff"}</div></div>`;
   const tests = branch.testsToRun;
   const rows = tests
     .map((test) => `<li><span class="testpath">${escapeHtml(test.test)}</span><span class="testcovers">${test.covers === test.test ? "changed on this branch" : `covers ${escapeHtml(fileNameOf(test.covers))}`}</span></li>`)

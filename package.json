@@ -42,7 +42,7 @@
       },
       {
         "command": "wayfinder.showBranchChanges",
-        "title": "Wayfinder: Show branch changes"
+        "title": "Wayfinder: Show impact analysis"
       },
       {
         "command": "wayfinder.chooseAiModel",

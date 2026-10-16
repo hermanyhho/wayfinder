@@ -42,6 +42,8 @@ body.vscode-light .green { --c: #17924B; } body.vscode-light .red { --c: #D23A3A
 .flh.mine { background: var(--floormine); }
 .flh .ti { flex: none; font-size: 12px; font-weight: 700; color: var(--text); }
 .flh.mine .ti { color: var(--strong); }
+.intro { padding: 8px 16px 0; font-size: 12.5px; color: var(--muted); }
+.fdesc { position: absolute; font-size: 11px; line-height: 14px; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .flh .fp { overflow: hidden; text-overflow: ellipsis; font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
 .colfocus { position: absolute; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; padding: 0; background: none; border: 0; border-radius: 5px; color: var(--muted); cursor: pointer; }
 .colfocus svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }

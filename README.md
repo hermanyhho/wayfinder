@@ -56,9 +56,9 @@ Put the cursor in a function and run **Wayfinder: Show call chain**, or click th
 - Only direct calls are shown. Calls through events, callbacks or dependency injection are not found.
 - Works in any language whose extension gives VS Code a call hierarchy, for example C# (C# Dev Kit), Python (Pylance), Go or Java.
 
-## Branch changes
+## Impact analysis
 
-Run **Wayfinder: Show branch changes**, or pick **Branch changes** in the map toolbar.
+Run **Wayfinder: Show impact analysis**, or pick **Impact analysis** in the map toolbar.
 
 - Compares the branch with the branch `origin/HEAD` points to, else `main`, else `master`. Includes uncommitted and new files.
 - Three columns: the changed files, the files that import them, and the files one step further.
