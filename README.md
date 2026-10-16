@@ -64,7 +64,7 @@ Run **Wayfinder: Show impact analysis**, or pick **Impact analysis** in the map 
 - Three columns: the changed files, the files that import them, and the files one step further.
 - **Changed files without tests** lists changed files that no test imports.
 - The side panel lists the tests to run. **Copy test files** copies their paths, separated by spaces.
-- Click a card to open that file's map.
+- Each card has two icons: one shows that file's map, one opens the file in the editor. ⌘/Ctrl+click the card also opens the file.
 
 ## AI scan
 

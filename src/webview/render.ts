@@ -363,14 +363,19 @@ ${result.deeper.map(renderDeeper).join("")}
 const BRANCH_CARD_TAGS: Record<BranchColumnKey, string> = { changed: "Changed", importsChanged: "Imports a changed file", oneStepFurther: "One step further" };
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
 
-// a deleted file has no map to open, so its card is not a button
+const renderBranchMapIcon = (card: BranchCardView) =>
+  `<button class="ndopen" style="left:${card.x + card.w - 42}px;top:${card.y + 1}px" data-action="branch-open" data-id="${escapeHtml(card.path)}" title="Show map of this file" aria-label="Show map of ${escapeHtml(fileNameOf(card.path))}"><svg viewBox="0 0 24 24" aria-hidden="true">${NODE_KIND_ICONS.subject}</svg></button>`;
+const renderBranchOpenIcon = (card: BranchCardView) =>
+  `<button class="ndopen" style="left:${card.x + card.w - 22}px;top:${card.y + 1}px" data-action="open" data-id="${escapeHtml(card.path)}" title="Open file (or ⌘/Ctrl+click the card)" aria-label="Open ${escapeHtml(fileNameOf(card.path))}"><svg viewBox="0 0 24 24" aria-hidden="true">${OPEN_ICON}</svg></button>`;
+
+// a deleted file has no file to open and no map, so its card gets no icons
 function renderBranchCard(card: BranchCardView): string {
   const icon = NODE_KIND_ICONS[card.column === "changed" ? "here" : "caller"];
   const changeTag = card.change && card.change !== "modified" ? `<span class="vis filled">${card.change}</span>` : "";
   const content = `<span class="nh"><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${icon}</svg>${BRANCH_CARD_TAGS[card.column]}${changeTag}</span><span class="nn">${escapeHtml(fileNameOf(card.path))}</span><span class="np">${escapeHtml(card.detail)}</span>`;
   const style = `left:${card.x}px;top:${card.y}px;width:${card.w}px`;
   if (card.change === "deleted") return `<div class="nd ${card.cls}" style="${style}" title="${escapeHtml(card.path)}">${content}</div>`;
-  return `<button class="nd ${card.cls}" style="${style}" data-action="branch-open" data-id="${escapeHtml(card.path)}" title="${escapeHtml(card.path)}&#10;Open the map of this file">${content}</button>`;
+  return `<div class="nd ${card.cls} withicon withchainicon" style="${style}" data-action="branch-card" data-id="${escapeHtml(card.path)}" title="${escapeHtml(card.path)}">${content}</div>${renderBranchMapIcon(card)}${renderBranchOpenIcon(card)}`;
 }
 
 const renderBranchToggle = (toggle: GroupToggleView) =>

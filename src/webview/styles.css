@@ -114,6 +114,7 @@ body.vscode-light .nd { box-shadow: 0 2px 8px rgba(20, 30, 50, .10); }
 .ndopen:hover { background: var(--l2); }
 .nd.withicon .nh { padding-right: 26px; }
 .nd.withchainicon .nh { padding-right: 46px; }
+div.nd { cursor: default; }
 .nd.chaincard .nh { overflow: hidden; text-transform: none; letter-spacing: normal; }
 .nd.chaincard .nh .fname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nd.chaincard .nh, .nd.chaincard .nn, .nd.chaincard .np { font-size: var(--vscode-editor-font-size, 13px); line-height: 1.35; }

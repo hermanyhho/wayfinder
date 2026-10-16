@@ -112,6 +112,10 @@ document.addEventListener("click", (event) => {
   }
   if (kind === "open" && id) return vscode.postMessage({ type: "open", id, ...(value ? { line: Number(value) } : {}) });
   if (kind === "mode" && value) return showBranchChanges(value === "branch");
+  if (kind === "branch-card") {
+    if (id && (event.metaKey || event.ctrlKey)) vscode.postMessage({ type: "open", id });
+    return;
+  }
   if (kind === "branch-open" && id) {
     showBranchChanges(false);
     return vscode.postMessage({ type: "open", id });
