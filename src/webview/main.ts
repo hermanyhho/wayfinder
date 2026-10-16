@@ -115,7 +115,8 @@ document.addEventListener("click", (event) => {
   if (kind === "open" && id) return openOrReveal(target);
   if (kind === "modifier-open") {
     if (event.metaKey || event.ctrlKey) return openOrReveal(target);
-    ui = { ...ui, selectedMember: target.dataset.nav ?? treeRowSelectionKey({ file: id!, line: value ? Number(value) : undefined }) };
+    const selectedMember = target.dataset.nav ?? treeRowSelectionKey({ file: id!, line: value ? Number(value) : undefined });
+    ui = { ...ui, selectedMember, ...(view ? { selected: view.openFile } : {}) };
     if (plainCardClickGoesToLine) goToLineOf(target);
     return render();
   }
@@ -140,7 +141,7 @@ document.addEventListener("click", (event) => {
     return;
   }
   if (kind === "select" && id) {
-    ui = { ...ui, selected: id };
+    ui = { ...ui, selected: id, selectedMember: undefined };
     vscode.postMessage({ type: "select", id });
   }
   if (kind === "toggle" && value) ui = { ...ui, open: { ...ui.open, [value]: !ui.open[value] } };

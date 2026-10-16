@@ -92,8 +92,8 @@ body.vscode-light .nd { box-shadow: 0 2px 8px rgba(20, 30, 50, .10); }
 .nd.here { height: 64px; border: 2px solid var(--green); }
 .nd.here .nh { color: #0E1116; background: var(--green); height: 20px; letter-spacing: .14em; }
 .nd.here .nn { font-size: 15px; line-height: 18px; padding-top: 7px; color: var(--strong); }
-.nd.cur { border-color: var(--c); box-shadow: 0 0 0 2px color-mix(in oklab, var(--c) 45%, transparent); }
-.nd.cur.sel { box-shadow: 0 0 0 3px color-mix(in oklab, var(--c) 30%, transparent), 0 6px 16px rgba(0, 0, 0, .35); }
+.nd.cur { box-shadow: inset 3px 0 0 var(--c); }
+.nd.cur.sel { box-shadow: inset 3px 0 0 var(--c), 0 0 0 3px color-mix(in oklab, var(--c) 30%, transparent), 0 6px 16px rgba(0, 0, 0, .35); }
 .nd.here.sel { box-shadow: 0 0 0 5px rgba(93, 214, 138, .22), 0 6px 16px rgba(0, 0, 0, .35); }
 .nd.withusage { height: 72px; }
 .nu { position: absolute; display: flex; align-items: baseline; gap: 6px; height: 14px; font-family: var(--mono); font-size: 10px; line-height: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; pointer-events: none; animation: pop .35s ease-out both; }
