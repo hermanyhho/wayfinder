@@ -110,7 +110,11 @@ document.addEventListener("click", (event) => {
     chainOpen = { ...chainOpen, [value]: !chainOpen[value] };
     return render();
   }
-  if (kind === "open" && id) return vscode.postMessage({ type: "open", id, ...(value ? { line: Number(value) } : {}) });
+  if (kind === "open" && id) return openOrReveal(target);
+  if (kind === "modifier-open") {
+    if (event.metaKey || event.ctrlKey) openOrReveal(target);
+    return;
+  }
   if (kind === "mode" && value) return showBranchChanges(value === "branch");
   if (kind === "branch-card") {
     if (id && (event.metaKey || event.ctrlKey)) vscode.postMessage({ type: "open", id });
@@ -150,6 +154,12 @@ document.addEventListener("click", (event) => {
   }
   render();
 });
+
+function openOrReveal(element: HTMLElement): void {
+  const { id, value } = element.dataset;
+  if (id) vscode.postMessage({ type: "open", id, ...(value ? { line: Number(value) } : {}) });
+  else if (value) vscode.postMessage({ type: "reveal", line: Number(value) });
+}
 
 const explanationsOfOpenFile = () => (view && explanations?.openFile === view.openFile ? explanations.byMember : {});
 
@@ -195,6 +205,10 @@ document.addEventListener("keydown", (event) => {
   const { action, id } = target.dataset;
   // with Alt held, Cmd+Enter is the focus mode key and must not also open the file
   if (event.key === "Enter" && (event.metaKey || event.ctrlKey) && !event.altKey) {
+    if (action === "modifier-open") {
+      event.preventDefault();
+      return openOrReveal(target);
+    }
     if (action !== "select" || !id || !panelFor(view, id).canOpen) return;
     event.preventDefault();
     vscode.postMessage({ type: "open", id });

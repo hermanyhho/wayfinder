@@ -118,18 +118,22 @@ function renderMemberUsage(member: MemberView): string {
 }
 const VISIBILITY_TAG_STYLES: Record<MemberVisibility, string> = { public: "filled", exported: "filled", protected: "outline", private: "dashed", "not exported": "dashed" };
 const renderVisibilityTag = (visibility: MemberVisibility) => `<span class="vis ${VISIBILITY_TAG_STYLES[visibility]}">${visibility}</span>`;
-const memberClickAttributes = (member: MemberView) =>
+const memberOpenAttributes = (member: MemberView) =>
   member.opensFile
-    ? `data-action="open" data-id="${escapeHtml(member.opensFile)}" data-value="${member.line}"`
-    : `data-action="reveal" data-value="${member.line}"`;
+    ? `data-action="open" data-id="${escapeHtml(member.opensFile)}" data-value="${member.line}" title="Open file at line ${member.line} (or ⌘/Ctrl+click the card)" aria-label="Open ${escapeHtml(member.name)} in ${escapeHtml(fileNameOf(member.opensFile))}"`
+    : `data-action="reveal" data-value="${member.line}" title="Go to line ${member.line} (or ⌘/Ctrl+click the card)" aria-label="Go to ${escapeHtml(member.name)} on line ${member.line}"`;
+const renderMemberOpenIcon = (member: MemberView) =>
+  `<button class="ndopen" style="left:${member.x + member.w - 22}px;top:${member.y + 1}px" ${memberOpenAttributes(member)}><svg viewBox="0 0 24 24" aria-hidden="true">${OPEN_ICON}</svg></button>`;
+const memberCardAttributes = (member: MemberView) =>
+  `data-action="modifier-open"${member.opensFile ? ` data-id="${escapeHtml(member.opensFile)}"` : ""} data-value="${member.line}"`;
 const CHAIN_ICON = '<circle cx="12" cy="4.5" r="2.5"></circle><circle cx="12" cy="19.5" r="2.5"></circle><rect x="8.5" y="9" width="7" height="6" rx="1.5"></rect><path d="M12 7v2M12 15v2"></path>';
 const hasCallChain = (member: MemberView) => !member.opensFile && (member.kind === "function" || member.kind === "method");
 const renderCallChainIcon = (member: MemberView) =>
-  `<button class="ndopen" style="left:${member.x + member.w - 22}px;top:${member.y + 1}px" data-action="chain" data-value="${member.line}" title="Show call chain" aria-label="Show call chain of ${escapeHtml(member.name)}"><svg viewBox="0 0 24 24" aria-hidden="true">${CHAIN_ICON}</svg></button>`;
+  `<button class="ndopen" style="left:${member.x + member.w - 42}px;top:${member.y + 1}px" data-action="chain" data-value="${member.line}" title="Show call chain" aria-label="Show call chain of ${escapeHtml(member.name)}"><svg viewBox="0 0 24 24" aria-hidden="true">${CHAIN_ICON}</svg></button>`;
 const SPARKLE_ICON = '<path d="M11 3 12.9 8.6 18.5 10.5l-5.6 1.9L11 18l-1.9-5.6L3.5 10.5l5.6-1.9z"></path><path d="M19 15v6M16 18h6"></path>';
 function renderExplainIcon(member: MemberView): string {
   const explain = member.explain!;
-  const left = member.x + member.w - (hasCallChain(member) ? 42 : 22);
+  const left = member.x + member.w - (hasCallChain(member) ? 62 : 42);
   if (explain.explanation?.state === "done") {
     const label = explain.box ? "Hide explanation" : "Show explanation";
     return `<button class="ndexplain tagged" style="left:${left}px;top:${member.y + 1}px" data-action="explain" data-value="${escapeHtml(explain.memberKey)}" aria-expanded="${!!explain.box}" title="${label}" aria-label="${label} of ${escapeHtml(member.name)}">AI</button>`;
@@ -153,11 +157,11 @@ function renderExplainBox(member: MemberView, box: ExplainBoxView): string {
   return `<div class="explain${box.sideBySide ? " sidebyside" : ""}" style="${style}"><div class="exsecs"><div class="exsec">${aiHead(box.isTest ? "What it checks" : "What it does")}<p>${escapeHtml(summary)}</p></div><div class="exsec">${aiHead("Worth checking")}${findingItems}</div></div>${renderExplainFooter(memberKey, openKey, `${explanation.model} · sent ${sentLines}`)}</div>`;
 }
 const iconPaddingClass = (member: MemberView) => {
-  const iconCount = (hasCallChain(member) ? 1 : 0) + (member.explain ? 1 : 0);
-  return ["", " withicon", " withicon withchainicon"][iconCount];
+  const iconCount = 1 + (hasCallChain(member) ? 1 : 0) + (member.explain ? 1 : 0);
+  return ["", " withicon", " withicon withchainicon", " withicon withchainicon withthreeicons"][iconCount];
 };
 const renderMember = (member: MemberView) =>
-  `<button class="nd ${member.cls}${member.usage ? " withusage" : ""}${iconPaddingClass(member)}" style="left:${member.x}px;top:${member.y}px;width:${member.w}px" ${memberClickAttributes(member)} data-nav="${member.id}" title="${escapeHtml(member.tooltip)}"><span class="nh"><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${MEMBER_KIND_ICONS[member.kind]}</svg>${escapeHtml(member.tag)}${member.focus ? `<span class="chip">${member.focus}</span>` : ""}${member.visibility ? renderVisibilityTag(member.visibility) : ""}</span><span class="nn">${escapeHtml(member.name)}</span><span class="np">${escapeHtml(member.path)}</span></button>${hasCallChain(member) ? renderCallChainIcon(member) : ""}${member.explain ? renderExplainIcon(member) : ""}${renderMemberUsage(member)}${member.explain?.box ? renderExplainBox(member, member.explain.box) : ""}`;
+  `<button class="nd ${member.cls}${member.usage ? " withusage" : ""}${iconPaddingClass(member)}" style="left:${member.x}px;top:${member.y}px;width:${member.w}px" ${memberCardAttributes(member)} data-nav="${member.id}" title="${escapeHtml(member.tooltip)}"><span class="nh"><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${MEMBER_KIND_ICONS[member.kind]}</svg>${escapeHtml(member.tag)}${member.focus ? `<span class="chip">${member.focus}</span>` : ""}${member.visibility ? renderVisibilityTag(member.visibility) : ""}</span><span class="nn">${escapeHtml(member.name)}</span><span class="np">${escapeHtml(member.path)}</span></button>${renderMemberOpenIcon(member)}${hasCallChain(member) ? renderCallChainIcon(member) : ""}${member.explain ? renderExplainIcon(member) : ""}${renderMemberUsage(member)}${member.explain?.box ? renderExplainBox(member, member.explain.box) : ""}`;
 const GROUP_ICONS: Record<GroupKind, string> = { ...NODE_KIND_ICONS, ...MEMBER_KIND_ICONS };
 const CHEVRON_ICON = '<path d="m6 9 6 6 6-6"></path>';
 const renderGroupHeading = (heading: GroupHeadingView) =>
@@ -169,8 +173,10 @@ function renderTreeRow(row: TreeRowView): string {
   const style = `left:${row.x + TREE_INDENT}px;top:${row.y}px;width:${row.w - TREE_INDENT}px`;
   const content = `<span class="trn">${escapeHtml(row.name)}</span><span class="trl">${escapeHtml(row.lineText)}</span>`;
   if (!row.open) return `${toggle}<div class="tr ${row.cls}" style="${style}">${content}</div>`;
-  const lineAttribute = row.open.line === undefined ? "" : ` data-value="${row.open.line}"`;
-  return `${toggle}<button class="tr ${row.cls}" style="${style}" data-action="open" data-id="${escapeHtml(row.open.file)}"${lineAttribute} title="${escapeHtml(row.open.file)}">${content}</button>`;
+  const openAttributes = `data-id="${escapeHtml(row.open.file)}"${row.open.line === undefined ? "" : ` data-value="${row.open.line}"`}`;
+  const target = row.open.line === undefined ? fileNameOf(row.open.file) : `${fileNameOf(row.open.file)} at line ${row.open.line}`;
+  const openIcon = `<button class="ndopen" style="left:${row.x + row.w - 22}px;top:${row.y + 3}px" data-action="open" ${openAttributes} title="Open file (or ⌘/Ctrl+click the row)" aria-label="Open ${escapeHtml(target)}"><svg viewBox="0 0 24 24" aria-hidden="true">${OPEN_ICON}</svg></button>`;
+  return `${toggle}<div class="tr opens ${row.cls}" style="${style}" data-action="modifier-open" ${openAttributes} title="${escapeHtml(row.open.file)}">${content}</div>${openIcon}`;
 }
 const renderGroupToggle = (toggle: GroupToggleView) =>
   `<button class="ftog" style="left:${toggle.x}px;top:${toggle.y}px" data-action="toggle" data-value="${escapeHtml(toggle.key)}"><span class="ftic ${toggle.icon}"></span>${escapeHtml(toggle.text)}</button>`;
