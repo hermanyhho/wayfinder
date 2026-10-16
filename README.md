@@ -39,7 +39,9 @@ Open a TypeScript or JavaScript file and press **Cmd+Alt+M** (Ctrl+Alt+M), or cl
 | Cmd+Alt+Enter | Focus mode on or off |
 | Alt+] / Alt+[ | Next or previous column in focus mode |
 
-To go to a member or test case, press the open icon on its card, or ⌘/Ctrl+click the card. A plain click on the card does nothing. Rows in the **Component tree** tab work the same way.
+To go to a member or test case, click **line N** on its card, press the open icon, or ⌘/Ctrl+click the card. Rows in the **Component tree** tab work the same way. On a tree row, **line N** opens the file that holds that line.
+
+A plain click on a member card or tree row selects it. Set `wayfinder.cardClick` to `goToLine` to make the click also go to the line, the same as **line N**. Impact analysis cards are not affected.
 
 Use Ctrl in place of Cmd on Windows and Linux. To change a key, search `Wayfinder` in Keyboard Shortcuts. The `wayfinder.shortcut.*` settings turn shortcuts off.
 

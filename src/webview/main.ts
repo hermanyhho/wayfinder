@@ -2,7 +2,7 @@ import { type AiScanState, type AiStatus, type ColumnFocusChange, type HostMessa
 import type { BranchView, CallChain, CallDirection, ChainCall, Fact, ViewData } from "../shared/viewData";
 import { layoutBranch } from "./branchLayout";
 import { ROOT_CARD_KEY, layoutCallChain } from "./callChainLayout";
-import { COLUMN_ORDER, MAX_CANVAS_W, MIN_CANVAS_W, columnAfter, explainOpenKeyOf, layout, visibleColumnBoxes, type ColumnKey, type Layout, type SearchByColumn, type UiState } from "./layout";
+import { COLUMN_ORDER, MAX_CANVAS_W, MIN_CANVAS_W, columnAfter, explainOpenKeyOf, layout, treeRowSelectionKey, visibleColumnBoxes, type ColumnKey, type Layout, type SearchByColumn, type UiState } from "./layout";
 import { navigationCards, nextCardKey, nextChainCardKey, type ArrowKey, type NavigationCard } from "./keyboardNavigation";
 import { answerFor, panelFor, type Action } from "./panelModel";
 import { NO_MAP, renderBranch, renderBranchPanel, renderCallChain, renderMap, renderPanel } from "./render";
@@ -34,6 +34,7 @@ const ARROW_KEYS = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
 let chain: CallChain | null = null;
 let showingChain = false;
 let chainCallersOnTop = true;
+let plainCardClickGoesToLine = false;
 /** lanes of the call chain with "Show N more" on, by lane key */
 let chainOpen: Record<string, boolean> = {};
 let renderedChainRoot = "";
@@ -68,6 +69,7 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
   if (message.type === "aiStatus") aiStatus = message.status;
   if (message.type === "ai") aiScan = { openFile: message.openFile, scan: message.scan };
   if (message.type === "explanations") explanations = { openFile: message.openFile, byMember: message.byMember };
+  if (message.type === "cardClick") plainCardClickGoesToLine = message.cardClick === "goToLine";
   if (message.type === "cursor") ui = { ...ui, cursorLine: message.line };
   // the carousel keys stay bound while the chain shows, and focus mode would otherwise change behind it
   if (message.type === "columnFocus" && !showingChain) ui = { ...ui, focusedColumn: changedFocusedColumn(message.change) };
@@ -112,8 +114,11 @@ document.addEventListener("click", (event) => {
   }
   if (kind === "open" && id) return openOrReveal(target);
   if (kind === "modifier-open") {
-    if (event.metaKey || event.ctrlKey) openOrReveal(target);
-    return;
+    if (event.metaKey || event.ctrlKey) return openOrReveal(target);
+    const selectedMember = target.dataset.nav ?? treeRowSelectionKey({ file: id!, line: value ? Number(value) : undefined });
+    ui = { ...ui, selectedMember, ...(view ? { selected: view.openFile } : {}) };
+    if (plainCardClickGoesToLine) goToLineOf(target);
+    return render();
   }
   if (kind === "mode" && value) return showBranchChanges(value === "branch");
   if (kind === "branch-card") {
@@ -136,7 +141,7 @@ document.addEventListener("click", (event) => {
     return;
   }
   if (kind === "select" && id) {
-    ui = { ...ui, selected: id };
+    ui = { ...ui, selected: id, selectedMember: undefined };
     vscode.postMessage({ type: "select", id });
   }
   if (kind === "toggle" && value) ui = { ...ui, open: { ...ui.open, [value]: !ui.open[value] } };
@@ -159,6 +164,11 @@ function openOrReveal(element: HTMLElement): void {
   const { id, value } = element.dataset;
   if (id) vscode.postMessage({ type: "open", id, ...(value ? { line: Number(value) } : {}) });
   else if (value) vscode.postMessage({ type: "reveal", line: Number(value) });
+}
+
+// a component tree row opens its own file, but its line can be in the file that renders it
+function goToLineOf(card: HTMLElement): void {
+  openOrReveal(card.querySelector<HTMLElement>(".trline") ?? card);
 }
 
 const explanationsOfOpenFile = () => (view && explanations?.openFile === view.openFile ? explanations.byMember : {});

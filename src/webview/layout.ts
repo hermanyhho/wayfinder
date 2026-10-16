@@ -44,7 +44,11 @@ export interface UiState {
   cursorLine?: number;
   /** set while focus mode shows this column in the centre */
   focusedColumn?: ColumnKey;
+  /** id of the member card, or selection key of the Component tree row, the user clicked last */
+  selectedMember?: string;
 }
+
+export const treeRowSelectionKey = (open: { file: string; line?: number }) => `tree:${open.file}:${open.line ?? ""}`;
 
 export type ColumnKey = "deps" | "members" | "tests";
 export const COLUMN_ORDER: ColumnKey[] = ["deps", "members", "tests"];
@@ -57,7 +61,7 @@ export interface GroupHeadingView { key: string; x: number; y: number; w: number
 export interface GroupToggleView extends FloorToggle { key: string; x: number; column?: ColumnKey; }
 export interface ColumnTabView { text: string; active: boolean; toggleKey: string; }
 export interface FloorView { key: string; title: string; description?: string; path: string; cls: string; x: number; y: number; w: number; h: number; emptyText: string; toggle: FloorToggle | null; search?: string; tabs?: ColumnTabView[]; column?: ColumnKey; focused?: boolean; }
-export interface TreeRowView { x: number; y: number; w: number; cls: string; name: string; lineText: string; open: { file: string; line?: number } | null; toggleKey: string | null; expanded: boolean; column?: ColumnKey; }
+export interface TreeRowView { x: number; y: number; w: number; cls: string; name: string; lineText: string; open: { file: string; line?: number } | null; lineLink: { file: string; line: number } | null; toggleKey: string | null; expanded: boolean; column?: ColumnKey; }
 export interface NodeView { id: string; x: number; y: number; w: number; cls: string; kind: NodeKind; tag: string; name: string; path: string; column?: ColumnKey; }
 export interface UsesListView { x: number; y: number; w: number; uses: MemberUse[]; }
 export interface MemberUsageView { text: string; listKey: string | null; list: UsesListView | null; }
@@ -305,11 +309,11 @@ function memberExplainView(member: Member, box: Box, ui: UiState, explanations: 
   return { memberKey, openKey: explainOpenKeyOf(memberKey), ...(explanation ? { explanation } : {}), box: explainBox ?? null };
 }
 
-function implementationView(implementation: Implementation, id: string, box: Box): MemberView {
+function implementationView(implementation: Implementation, id: string, box: Box, ui: UiState): MemberView {
   const fileName = implementation.file.slice(implementation.file.lastIndexOf("/") + 1);
   return {
-    id, x: box.x, y: box.y, w: box.w, column: "tests", cls: "blue", tag: implementation.kind === "class" ? "implements" : "extends", kind: implementation.kind, name: implementation.name,
-    line: implementation.line, tooltip: `${implementation.file}:${implementation.line}`, path: `${fileName} · line ${implementation.line}`, opensFile: implementation.file,
+    id, x: box.x, y: box.y, w: box.w, column: "tests", cls: ui.selectedMember === id ? "blue sel" : "blue", tag: implementation.kind === "class" ? "implements" : "extends", kind: implementation.kind, name: implementation.name,
+    line: implementation.line, tooltip: `${implementation.file}:${implementation.line}`, path: fileName, opensFile: implementation.file,
   };
 }
 
@@ -322,7 +326,7 @@ function memberView(member: Member, id: string, box: Box, atCursor: boolean, ui:
   const usage = memberUsageView(member, box, ui);
   const explain = memberExplainView(member, box, ui, explanations);
   return {
-    id, x: box.x, y: box.y, w: box.w, column: "members", cls: atCursor ? "green cur" : "green", tag: tagOf(member), kind: member.kind, name: member.name, line: member.line,
+    id, x: box.x, y: box.y, w: box.w, column: "members", cls: ["green", atCursor ? "cur" : "", ui.selectedMember === id ? "sel" : ""].filter(Boolean).join(" "), tag: tagOf(member), kind: member.kind, name: member.name, line: member.line,
     tooltip: [member.name, member.suiteTitle].filter(Boolean).join("\n"),
     path: member.className ?? "",
     ...(member.focus ? { focus: member.focus } : {}),
@@ -399,7 +403,7 @@ export const TREE_ROW_H = 24;
 export const TREE_INDENT = 16;
 export const IMPORTS_TAB_KEY = "deps:imports";
 
-function layoutComponentTree(tree: ComponentTree, componentName: string, ui: UiState, x: number, top: number, w: number) {
+function layoutComponentTree(tree: ComponentTree, componentFile: string, componentName: string, ui: UiState, x: number, top: number, w: number) {
   const rows: TreeRowView[] = [];
   const headings: GroupHeadingView[] = [];
   const branchPaths: string[] = [];
@@ -408,18 +412,20 @@ function layoutComponentTree(tree: ComponentTree, componentName: string, ui: UiS
     const trunkX = parentX + TREE_INDENT / 2;
     branchPaths.push(`M${trunkX} ${parentY + TREE_ROW_H} V${childMiddles.at(-1)}`, ...childMiddles.map((middle) => `M${trunkX} ${middle} H${parentX + TREE_INDENT}`));
   };
-  const placeLinks = (links: ComponentLink[], depth: number, parentKey: string, color: string, opensAtLine: boolean): number[] =>
+  // the line of a parent is in the parent's own file, and the line of a rendered component is in the row above it
+  const placeLinks = (links: ComponentLink[], depth: number, parentKey: string, color: string, opensAtLine: boolean, parentFile: string): number[] =>
     links.map((link) => {
       const toggleKey = `${parentKey}>${link.file}`;
       const expanded = link.links.length > 0 && !!ui.open[toggleKey];
       const rowX = x + depth * TREE_INDENT;
       const rowY = cursor;
+      const open = opensAtLine ? { file: link.file, line: link.line } : { file: link.file };
       rows.push({
-        x: rowX, y: rowY, w: w - depth * TREE_INDENT, cls: color, name: link.name, lineText: `line ${link.line}`,
-        open: opensAtLine ? { file: link.file, line: link.line } : { file: link.file }, toggleKey: link.links.length ? toggleKey : null, expanded, column: "deps",
+        x: rowX, y: rowY, w: w - depth * TREE_INDENT, cls: ui.selectedMember === treeRowSelectionKey(open) ? `${color} sel` : color, name: link.name, lineText: `line ${link.line}`,
+        open, lineLink: { file: opensAtLine ? link.file : parentFile, line: link.line }, toggleKey: link.links.length ? toggleKey : null, expanded, column: "deps",
       });
       cursor += TREE_ROW_H;
-      if (expanded) drawBranch(rowX, rowY, placeLinks(link.links, depth + 1, toggleKey, color, opensAtLine));
+      if (expanded) drawBranch(rowX, rowY, placeLinks(link.links, depth + 1, toggleKey, color, opensAtLine, link.file));
       return rowY + TREE_ROW_H / 2;
     });
 
@@ -428,14 +434,14 @@ function layoutComponentTree(tree: ComponentTree, componentName: string, ui: UiS
     const collapsed = !!ui.open[collapseKey];
     headings.push({ key: collapseKey, x, y: cursor, w, cls: "blue", kind: "caller", text: `Rendered by (${tree.renderedBy.length})`, collapsed, column: "deps" });
     cursor += GROUP_HEADING_H;
-    if (!collapsed) placeLinks(tree.renderedBy, 0, "tree:up", "blue", true);
+    if (!collapsed) placeLinks(tree.renderedBy, 0, "tree:up", "blue", true, componentFile);
     cursor += GROUP_GAP;
   }
   const componentY = cursor;
-  rows.push({ x, y: componentY, w, cls: "green here", name: componentName, lineText: "this component", open: null, toggleKey: null, expanded: false, column: "deps" });
+  rows.push({ x, y: componentY, w, cls: "green here", name: componentName, lineText: "this component", open: null, lineLink: null, toggleKey: null, expanded: false, column: "deps" });
   cursor += TREE_ROW_H;
   // the line of a rendered component is in the file that renders it, so a click opens the component's own file at the top
-  if (tree.renders.length) drawBranch(x, componentY, placeLinks(tree.renders, 1, "tree:down", "violet", false));
+  if (tree.renders.length) drawBranch(x, componentY, placeLinks(tree.renders, 1, "tree:down", "violet", false, componentFile));
   return { rows, headings, wires: branchPaths.length ? [{ cls: "tree", d: branchPaths.join(" "), column: "deps" as const }] : [], bottom: cursor };
 }
 
@@ -541,7 +547,7 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
   const treeX = columns.placed[0].x + COLUMN_PADDING;
   const treeW = columnWidth - 2 * COLUMN_PADDING;
   const treeY = y + 34;
-  const tree = componentTree ? layoutComponentTree(componentTree, center.name.replace(/\.[^.]+$/, ""), ui, treeX, treeY, treeW) : null;
+  const tree = componentTree ? layoutComponentTree(componentTree, view.openFile, center.name.replace(/\.[^.]+$/, ""), ui, treeX, treeY, treeW) : null;
   const hiddenDependencyAnchors: Record<string, Box> = {};
   if (tree) for (const id of columnIds[0]) hiddenDependencyAnchors[id] = { x: treeX, y: treeY, w: treeW, h: TREE_ROW_H, floor: COLUMNS_FLOOR };
   const columnsHeight = tree ? Math.max(columns.h, tree.bottom - y + 4) : columns.h;
@@ -598,7 +604,7 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
   const cursorMemberId = cursorIndex === -1 ? undefined : memberIds[cursorIndex];
   const members = [
     ...groupsByColumn.members.flatMap((group) => group.ids).filter((id) => boxes[id]).map((id) => memberView(memberById.get(id)!, id, boxes[id], id === cursorMemberId, ui, explanations)),
-    ...groupsByColumn.tests.flatMap((group) => group.ids).filter((id) => implementationById.has(id) && boxes[id]).map((id) => implementationView(implementationById.get(id)!, id, boxes[id])),
+    ...groupsByColumn.tests.flatMap((group) => group.ids).filter((id) => implementationById.has(id) && boxes[id]).map((id) => implementationView(implementationById.get(id)!, id, boxes[id], ui)),
   ];
   const hiddenCursorGroup = cursorMemberId && !boxes[cursorMemberId] ? groupsByColumn.members.find((group) => group.ids.includes(cursorMemberId)) : undefined;
   const cursorHeadingKey = hiddenCursorGroup && `${hiddenCursorGroup.key}:collapsed`;

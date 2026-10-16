@@ -34,6 +34,9 @@ export type AiScanState = { state: "idle" } | { state: "loading" } | { state: "d
 
 export type ColumnFocusChange = "toggle" | "next" | "previous";
 
+/** what a plain click on a member card or a component tree row does */
+export type CardClick = "select" | "goToLine";
+
 export type HostMessage =
   | { type: "view"; data: ViewData }
   | { type: "git"; id: string; facts: Fact[] }
@@ -44,7 +47,8 @@ export type HostMessage =
   | { type: "focusOpenFile" }
   | { type: "columnFocus"; change: ColumnFocusChange }
   | { type: "callChain"; chain: CallChain; callersOnTop: boolean }
-  | { type: "branch"; branch: BranchView };
+  | { type: "branch"; branch: BranchView }
+  | { type: "cardClick"; cardClick: CardClick };
 
 export type WebviewMessage =
   | { type: "ready" }

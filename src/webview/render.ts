@@ -107,21 +107,27 @@ const renderUsesList = (list: UsesListView) =>
   `<div class="uses" style="left:${list.x}px;top:${list.y}px;width:${list.w}px">${list.uses
     .map((use) => `<button class="use" data-action="open" data-id="${escapeHtml(use.file)}" data-value="${use.line}" title="${escapeHtml(use.file)}:${use.line}"><span class="usef">${escapeHtml(fileNameOf(use.file))}</span><span class="usel">line ${use.line}</span></button>`)
     .join("")}</div>`;
-// the usage row is a sibling of the card, because a button inside the card button is invalid html
-function renderMemberUsage(member: MemberView): string {
+const memberLineTarget = (member: MemberView) =>
+  member.opensFile ? `data-action="open" data-id="${escapeHtml(member.opensFile)}" data-value="${member.line}"` : `data-action="reveal" data-value="${member.line}"`;
+function renderMemberLineLink(member: MemberView): string {
+  const label = escapeHtml(`Go to ${member.name} on line ${member.line}${member.opensFile ? ` in ${fileNameOf(member.opensFile)}` : ""}`);
+  return `<button class="ndline" ${memberLineTarget(member)} title="${label}" aria-label="${label}">line ${member.line}</button>`;
+}
+// the line row is a sibling of the card, because a button inside the card button is invalid html
+function renderMemberLineRow(member: MemberView): string {
   const usage = member.usage;
-  if (!usage) return "";
+  if (!usage) return `<div class="nu end" style="left:${member.x + 8}px;top:${member.y + 39}px;width:${member.w - 16}px">${renderMemberLineLink(member)}</div>`;
   const count = usage.listKey
     ? `<button class="nucount" data-action="toggle" data-value="${escapeHtml(usage.listKey)}" aria-expanded="${!!usage.list}">${escapeHtml(usage.text)}</button>`
     : `<span class="nunone">${escapeHtml(usage.text)}</span>`;
-  return `<div class="nu" style="left:${member.x + 8}px;top:${member.y + 53}px;width:${member.w - 16}px">line ${member.line}<span class="nusep">|</span>${count}</div>${usage.list ? renderUsesList(usage.list) : ""}`;
+  return `<div class="nu" style="left:${member.x + 8}px;top:${member.y + 53}px;width:${member.w - 16}px">${renderMemberLineLink(member)}<span class="nusep">|</span>${count}</div>${usage.list ? renderUsesList(usage.list) : ""}`;
 }
 const VISIBILITY_TAG_STYLES: Record<MemberVisibility, string> = { public: "filled", exported: "filled", protected: "outline", private: "dashed", "not exported": "dashed" };
 const renderVisibilityTag = (visibility: MemberVisibility) => `<span class="vis ${VISIBILITY_TAG_STYLES[visibility]}">${visibility}</span>`;
 const memberOpenAttributes = (member: MemberView) =>
-  member.opensFile
-    ? `data-action="open" data-id="${escapeHtml(member.opensFile)}" data-value="${member.line}" title="Open file at line ${member.line} (or ⌘/Ctrl+click the card)" aria-label="Open ${escapeHtml(member.name)} in ${escapeHtml(fileNameOf(member.opensFile))}"`
-    : `data-action="reveal" data-value="${member.line}" title="Go to line ${member.line} (or ⌘/Ctrl+click the card)" aria-label="Go to ${escapeHtml(member.name)} on line ${member.line}"`;
+  `${memberLineTarget(member)} ${member.opensFile
+    ? `title="Open file at line ${member.line} (or ⌘/Ctrl+click the card)" aria-label="Open ${escapeHtml(member.name)} in ${escapeHtml(fileNameOf(member.opensFile))}"`
+    : `title="Go to line ${member.line} (or ⌘/Ctrl+click the card)" aria-label="Go to ${escapeHtml(member.name)} on line ${member.line}"`}`;
 const renderMemberOpenIcon = (member: MemberView) =>
   `<button class="ndopen" style="left:${member.x + member.w - 22}px;top:${member.y + 1}px" ${memberOpenAttributes(member)}><svg viewBox="0 0 24 24" aria-hidden="true">${OPEN_ICON}</svg></button>`;
 const memberCardAttributes = (member: MemberView) =>
@@ -161,17 +167,21 @@ const iconPaddingClass = (member: MemberView) => {
   return ["", " withicon", " withicon withchainicon", " withicon withchainicon withthreeicons"][iconCount];
 };
 const renderMember = (member: MemberView) =>
-  `<button class="nd ${member.cls}${member.usage ? " withusage" : ""}${iconPaddingClass(member)}" style="left:${member.x}px;top:${member.y}px;width:${member.w}px" ${memberCardAttributes(member)} data-nav="${member.id}" title="${escapeHtml(member.tooltip)}"><span class="nh"><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${MEMBER_KIND_ICONS[member.kind]}</svg>${escapeHtml(member.tag)}${member.focus ? `<span class="chip">${member.focus}</span>` : ""}${member.visibility ? renderVisibilityTag(member.visibility) : ""}</span><span class="nn">${escapeHtml(member.name)}</span><span class="np">${escapeHtml(member.path)}</span></button>${renderMemberOpenIcon(member)}${hasCallChain(member) ? renderCallChainIcon(member) : ""}${member.explain ? renderExplainIcon(member) : ""}${renderMemberUsage(member)}${member.explain?.box ? renderExplainBox(member, member.explain.box) : ""}`;
+  `<button class="nd ${member.cls}${member.usage ? " withusage" : " withlinelink"}${iconPaddingClass(member)}" style="left:${member.x}px;top:${member.y}px;width:${member.w}px" ${memberCardAttributes(member)} data-nav="${member.id}" title="${escapeHtml(member.tooltip)}"><span class="nh"><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${MEMBER_KIND_ICONS[member.kind]}</svg>${escapeHtml(member.tag)}${member.focus ? `<span class="chip">${member.focus}</span>` : ""}${member.visibility ? renderVisibilityTag(member.visibility) : ""}</span><span class="nn">${escapeHtml(member.name)}</span><span class="np">${escapeHtml(member.path)}</span></button>${renderMemberOpenIcon(member)}${hasCallChain(member) ? renderCallChainIcon(member) : ""}${member.explain ? renderExplainIcon(member) : ""}${renderMemberLineRow(member)}${member.explain?.box ? renderExplainBox(member, member.explain.box) : ""}`;
 const GROUP_ICONS: Record<GroupKind, string> = { ...NODE_KIND_ICONS, ...MEMBER_KIND_ICONS };
 const CHEVRON_ICON = '<path d="m6 9 6 6 6-6"></path>';
 const renderGroupHeading = (heading: GroupHeadingView) =>
   `<button class="grh ${heading.cls}${heading.collapsed ? " closed" : ""}" style="left:${heading.x}px;top:${heading.y}px;width:${heading.w}px" data-action="toggle" data-value="${escapeHtml(heading.key)}" data-nav="${escapeHtml(heading.key)}" aria-expanded="${!heading.collapsed}"><svg class="grchev" viewBox="0 0 24 24" aria-hidden="true">${CHEVRON_ICON}</svg><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${GROUP_ICONS[heading.kind]}</svg>${escapeHtml(heading.text)}</button>`;
+function renderTreeLineLink(name: string, lineLink: { file: string; line: number }): string {
+  const label = escapeHtml(`Go to ${name} on line ${lineLink.line} in ${fileNameOf(lineLink.file)}`);
+  return `<button class="trl trline" data-action="open" data-id="${escapeHtml(lineLink.file)}" data-value="${lineLink.line}" title="${label}" aria-label="${label}">line ${lineLink.line}</button>`;
+}
 function renderTreeRow(row: TreeRowView): string {
   const toggle = row.toggleKey
     ? `<button class="trtog${row.expanded ? " open" : ""}" style="left:${row.x}px;top:${row.y}px" data-action="toggle" data-value="${escapeHtml(row.toggleKey)}" aria-expanded="${row.expanded}" aria-label="Expand ${escapeHtml(row.name)}"><svg viewBox="0 0 24 24" aria-hidden="true">${CHEVRON_ICON}</svg></button>`
     : "";
   const style = `left:${row.x + TREE_INDENT}px;top:${row.y}px;width:${row.w - TREE_INDENT}px`;
-  const content = `<span class="trn">${escapeHtml(row.name)}</span><span class="trl">${escapeHtml(row.lineText)}</span>`;
+  const content = `<span class="trn">${escapeHtml(row.name)}</span>${row.lineLink ? renderTreeLineLink(row.name, row.lineLink) : `<span class="trl">${escapeHtml(row.lineText)}</span>`}`;
   if (!row.open) return `${toggle}<div class="tr ${row.cls}" style="${style}">${content}</div>`;
   const openAttributes = `data-id="${escapeHtml(row.open.file)}"${row.open.line === undefined ? "" : ` data-value="${row.open.line}"`}`;
   const target = row.open.line === undefined ? fileNameOf(row.open.file) : `${fileNameOf(row.open.file)} at line ${row.open.line}`;
