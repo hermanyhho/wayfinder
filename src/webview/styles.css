@@ -238,6 +238,8 @@ body.vscode-light .aiblock { background: rgba(242, 179, 61, .12); }
 .aih { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--goldtext); }
 .aiblock p { margin: 6px 0 0; font-size: 13.5px; line-height: 20px; color: var(--text); text-wrap: pretty; }
 .findings { margin: 8px 0 0; padding: 0 0 0 16px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; line-height: 19px; color: var(--text); }
+.findlink { padding: 0; font: inherit; font-family: var(--mono); color: var(--text2); background: none; border: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.findlink:hover { color: var(--strong); }
 .based { margin-top: 8px; font-size: 11.5px; line-height: 16px; color: var(--muted); }
 .skl { display: block; height: 9px; margin-top: 9px; border-radius: 5px; background: linear-gradient(90deg, rgba(242, 179, 61, .10) 0%, rgba(242, 179, 61, .28) 50%, rgba(242, 179, 61, .10) 100%); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
 .skl.short { width: 60%; }

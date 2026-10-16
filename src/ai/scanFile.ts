@@ -83,7 +83,7 @@ function rulesWithin(repoRules: string, userRules: string): { text: string; cut:
   return text.length > MAX_RULES_CHARS ? { text: text.slice(0, MAX_RULES_CHARS), cut: true } : { text, cut: false };
 }
 
-function numberedLinesWithin(source: string, maxChars: number, firstLineNumber = 1): { text: string; shownCount: number; totalCount: number } {
+export function numberedLinesWithin(source: string, maxChars: number, firstLineNumber = 1): { text: string; shownCount: number; totalCount: number } {
   const numberedLines = source.split(/\r?\n/).map((line, index) => `${firstLineNumber + index}| ${line}`);
   let shownCount = 0;
   let shownChars = 0;

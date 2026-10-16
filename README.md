@@ -69,6 +69,7 @@ Run **Wayfinder: Show impact analysis**, or pick **Impact analysis** in the map 
 - **Changed files without tests** lists changed files that no test imports.
 - The side panel lists the tests to run. **Copy test files** copies their paths, separated by spaces.
 - Each card has two icons: one shows that file's map, one opens the file in the editor. ⌘/Ctrl+click the card also opens the file.
+- **Scan impact with AI** in the toolbar sends the branch diff and the source of the files that import a changed file to the AI model (see [AI scan](#ai-scan)). The side panel shows what the changes could break, with links to each file and line. Files one step further and tests to run are sent by name only. When the payload is over the size limit, the last importers are left out first, and the panel names the files that were cut.
 
 ## AI scan
 

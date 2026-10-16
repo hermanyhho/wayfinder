@@ -1,13 +1,14 @@
 import { createHash, randomBytes } from "node:crypto";
 import { basename } from "node:path";
 import * as vscode from "vscode";
-import { CLOUD_CLIS, type CloudCli, cloudCliFor, cloudCliStatus, cloudConsentQuestion } from "../ai/cloudCli";
+import { CLOUD_CLIS, type CloudCli, cloudCliFor, cloudCliStatus, cloudConsentQuestion, impactConsentQuestion } from "../ai/cloudCli";
 import { type InstalledModel, type ModelPickerItem, modelPickerItems } from "../ai/modelPicker";
 import {
   EXPLAIN_SYSTEM_PROMPT,
   RULES_FILE,
   SCAN_SYSTEM_PROMPT,
   STARTER_RULES_FILE,
+  type NeighbourSource,
   type ScanPromptExtras,
   aiStatusFor,
   buildExplainPrompt,
@@ -16,14 +17,15 @@ import {
   parseExplainReply,
   parseScanReply,
 } from "../ai/scanFile";
+import { IMPACT_SYSTEM_PROMPT, buildImpactPrompt } from "../ai/impactScan";
 import { buildBranchView } from "../graph/branchChanges";
 import type { CallChainBuilder } from "../graph/callChain";
 import { buildViewData } from "../graph/neighbourhood";
 import { cliLoginState, runCliScan } from "../providers/cliRunner";
 import { OllamaProvider } from "../providers/index";
-import { type AiScanState, type AiStatus, type CardClick, type ColumnFocusChange, type HostMessage, type MemberExplainState, type WebviewMessage, memberKeyOf } from "../shared/messages";
+import { type AiScanState, type AiStatus, type CardClick, type ColumnFocusChange, type HostMessage, type ImpactScanState, type MemberExplainState, type WebviewMessage, memberKeyOf } from "../shared/messages";
 import type { BranchView, CallDirection, Member, ViewData } from "../shared/viewData";
-import { branchDiff } from "../workspace/branchDiff";
+import { type BranchDiff, branchDiff, diffTextOf } from "../workspace/branchDiff";
 import { gitHistory } from "../workspace/gitFacts";
 import type { WorkspaceIndex } from "../workspace/WorkspaceIndex";
 import { buildCallChainAt } from "./callChain";
@@ -122,6 +124,8 @@ export class WayfinderPanel implements vscode.Disposable {
   private callChain: CallChainBuilder<vscode.CallHierarchyItem> | undefined;
   private showingBranch = false;
   private lastBranch: BranchView | undefined;
+  private lastDiff: BranchDiff | undefined;
+  private impactScan: ImpactScanState = { state: "idle" };
   private branchTimer: NodeJS.Timeout | undefined;
   private latestBranchRead = 0;
 
@@ -311,6 +315,7 @@ export class WayfinderPanel implements vscode.Disposable {
         this.focusOpenFileWhenReady = false;
         if (this.callChain) this.sendChain(this.callChain);
         if (this.showingBranch) await this.sendBranch();
+        this.send({ type: "impactScan", scan: this.impactScan });
         return;
       case "select": {
         this.selected = message.id;
@@ -354,6 +359,9 @@ export class WayfinderPanel implements vscode.Disposable {
       case "copyTestFiles":
         await this.copyTestFiles();
         return;
+      case "scanImpact":
+        await this.scanImpact();
+        return;
     }
   }
 
@@ -374,8 +382,58 @@ export class WayfinderPanel implements vscode.Disposable {
     const branchRead = ++this.latestBranchRead;
     const diff = await branchDiff(this.index.root.fsPath);
     if (branchRead !== this.latestBranchRead || !this.showingBranch) return;
-    this.lastBranch = buildBranchView(this.index.graph, diff);
-    this.send({ type: "branch", branch: this.lastBranch });
+    const branch = buildBranchView(this.index.graph, diff);
+    const branchChanged = JSON.stringify(branch) !== JSON.stringify(this.lastBranch);
+    this.lastBranch = branch;
+    this.lastDiff = diff;
+    this.send({ type: "branch", branch });
+    if (branchChanged && this.impactScan.state !== "loading") this.storeImpactScan({ state: "idle" });
+  }
+
+  // the webview already shows the scan as loading, so every early return sends the state back
+  private async scanImpact(): Promise<void> {
+    if (this.impactScan.state === "loading") return;
+    const branch = this.lastBranch;
+    const diff = this.lastDiff;
+    if (branch?.state !== "changes" || diff?.state !== "diff" || !this.aiStatus.ready) return this.storeImpactScan(this.impactScan);
+    const { baseUrl, model } = aiSettings();
+    const cloudCli = cloudCliFor(model);
+    if (cloudCli && !(await this.cloudScanAllowed(impactConsentQuestion(cloudCli), cloudCli))) return this.storeImpactScan(this.impactScan);
+    const branchAtStart = JSON.stringify(branch);
+    this.storeImpactScan({ state: "loading" });
+    const scan = await this.runImpactScan(branch, diff, baseUrl, model, cloudCli);
+    this.storeImpactScan(JSON.stringify(this.lastBranch) === branchAtStart ? scan : { state: "idle" });
+  }
+
+  private async runImpactScan(
+    branch: Extract<BranchView, { state: "changes" }>,
+    diff: Extract<BranchDiff, { state: "diff" }>,
+    baseUrl: string,
+    model: string,
+    cloudCli: CloudCli | undefined,
+  ): Promise<ImpactScanState> {
+    try {
+      const changedPaths = new Set(branch.changed.map((file) => file.path));
+      const trackedPaths = diff.files.map((file) => file.path).filter((path) => changedPaths.has(path));
+      const diffText = trackedPaths.length ? await diffTextOf(this.index.root.fsPath, diff.mergeBase, trackedPaths) : "";
+      if (diffText === null) return { state: "error", message: "Could not read the branch diff." };
+      const newFilePaths = diff.untracked.filter((path) => changedPaths.has(path));
+      const dependentPaths = branch.importsChanged.map((file) => file.path);
+      const newFiles = await this.sourcesOf(newFilePaths);
+      const dependents = await this.sourcesOf(dependentPaths);
+      const readPaths = new Set([...newFiles, ...dependents].map((source) => source.file));
+      const unreadPaths = [...newFilePaths, ...dependentPaths].filter((path) => !readPaths.has(path));
+      const { prompt, lineCountByFile, cutFiles } = buildImpactPrompt(branch, { diff: diffText, newFiles, dependents });
+      const result = parseScanReply(await this.askModel(prompt, IMPACT_SYSTEM_PROMPT, baseUrl, model, cloudCli), lineCountByFile);
+      return result ? { state: "done", result, cutFiles: [...cutFiles, ...unreadPaths] } : { state: "error", message: "The model's reply could not be read. Try again." };
+    } catch (error) {
+      return this.modelFailure(error, "The impact scan failed");
+    }
+  }
+
+  private storeImpactScan(scan: ImpactScanState): void {
+    this.impactScan = scan;
+    this.send({ type: "impactScan", scan });
   }
 
   private async copyTestFiles(): Promise<void> {
@@ -434,7 +492,7 @@ export class WayfinderPanel implements vscode.Disposable {
     if (!file || !view || !this.aiStatus.ready || this.scans.get(file)?.scan.state === "loading") return;
     const { baseUrl, model } = aiSettings();
     const cloudCli = cloudCliFor(model);
-    if (cloudCli && !(await this.cloudScanAllowed(file, cloudCli))) return;
+    if (cloudCli && !(await this.cloudScanAllowed(cloudConsentQuestion(basename(file), cloudCli), cloudCli))) return;
     const text = await this.textOf(file);
     const textHash = hashOf(text);
     this.storeScan(file, textHash, { state: "loading" });
@@ -481,7 +539,7 @@ export class WayfinderPanel implements vscode.Disposable {
     const modelLabel = this.aiStatus.model;
     const settings = aiSettings();
     const cloudCli = cloudCliFor(settings.model);
-    if (cloudCli && !(await this.cloudScanAllowed(file, cloudCli))) {
+    if (cloudCli && !(await this.cloudScanAllowed(cloudConsentQuestion(basename(file), cloudCli), cloudCli))) {
       await this.sendExplanations(file);
       return;
     }
@@ -523,11 +581,11 @@ export class WayfinderPanel implements vscode.Disposable {
     if (file === this.openFile) this.send({ type: "explanations", openFile: file, byMember: explanationsToSend(byMember) });
   }
 
-  private async cloudScanAllowed(file: string, cloudCli: CloudCli): Promise<boolean> {
+  private async cloudScanAllowed(question: string, cloudCli: CloudCli): Promise<boolean> {
     const consentKey = `wayfinder.ai.cloudAllowed.${cloudCli.model}`;
     if (this.context.workspaceState.get<boolean>(consentKey)) return true;
     const allow = "Allow for this workspace";
-    if ((await vscode.window.showWarningMessage(cloudConsentQuestion(basename(file), cloudCli), { modal: true }, allow)) !== allow) return false;
+    if ((await vscode.window.showWarningMessage(question, { modal: true }, allow)) !== allow) return false;
     await this.context.workspaceState.update(consentKey, true);
     return true;
   }
@@ -543,10 +601,13 @@ export class WayfinderPanel implements vscode.Disposable {
     );
     const userRules = settings.get<string>("instructions") ?? "";
     if (settings.get<string>("scope") !== "neighbours") return { repoRules, userRules };
-    const neighbours = neighbourFiles(view).filter((file) => this.index.graph.files.has(file));
-    const readResults = await Promise.allSettled(neighbours.map(async (file) => ({ file, source: await this.textOf(file) })));
-    const neighbourSources = readResults.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
+    const neighbourSources = await this.sourcesOf(neighbourFiles(view).filter((file) => this.index.graph.files.has(file)));
     return { repoRules, userRules, neighbourSources };
+  }
+
+  private async sourcesOf(files: string[]): Promise<NeighbourSource[]> {
+    const readResults = await Promise.allSettled(files.map(async (file) => ({ file, source: await this.textOf(file) })));
+    return readResults.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
   }
 
   private dropStoredScans(): void {

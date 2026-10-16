@@ -17,7 +17,7 @@ export type BranchDiff =
   | { state: "notRepo" }
   | { state: "noBase" }
   | { state: "diffFailed" }
-  | { state: "diff"; branch: string; base: string; files: DiffEntry[]; untracked: string[] };
+  | { state: "diff"; branch: string; base: string; mergeBase: string; files: DiffEntry[]; untracked: string[] };
 
 // numstat lines carry no change status, so the change comes from the matching raw line
 export function parseDiff(stdout: string): DiffEntry[] {
@@ -66,5 +66,10 @@ export async function branchDiff(root: string): Promise<BranchDiff> {
     runGit(root, ["ls-files", "--others", "--exclude-standard"]),
   ]);
   if (diff === null || untracked === null) return { state: "diffFailed" };
-  return { state: "diff", branch, base, files: parseDiff(diff), untracked: untracked.split("\n").filter(Boolean) };
+  return { state: "diff", branch, base, mergeBase, files: parseDiff(diff), untracked: untracked.split("\n").filter(Boolean) };
+}
+
+// the prefix flags override diff.noprefix and diff.mnemonicPrefix, which would change the file headers the AI prompt reads
+export function diffTextOf(root: string, mergeBase: string, paths: string[]): Promise<string | null> {
+  return runGit(root, ["diff", "--no-color", "--no-ext-diff", "--no-renames", "--relative", "--src-prefix=a/", "--dst-prefix=b/", mergeBase, "--", ...paths]);
 }

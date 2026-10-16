@@ -1,4 +1,4 @@
-import type { AiScanState, AiStatus } from "../shared/messages";
+import type { AiFinding, AiScanState, AiStatus, ImpactScanState } from "../shared/messages";
 import type { BranchView, CallChain, Fact, MemberKind, MemberVisibility, NodeKind, ViewData } from "../shared/viewData";
 import type { BranchCardView, BranchColumnKey, BranchLayout } from "./branchLayout";
 import { type CallChainLayout, type ChainCardView, type ChainDeeperView, type ChainLaneView } from "./callChainLayout";
@@ -397,22 +397,32 @@ function renderBranchCard(card: BranchCardView): string {
 const renderBranchToggle = (toggle: GroupToggleView) =>
   `<button class="ftog" style="left:${toggle.x}px;top:${toggle.y}px" data-action="branch-toggle" data-value="${escapeHtml(toggle.key)}"><span class="ftic ${toggle.icon}"></span>${escapeHtml(toggle.text)}</button>`;
 
-function branchToolbar(branch: BranchView | null): string {
+function renderImpactScanButton(status: AiStatus | null, scan: ImpactScanState): string {
+  const loading = scan.state === "loading";
+  const disabled = loading || !status?.ready;
+  const label = loading ? "Scanning" : scan.state === "done" ? "Scan again" : "Scan impact with AI";
+  const tip = status?.ready ? `Asks ${status.model} what the changes could break` : "Choose an AI model in Settings first";
+  return `<span class="aiscan" data-tip="${escapeHtml(tip)}"><button class="aibtn ${loading ? "busy" : disabled ? "off" : ""}" data-action="scan-impact" aria-label="Scan the impact of this branch with AI" ${disabled ? "disabled" : ""}><svg viewBox="0 0 24 24" aria-hidden="true">${SCAN_ICON}</svg>${label}</button></span>`;
+}
+
+function branchToolbar(branch: BranchView | null, status: AiStatus | null, impactScan: ImpactScanState): string {
   if (branch?.state !== "changes") return `<div class="toolbar">${renderModeSwitch(true)}<div class="crumb">${branch ? escapeHtml(branch.reason) : "Reading the branch diff"}</div></div>`;
   const affected = branch.importsChanged.length + branch.oneStepFurther.length;
   return `<div class="toolbar">
 ${renderModeSwitch(true)}
 <div class="crumb"><span class="k">Branch</span><b class="mono">${escapeHtml(branch.branch)}</b><span>compared with</span><span class="mono">${escapeHtml(branch.base)}</span></div>
 <div class="count">${branch.changed.length} changed, ${affected} affected, ${plural(branch.testsToRun.length, "test")} to run</div>
+${renderImpactScanButton(status, impactScan)}
 </div>`;
 }
 
 const renderFloorDescription = (floor: FloorView) =>
   floor.description ? `<div class="fdesc" style="left:${floor.x + 14}px;top:${floor.y + 28}px;width:${floor.w - 28}px">${escapeHtml(floor.description)}</div>` : "";
 
-export function renderBranch(result: BranchLayout | null, branch: BranchView | null, width: number): string {
-  if (!result) return branchToolbar(branch);
-  return `${branchToolbar(branch)}
+export function renderBranch(result: BranchLayout | null, branch: BranchView | null, width: number, status: AiStatus | null, impactScan: ImpactScanState): string {
+  const toolbar = branchToolbar(branch, status, impactScan);
+  if (!result) return toolbar;
+  return `${toolbar}
 ${branch?.state === "changes" ? `<div class="intro">Files this branch changes, and the files that import them. Check these before you merge.</div>` : ""}
 ${BRANCH_LEGEND}
 <div class="ne"><div class="fit"><div class="cv" style="width:${width}px;height:${result.height}px">
@@ -427,7 +437,24 @@ ${result.banner ? renderBanner(result.banner) : ""}
 </div></div></div>`;
 }
 
-export function renderBranchPanel(branch: BranchView | null): string {
+const renderImpactFinding = (finding: AiFinding) => {
+  const label = `${fileNameOf(finding.file)}:${finding.line}`;
+  return `<li><button class="findlink mono" data-action="open" data-id="${escapeHtml(finding.file)}" data-value="${finding.line}" title="Go to line ${finding.line} of ${escapeHtml(finding.file)}" aria-label="Go to line ${finding.line} of ${escapeHtml(fileNameOf(finding.file))}">${escapeHtml(label)}</button> ${escapeHtml(finding.text)}</li>`;
+};
+
+function renderImpactScan(status: AiStatus | null, scan: ImpactScanState): string {
+  if (scan.state === "loading") return `<section>${loadingBlock("Reading what the changes could break")}</section>`;
+  if (scan.state === "error") return `<section><div class="aistatus">${escapeHtml(scan.message)}</div></section>`;
+  if (scan.state !== "done") return "";
+  const cloudNotice = status?.ready && status.sendsCodeTo ? `<div class="based">Cloud: sends code to ${escapeHtml(status.sendsCodeTo)}.</div>` : "";
+  const cutNote = scan.cutFiles.length ? `<div class="based">Cut or left out to fit the model: ${escapeHtml(scan.cutFiles.map(fileNameOf).join(", "))}.</div>` : "";
+  const findings = scan.result.findings.length
+    ? `<ul class="findings">${scan.result.findings.map(renderImpactFinding).join("")}</ul>`
+    : `<div class="based">The model found nothing the changes could break.</div>`;
+  return `<section><div class="aiblock">${aiHead("Impact")}<p>${escapeHtml(scan.result.summary)}</p></div><div class="aiblock">${aiHead("What could break")}${findings}${cutNote}${cloudNotice}</div></section>`;
+}
+
+export function renderBranchPanel(branch: BranchView | null, status: AiStatus | null, impactScan: ImpactScanState): string {
   if (branch?.state !== "changes") return `<div class="pcard"><div class="kickrow"><span class="chip pink">Tests to run</span></div><div class="path">${branch ? "No changed files to test." : "Reading the branch diff"}</div></div>`;
   const tests = branch.testsToRun;
   const rows = tests
@@ -439,6 +466,7 @@ export function renderBranchPanel(branch: BranchView | null): string {
 <div class="path">${tests.length ? "Tests that import a changed file, and changed tests." : "No test imports a changed file."}</div>
 ${tests.length ? `<button class="openbtn" data-action="copy-tests" title="Copies the paths, separated by spaces">Copy test files</button>` : ""}
 </div>
+${renderImpactScan(status, impactScan)}
 ${tests.length ? `<section><ul class="testlist">${rows}</ul></section>` : ""}`;
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CLOUD_CLIS, cloudCliFor, cloudCliStatus, cloudConsentQuestion, readClaudeReply, readCodexReply } from "../../../src/ai/cloudCli";
+import { CLOUD_CLIS, cloudCliFor, cloudCliStatus, cloudConsentQuestion, impactConsentQuestion, readClaudeReply, readCodexReply } from "../../../src/ai/cloudCli";
 import { parseScanReply } from "../../../src/ai/scanFile";
 
 const FILE = "src/services/DocumentService.ts";
@@ -90,6 +90,12 @@ describe("cloudCliStatus", () => {
 describe("cloudConsentQuestion", () => {
   it("names the file, the company and the CLI", () => {
     expect(cloudConsentQuestion("DocumentService.ts", claudeCode)).toBe("Scan with AI sends DocumentService.ts to Anthropic through Claude Code. With the wayfinder.ai.scope setting on neighbours, it also sends the code of its imports, tests and callers. Continue?");
+  });
+});
+
+describe("when asking consent for the impact scan", () => {
+  it("should say it sends the branch diff and the importers' code to the company through the CLI", () => {
+    expect(impactConsentQuestion(claudeCode)).toBe("Scan impact with AI sends the branch diff and the code of the files that import a changed file to Anthropic through Claude Code. Continue?");
   });
 });
 
