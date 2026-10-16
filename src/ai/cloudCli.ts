@@ -73,6 +73,8 @@ export function cloudCliStatus(cli: CloudCli, login: CliLogin): AiStatus {
 
 export const cloudConsentQuestion = (fileName: string, cli: CloudCli) => `Scan with AI sends ${fileName} to ${cli.company} through ${cli.label}. With the wayfinder.ai.scope setting on neighbours, it also sends the code of its imports, tests and callers. Continue?`;
 
+export const impactConsentQuestion = (cli: CloudCli) => `Scan impact with AI sends the branch diff and the code of the files that import a changed file to ${cli.company} through ${cli.label}. Continue?`;
+
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
 function parseJson(text: string): unknown {

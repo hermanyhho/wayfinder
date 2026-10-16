@@ -1,4 +1,4 @@
-import { type AiScanState, type AiStatus, type ColumnFocusChange, type HostMessage, type MemberExplainState, type WebviewMessage, memberKeyOf } from "../shared/messages";
+import { type AiScanState, type AiStatus, type ColumnFocusChange, type HostMessage, type ImpactScanState, type MemberExplainState, type WebviewMessage, memberKeyOf } from "../shared/messages";
 import type { BranchView, CallChain, CallDirection, ChainCall, Fact, ViewData } from "../shared/viewData";
 import { layoutBranch } from "./branchLayout";
 import { ROOT_CARD_KEY, layoutCallChain } from "./callChainLayout";
@@ -46,6 +46,8 @@ let showingBranch = false;
 /** columns of the branch view with "Show N more" on, by toggle key */
 let branchOpen: Record<string, boolean> = {};
 let renderedBranchKey = "";
+let impactScan: ImpactScanState = { state: "idle" };
+let renderedImpactScanKey = "";
 const rootKeyOf = (callChain: CallChain) => `${callChain.root.file}:${callChain.root.line}:${callChain.root.name}`;
 
 window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
@@ -67,6 +69,7 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
   }
   if (message.type === "git") gitFactsById.set(message.id, message.facts);
   if (message.type === "aiStatus") aiStatus = message.status;
+  if (message.type === "impactScan") impactScan = message.scan;
   if (message.type === "ai") aiScan = { openFile: message.openFile, scan: message.scan };
   if (message.type === "explanations") explanations = { openFile: message.openFile, byMember: message.byMember };
   if (message.type === "cardClick") plainCardClickGoesToLine = message.cardClick === "goToLine";
@@ -134,6 +137,11 @@ document.addEventListener("click", (event) => {
     return render();
   }
   if (kind === "copy-tests") return vscode.postMessage({ type: "copyTestFiles" });
+  if (kind === "scan-impact") {
+    impactScan = { state: "loading" };
+    vscode.postMessage({ type: "scanImpact" });
+    return render();
+  }
   if (!view) return;
   if (kind === "chain" && value) return vscode.postMessage({ type: "showCallChain", file: view.openFile, line: Number(value) });
   if (kind === "select" && id && (event.metaKey || event.ctrlKey) && panelFor(view, id).canOpen) {
@@ -449,13 +457,18 @@ function renderBranchView(remeasured: boolean): void {
   map.classList.add("branch");
   // the host resends the branch after every save, so without this class all cards pop in again
   map.classList.toggle("keep-nodes", sameBranch);
-  map.innerHTML = renderBranch(branch?.state === "changes" ? layoutBranch(branch, branchOpen, renderedWidth) : null, branch, renderedWidth);
+  map.innerHTML = renderBranch(branch?.state === "changes" ? layoutBranch(branch, branchOpen, renderedWidth) : null, branch, renderedWidth, aiStatus, impactScan);
   renderedBranchKey = branchKey;
   // the map renders from scratch when it comes back, so its scroll and pop-in do not carry over from the branch view
   renderedView = null;
   map.querySelector<HTMLElement>(".ne")?.scrollTo(scrollLeft, scrollTop);
   cards = [];
-  document.getElementById("panel")!.innerHTML = renderBranchPanel(branch);
+  const panel = document.getElementById("panel")!;
+  const impactScanKey = JSON.stringify(impactScan);
+  // the host resends the branch after every save, so without this class the AI blocks pop in again
+  panel.classList.toggle("keep-ai", impactScanKey === renderedImpactScanKey);
+  renderedImpactScanKey = impactScanKey;
+  panel.innerHTML = renderBranchPanel(branch, aiStatus, impactScan);
   if (!remeasured && canvasWidth() !== renderedWidth) renderBranchView(true);
   else fitMap();
 }

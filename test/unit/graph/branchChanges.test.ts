@@ -14,7 +14,7 @@ function graphWithIntegrationTest() {
 }
 
 const modified = (path: string, linesAdded = 5, linesRemoved = 2): DiffEntry => ({ path, change: "modified", linesAdded, linesRemoved });
-const diffOf = (files: DiffEntry[], untracked: string[] = []): BranchDiff => ({ state: "diff", branch: "feature/reminders", base: "origin/main", files, untracked });
+const diffOf = (files: DiffEntry[], untracked: string[] = []): BranchDiff => ({ state: "diff", branch: "feature/reminders", base: "origin/main", mergeBase: "abc123", files, untracked });
 
 function changesFor(diff: BranchDiff) {
   const view = buildBranchView(graphWithIntegrationTest(), diff);

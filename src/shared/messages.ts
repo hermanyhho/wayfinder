@@ -32,6 +32,8 @@ export type AiStatus = { ready: true; model: string; sendsCodeTo?: string } | { 
 
 export type AiScanState = { state: "idle" } | { state: "loading" } | { state: "done"; result: AiScan; rulesCut: boolean } | { state: "error"; message: string };
 
+export type ImpactScanState = { state: "idle" } | { state: "loading" } | { state: "done"; result: AiScan; cutFiles: string[] } | { state: "error"; message: string };
+
 export type ColumnFocusChange = "toggle" | "next" | "previous";
 
 /** what a plain click on a member card or a component tree row does */
@@ -48,6 +50,7 @@ export type HostMessage =
   | { type: "columnFocus"; change: ColumnFocusChange }
   | { type: "callChain"; chain: CallChain; callersOnTop: boolean }
   | { type: "branch"; branch: BranchView }
+  | { type: "impactScan"; scan: ImpactScanState }
   | { type: "cardClick"; cardClick: CardClick };
 
 export type WebviewMessage =
@@ -62,4 +65,5 @@ export type WebviewMessage =
   | { type: "extendCallChain"; direction: CallDirection }
   | { type: "flipCallChain" }
   | { type: "showBranch"; on: boolean }
-  | { type: "copyTestFiles" };
+  | { type: "copyTestFiles" }
+  | { type: "scanImpact" };
