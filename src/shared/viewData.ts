@@ -140,3 +140,41 @@ export interface CallChain {
   /** false once a side has no more calls to load */
   canGoDeeper: Record<CallDirection, boolean>;
 }
+
+export type FileChange = "added" | "deleted" | "modified";
+
+export interface ChangedFile {
+  /** workspace-relative path */
+  path: string;
+  change: FileChange;
+  linesAdded: number;
+  linesRemoved: number;
+}
+
+export interface AffectedFile {
+  /** workspace-relative path */
+  path: string;
+  /** the files in the column to the left that this file imports */
+  via: string[];
+}
+
+export interface TestToRun {
+  test: string;
+  /** the changed file the test imports, or the test itself when the test changed */
+  covers: string;
+}
+
+export type BranchView =
+  | { state: "none"; reason: string }
+  | {
+      state: "changes";
+      branch: string;
+      base: string;
+      changed: ChangedFile[];
+      importsChanged: AffectedFile[];
+      oneStepFurther: AffectedFile[];
+      untested: string[];
+      testsToRun: TestToRun[];
+      /** changed files the map does not cover, such as docs and config */
+      otherFileCount: number;
+    };

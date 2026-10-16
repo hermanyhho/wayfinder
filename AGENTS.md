@@ -15,6 +15,11 @@ Wayfinder is a VS Code extension. It shows where the open file sits in the codeb
 - Update docs in the same change when you change behaviour they describe.
 - End every piece of implementation work with a manual verification checklist.
 
+## UI rules
+
+- Clicking a card never opens a file or switches view. Each navigation is an icon button on the card, like `renderOpenIcon` in `src/webview/render.ts`. ⌘/Ctrl+click on the card may open the file.
+- Every icon button has a `title` tooltip and an `aria-label` that names the action and its target.
+
 ## Task tracking: GitHub Issues
 
 - Issues: https://github.com/hermanyhho/wayfinder/issues

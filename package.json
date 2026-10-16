@@ -41,6 +41,10 @@
         "title": "Wayfinder: Show call chain"
       },
       {
+        "command": "wayfinder.showBranchChanges",
+        "title": "Wayfinder: Show impact analysis"
+      },
+      {
         "command": "wayfinder.chooseAiModel",
         "title": "Wayfinder: Choose AI model"
       },

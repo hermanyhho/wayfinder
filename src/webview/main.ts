@@ -1,10 +1,11 @@
 import { type AiScanState, type AiStatus, type ColumnFocusChange, type HostMessage, type MemberExplainState, type WebviewMessage, memberKeyOf } from "../shared/messages";
-import type { CallChain, CallDirection, ChainCall, Fact, ViewData } from "../shared/viewData";
+import type { BranchView, CallChain, CallDirection, ChainCall, Fact, ViewData } from "../shared/viewData";
+import { layoutBranch } from "./branchLayout";
 import { ROOT_CARD_KEY, layoutCallChain } from "./callChainLayout";
 import { COLUMN_ORDER, MAX_CANVAS_W, MIN_CANVAS_W, columnAfter, explainOpenKeyOf, layout, visibleColumnBoxes, type ColumnKey, type Layout, type SearchByColumn, type UiState } from "./layout";
 import { navigationCards, nextCardKey, nextChainCardKey, type ArrowKey, type NavigationCard } from "./keyboardNavigation";
 import { answerFor, panelFor, type Action } from "./panelModel";
-import { NO_MAP, renderCallChain, renderMap, renderPanel } from "./render";
+import { NO_MAP, renderBranch, renderBranchPanel, renderCallChain, renderMap, renderPanel } from "./render";
 
 declare function acquireVsCodeApi(): { postMessage(message: WebviewMessage): void; setState(state: { openFile: string }): void };
 
@@ -39,6 +40,11 @@ let renderedChainRoot = "";
 let chainHistory: ChainCall[] = [];
 /** set while the webview waits for a re-centre or Back; a new root that arrives without it is a fresh open */
 let chainRequestKeepsHistory = false;
+let branch: BranchView | null = null;
+let showingBranch = false;
+/** columns of the branch view with "Show N more" on, by toggle key */
+let branchOpen: Record<string, boolean> = {};
+let renderedBranchKey = "";
 const rootKeyOf = (callChain: CallChain) => `${callChain.root.file}:${callChain.root.line}:${callChain.root.name}`;
 
 window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
@@ -76,6 +82,14 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
     chain = message.chain;
     chainCallersOnTop = message.callersOnTop;
     showingChain = true;
+    // the host keeps resending the branch view until it hears the view closed
+    if (showingBranch) vscode.postMessage({ type: "showBranch", on: false });
+    showingBranch = false;
+  }
+  if (message.type === "branch") {
+    branch = message.branch;
+    showingBranch = true;
+    showingChain = false;
   }
   render();
   if (message.type === "focusOpenFile" && view) focusCard(view.openFile);
@@ -97,6 +111,20 @@ document.addEventListener("click", (event) => {
     return render();
   }
   if (kind === "open" && id) return vscode.postMessage({ type: "open", id, ...(value ? { line: Number(value) } : {}) });
+  if (kind === "mode" && value) return showBranchChanges(value === "branch");
+  if (kind === "branch-card") {
+    if (id && (event.metaKey || event.ctrlKey)) vscode.postMessage({ type: "open", id });
+    return;
+  }
+  if (kind === "branch-open" && id) {
+    showBranchChanges(false);
+    return vscode.postMessage({ type: "open", id });
+  }
+  if (kind === "branch-toggle" && value) {
+    branchOpen = { ...branchOpen, [value]: !branchOpen[value] };
+    return render();
+  }
+  if (kind === "copy-tests") return vscode.postMessage({ type: "copyTestFiles" });
   if (!view) return;
   if (kind === "chain" && value) return vscode.postMessage({ type: "showCallChain", file: view.openFile, line: Number(value) });
   if (kind === "select" && id && (event.metaKey || event.ctrlKey) && panelFor(view, id).canOpen) {
@@ -150,7 +178,7 @@ document.addEventListener("input", (event) => {
 
 document.addEventListener("keydown", (event) => {
   const target = event.target as HTMLElement;
-  if (target.closest("#panel")) return;
+  if (target.closest("#panel") || showingBranch) return;
   if (showingChain) return handleCallChainKey(event, target);
   if (!view) return;
   const searchColumn = target.dataset.search as ColumnKey | undefined;
@@ -234,6 +262,13 @@ function showPreviousChainRoot(): void {
   requestChainKeepingHistory(previousRoot.file, previousRoot.line);
 }
 
+function showBranchChanges(on: boolean): void {
+  showingBranch = on;
+  showingChain = false;
+  vscode.postMessage({ type: "showBranch", on });
+  render();
+}
+
 function showMap(): void {
   chainHistory = [];
   showingChain = false;
@@ -292,12 +327,13 @@ document.addEventListener("dblclick", (event) => {
 });
 
 function render(remeasured = false): void {
+  if (showingBranch) return renderBranchView(remeasured);
   if (showingChain && chain) return renderCallChainView(chain, remeasured);
   if (!view) return renderNoMap();
   renderedWidth = canvasWidth();
   const result = layout(view, ui, renderedWidth, searchByColumn, aiStatus?.ready ? explanationsOfOpenFile() : null);
   const map = document.getElementById("map")!;
-  map.classList.remove("chain");
+  map.classList.remove("chain", "branch");
   // every render replaces the html, so without these classes all nodes pop in again on each click
   map.classList.toggle("keep-nodes", view === renderedView);
   map.classList.toggle("keep-layer2", view === renderedView && ui.layer === renderedLayer);
@@ -345,8 +381,9 @@ function render(remeasured = false): void {
 // the host sends no view for a file the map does not cover, so this stays until a supported file opens
 function renderNoMap(): void {
   const map = document.getElementById("map")!;
-  map.classList.remove("chain");
+  map.classList.remove("chain", "branch");
   map.innerHTML = NO_MAP;
+  document.getElementById("panel")!.innerHTML = "";
   cards = [];
 }
 
@@ -361,6 +398,7 @@ function renderCallChainView(callChain: CallChain, remeasured: boolean): void {
   renderedWidth = canvasWidth();
   const editorFontSize = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--vscode-editor-font-size")) || 13;
   const result = layoutCallChain(callChain, chainOpen, renderedWidth, chainCallersOnTop, editorFontSize);
+  map.classList.remove("branch");
   map.classList.add("chain");
   map.classList.toggle("keep-nodes", sameRoot);
   map.innerHTML = renderCallChain(result, callChain, renderedWidth, chainHistory.at(-1)?.name);
@@ -371,6 +409,30 @@ function renderCallChainView(callChain: CallChain, remeasured: boolean): void {
   cards = result.cards.map((card) => ({ key: card.key, floor: "chain", x: card.x + card.w / 2, y: card.y }));
   if (focusedCardKey) focusCard(focusedCardKey, { preventScroll: true });
   if (!remeasured && canvasWidth() !== renderedWidth) renderCallChainView(callChain, true);
+  else fitMap();
+}
+
+function renderBranchView(remeasured: boolean): void {
+  const map = document.getElementById("map")!;
+  const branchKey = JSON.stringify(branch);
+  const wasShowingBranch = map.classList.contains("branch");
+  const sameBranch = wasShowingBranch && branchKey === renderedBranchKey;
+  const previousScroller = wasShowingBranch ? map.querySelector<HTMLElement>(".ne") : null;
+  const scrollLeft = previousScroller?.scrollLeft ?? 0;
+  const scrollTop = previousScroller?.scrollTop ?? 0;
+  renderedWidth = canvasWidth();
+  map.classList.remove("chain");
+  map.classList.add("branch");
+  // the host resends the branch after every save, so without this class all cards pop in again
+  map.classList.toggle("keep-nodes", sameBranch);
+  map.innerHTML = renderBranch(branch?.state === "changes" ? layoutBranch(branch, branchOpen, renderedWidth) : null, branch, renderedWidth);
+  renderedBranchKey = branchKey;
+  // the map renders from scratch when it comes back, so its scroll and pop-in do not carry over from the branch view
+  renderedView = null;
+  map.querySelector<HTMLElement>(".ne")?.scrollTo(scrollLeft, scrollTop);
+  cards = [];
+  document.getElementById("panel")!.innerHTML = renderBranchPanel(branch);
+  if (!remeasured && canvasWidth() !== renderedWidth) renderBranchView(true);
   else fitMap();
 }
 
@@ -399,7 +461,7 @@ let resizeFrame = 0;
 new ResizeObserver(() => {
   cancelAnimationFrame(resizeFrame);
   resizeFrame = requestAnimationFrame(() => {
-    if ((view || showingChain) && canvasWidth() !== renderedWidth) render();
+    if ((view || showingChain || showingBranch) && canvasWidth() !== renderedWidth) render();
     else fitMap();
   });
 }).observe(document.body);

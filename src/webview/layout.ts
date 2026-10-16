@@ -56,7 +56,7 @@ export type GroupKind = MemberKind | NodeKind;
 export interface GroupHeadingView { key: string; x: number; y: number; w: number; cls: string; kind: GroupKind; text: string; collapsed: boolean; column?: ColumnKey; }
 export interface GroupToggleView extends FloorToggle { key: string; x: number; column?: ColumnKey; }
 export interface ColumnTabView { text: string; active: boolean; toggleKey: string; }
-export interface FloorView { key: string; title: string; path: string; cls: string; x: number; y: number; w: number; h: number; emptyText: string; toggle: FloorToggle | null; search?: string; tabs?: ColumnTabView[]; column?: ColumnKey; focused?: boolean; }
+export interface FloorView { key: string; title: string; description?: string; path: string; cls: string; x: number; y: number; w: number; h: number; emptyText: string; toggle: FloorToggle | null; search?: string; tabs?: ColumnTabView[]; column?: ColumnKey; focused?: boolean; }
 export interface TreeRowView { x: number; y: number; w: number; cls: string; name: string; lineText: string; open: { file: string; line?: number } | null; toggleKey: string | null; expanded: boolean; column?: ColumnKey; }
 export interface NodeView { id: string; x: number; y: number; w: number; cls: string; kind: NodeKind; tag: string; name: string; path: string; column?: ColumnKey; }
 export interface UsesListView { x: number; y: number; w: number; uses: MemberUse[]; }

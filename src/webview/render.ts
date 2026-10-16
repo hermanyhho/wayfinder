@@ -1,5 +1,6 @@
 import type { AiScanState, AiStatus } from "../shared/messages";
-import type { CallChain, Fact, MemberKind, MemberVisibility, NodeKind, ViewData } from "../shared/viewData";
+import type { BranchView, CallChain, Fact, MemberKind, MemberVisibility, NodeKind, ViewData } from "../shared/viewData";
+import type { BranchCardView, BranchColumnKey, BranchLayout } from "./branchLayout";
 import { type CallChainLayout, type ChainCardView, type ChainDeeperView, type ChainLaneView } from "./callChainLayout";
 import { COLUMN_ORDER, TREE_INDENT, type BannerView, type ExplainBoxView, type CarouselView, type ColumnKey, type FloorView, type GroupHeadingView, type GroupKind, type GroupToggleView, type LayerView, type Layout, type MemberView, type NodeView, type PortView, type SecondLayerView, type TreeRowView, type UiState, type UsesListView, type WireView } from "./layout";
 import { groupChecks, panelFor, type Action, type PanelModel } from "./panelModel";
@@ -27,6 +28,17 @@ const CHAIN_LEGEND = `<div class="legend">
 <span class="green"><span class="lsw"></span>Selected function</span>
 <span class="blue"><span class="lsw"></span>Calls the selected function</span>
 <span class="violet"><span class="lsw"></span>Called by the selected function</span>
+</div>`;
+
+const BRANCH_LEGEND = `<div class="legend">
+<span class="green"><span class="lsw"></span>Changed on this branch</span>
+<span class="blue"><span class="lsw"></span>Imports a changed file</span>
+<span class="blue"><span class="lsw dashed"></span>One step further</span>
+</div>`;
+
+const renderModeSwitch = (showingBranch: boolean) => `<div class="seg" role="group" aria-label="What to show">
+<button class="${showingBranch ? "" : "on"}" data-action="mode" data-value="file" aria-pressed="${!showingBranch}">This file</button>
+<button class="${showingBranch ? "on" : ""}" data-action="mode" data-value="branch" aria-pressed="${showingBranch}">Impact analysis</button>
 </div>`;
 
 const immediateCount = (view: ViewData) => view.nodes.filter((node) => !node.secondLayer && node.kind !== "here" && node.kind !== "expected").length;
@@ -290,6 +302,7 @@ export function renderMap(result: Layout, view: ViewData, ui: UiState): string {
   const { inner, outer } = result;
   const canOpen = (id: string) => panelFor(view, id).canOpen;
   return `<div class="toolbar">
+${renderModeSwitch(false)}
 <div class="crumb"><span class="k">Current file</span><span class="mono">${escapeHtml(open.dir || ".")}</span><span>/</span><b class="mono">${escapeHtml(open.name)}</b></div>
 <div class="seg" role="group" aria-label="Layers to show">
 <button class="${ui.layer === 1 ? "on" : ""}" data-action="layer" data-value="1">Immediate layer</button>
@@ -324,7 +337,7 @@ const FLIP_ICON = '<path d="M7 20V4m0 0L3 8m4-4 4 4"></path><path d="M17 4v16m0 
 const renderDeeper = (button: ChainDeeperView) =>
   `<button class="ftog deeper" style="left:${button.x}px;top:${button.y}px" data-action="chain-deeper" data-value="${button.direction}" aria-label="Load one more level of ${button.direction}"><span class="ftic plus"></span>deeper</button>`;
 
-export const NO_MAP = `<div class="toolbar"><div class="crumb">This file type is not supported. Open a TypeScript or JavaScript file to see its map.</div></div>`;
+export const NO_MAP = `<div class="toolbar">${renderModeSwitch(false)}<div class="crumb">This file type is not supported. Open a TypeScript or JavaScript file to see its map.</div></div>`;
 
 export function renderCallChain(result: CallChainLayout, chain: CallChain, width: number, previousRootName: string | undefined): string {
   const levelCount = (levels: CallChain["callers"]) => `${levels.length} level${levels.length === 1 ? "" : "s"}`;
@@ -345,6 +358,72 @@ ${result.toggles.map(renderChainToggle).join("")}
 ${result.deeper.map(renderDeeper).join("")}
 </div></div></div>
 <div class="chainnote">Only direct calls are shown. Calls through events, callbacks, decorators or dependency injection are not found, so a function with no callers may still be called indirectly.</div>`;
+}
+
+const BRANCH_CARD_TAGS: Record<BranchColumnKey, string> = { changed: "Changed", importsChanged: "Imports a changed file", oneStepFurther: "One step further" };
+const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
+
+const renderBranchMapIcon = (card: BranchCardView) =>
+  `<button class="ndopen" style="left:${card.x + card.w - 42}px;top:${card.y + 1}px" data-action="branch-open" data-id="${escapeHtml(card.path)}" title="Show map of this file" aria-label="Show map of ${escapeHtml(fileNameOf(card.path))}"><svg viewBox="0 0 24 24" aria-hidden="true">${NODE_KIND_ICONS.subject}</svg></button>`;
+const renderBranchOpenIcon = (card: BranchCardView) =>
+  `<button class="ndopen" style="left:${card.x + card.w - 22}px;top:${card.y + 1}px" data-action="open" data-id="${escapeHtml(card.path)}" title="Open file (or ⌘/Ctrl+click the card)" aria-label="Open ${escapeHtml(fileNameOf(card.path))}"><svg viewBox="0 0 24 24" aria-hidden="true">${OPEN_ICON}</svg></button>`;
+
+// a deleted file has no file to open and no map, so its card gets no icons
+function renderBranchCard(card: BranchCardView): string {
+  const icon = NODE_KIND_ICONS[card.column === "changed" ? "here" : "caller"];
+  const changeTag = card.change && card.change !== "modified" ? `<span class="vis filled">${card.change}</span>` : "";
+  const content = `<span class="nh"><svg class="kic" viewBox="0 0 24 24" aria-hidden="true">${icon}</svg>${BRANCH_CARD_TAGS[card.column]}${changeTag}</span><span class="nn">${escapeHtml(fileNameOf(card.path))}</span><span class="np">${escapeHtml(card.detail)}</span>`;
+  const style = `left:${card.x}px;top:${card.y}px;width:${card.w}px`;
+  if (card.change === "deleted") return `<div class="nd ${card.cls}" style="${style}" title="${escapeHtml(card.path)}">${content}</div>`;
+  return `<div class="nd ${card.cls} withicon withchainicon" style="${style}" data-action="branch-card" data-id="${escapeHtml(card.path)}" title="${escapeHtml(card.path)}">${content}</div>${renderBranchMapIcon(card)}${renderBranchOpenIcon(card)}`;
+}
+
+const renderBranchToggle = (toggle: GroupToggleView) =>
+  `<button class="ftog" style="left:${toggle.x}px;top:${toggle.y}px" data-action="branch-toggle" data-value="${escapeHtml(toggle.key)}"><span class="ftic ${toggle.icon}"></span>${escapeHtml(toggle.text)}</button>`;
+
+function branchToolbar(branch: BranchView | null): string {
+  if (branch?.state !== "changes") return `<div class="toolbar">${renderModeSwitch(true)}<div class="crumb">${branch ? escapeHtml(branch.reason) : "Reading the branch diff"}</div></div>`;
+  const affected = branch.importsChanged.length + branch.oneStepFurther.length;
+  return `<div class="toolbar">
+${renderModeSwitch(true)}
+<div class="crumb"><span class="k">Branch</span><b class="mono">${escapeHtml(branch.branch)}</b><span>compared with</span><span class="mono">${escapeHtml(branch.base)}</span></div>
+<div class="count">${branch.changed.length} changed, ${affected} affected, ${plural(branch.testsToRun.length, "test")} to run</div>
+</div>`;
+}
+
+const renderFloorDescription = (floor: FloorView) =>
+  floor.description ? `<div class="fdesc" style="left:${floor.x + 14}px;top:${floor.y + 28}px;width:${floor.w - 28}px">${escapeHtml(floor.description)}</div>` : "";
+
+export function renderBranch(result: BranchLayout | null, branch: BranchView | null, width: number): string {
+  if (!result) return branchToolbar(branch);
+  return `${branchToolbar(branch)}
+${branch?.state === "changes" ? `<div class="intro">Files this branch changes, and the files that import them. Check these before you merge.</div>` : ""}
+${BRANCH_LEGEND}
+<div class="ne"><div class="fit"><div class="cv" style="width:${width}px;height:${result.height}px">
+${result.floors.map(renderFloor).join("")}
+${renderWires(result.wires)}
+${result.floors.map(renderFloorHeader).join("")}
+${result.floors.map(renderFloorDescription).join("")}
+${result.cards.map(renderBranchCard).join("")}
+${result.toggles.map(renderBranchToggle).join("")}
+${result.ports.map(renderPort).join("")}
+${result.banner ? renderBanner(result.banner) : ""}
+</div></div></div>`;
+}
+
+export function renderBranchPanel(branch: BranchView | null): string {
+  if (branch?.state !== "changes") return `<div class="pcard"><div class="kickrow"><span class="chip pink">Tests to run</span></div><div class="path">${branch ? "No changed files to test." : "Reading the branch diff"}</div></div>`;
+  const tests = branch.testsToRun;
+  const rows = tests
+    .map((test) => `<li><span class="testpath">${escapeHtml(test.test)}</span><span class="testcovers">${test.covers === test.test ? "changed on this branch" : `covers ${escapeHtml(fileNameOf(test.covers))}`}</span></li>`)
+    .join("");
+  return `<div class="pcard">
+<div class="kickrow"><span class="chip pink">Tests to run</span></div>
+<h2 class="title">${tests.length ? plural(tests.length, "test file") : "No tests to run"}</h2>
+<div class="path">${tests.length ? "Tests that import a changed file, and changed tests." : "No test imports a changed file."}</div>
+${tests.length ? `<button class="openbtn" data-action="copy-tests" title="Copies the paths, separated by spaces">Copy test files</button>` : ""}
+</div>
+${tests.length ? `<section><ul class="testlist">${rows}</ul></section>` : ""}`;
 }
 
 function renderConnections(model: PanelModel): string {
