@@ -3,9 +3,15 @@ import { MAX_SOURCE_CHARS, type NeighbourSource, numberedLinesWithin } from "./s
 
 export const IMPACT_SYSTEM_PROMPT = `You review the changes on a git branch for a developer, before a review or a push.
 Reply with JSON only, in this form:
-{"summary": "<two or three plain sentences: what the branch changes, what it could break, and which of the tests to run matter most>", "findings": [{"file": "<a path from the diff or the sources you were given>", "line": <line number>, "text": "<one sentence: what a change could break here>"}]}
-Point a finding at the line in a file that imports a changed file where it uses the changed code, or at the changed line itself.
-Only name files and line numbers you were given. Return an empty findings list when nothing could break.`;
+{"summary": "<two or three plain sentences: what the branch changes, which importing files use the changed code, and which of the tests to run matter most>", "findings": [{"file": "<a path from the diff or the sources you were given>", "line": <line number>, "text": "<one sentence: what a change could break here>"}]}
+Work in this order:
+1. From the diff, list what changed in each changed file: an export, function or method that was added, removed or renamed, a parameter or return type that changed, or behaviour that changed.
+2. For each file that imports a changed file, look in its source for the places that use what changed. A finding points at that line in the importing file.
+3. Point a finding at a changed line only when the change breaks its own file, for example a call to something that no longer exists.
+Code that was only added breaks nothing, unless something else changed with it. If no importer uses what changed, return an empty findings list and say so in the summary.
+You see only the diff and the importers. Code you were not given exists: never report a method, import or type as missing or not implemented because it is not shown.
+The diff shows only the changed lines and a few lines around them, so do not judge the rest of a changed file.
+Only name files and line numbers you were given.`;
 
 export type ImpactSources = { diff: string; newFiles: NeighbourSource[]; dependents: NeighbourSource[] };
 
