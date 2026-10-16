@@ -34,6 +34,7 @@ const ARROW_KEYS = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
 let chain: CallChain | null = null;
 let showingChain = false;
 let chainCallersOnTop = true;
+let plainCardClickOpens = false;
 /** lanes of the call chain with "Show N more" on, by lane key */
 let chainOpen: Record<string, boolean> = {};
 let renderedChainRoot = "";
@@ -68,6 +69,7 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
   if (message.type === "aiStatus") aiStatus = message.status;
   if (message.type === "ai") aiScan = { openFile: message.openFile, scan: message.scan };
   if (message.type === "explanations") explanations = { openFile: message.openFile, byMember: message.byMember };
+  if (message.type === "cardClick") plainCardClickOpens = message.cardClick === "open";
   if (message.type === "cursor") ui = { ...ui, cursorLine: message.line };
   // the carousel keys stay bound while the chain shows, and focus mode would otherwise change behind it
   if (message.type === "columnFocus" && !showingChain) ui = { ...ui, focusedColumn: changedFocusedColumn(message.change) };
@@ -113,6 +115,7 @@ document.addEventListener("click", (event) => {
   if (kind === "open" && id) return openOrReveal(target);
   if (kind === "modifier-open") {
     if (event.metaKey || event.ctrlKey) openOrReveal(target);
+    else if (plainCardClickOpens) goToLineOf(target);
     return;
   }
   if (kind === "mode" && value) return showBranchChanges(value === "branch");
@@ -159,6 +162,11 @@ function openOrReveal(element: HTMLElement): void {
   const { id, value } = element.dataset;
   if (id) vscode.postMessage({ type: "open", id, ...(value ? { line: Number(value) } : {}) });
   else if (value) vscode.postMessage({ type: "reveal", line: Number(value) });
+}
+
+// a component tree row opens its own file, but its line can be in the file that renders it
+function goToLineOf(card: HTMLElement): void {
+  openOrReveal(card.querySelector<HTMLElement>(".trline") ?? card);
 }
 
 const explanationsOfOpenFile = () => (view && explanations?.openFile === view.openFile ? explanations.byMember : {});

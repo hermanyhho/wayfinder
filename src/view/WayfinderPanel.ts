@@ -21,7 +21,7 @@ import type { CallChainBuilder } from "../graph/callChain";
 import { buildViewData } from "../graph/neighbourhood";
 import { cliLoginState, runCliScan } from "../providers/cliRunner";
 import { OllamaProvider } from "../providers/index";
-import { type AiScanState, type AiStatus, type ColumnFocusChange, type HostMessage, type MemberExplainState, type WebviewMessage, memberKeyOf } from "../shared/messages";
+import { type AiScanState, type AiStatus, type CardClick, type ColumnFocusChange, type HostMessage, type MemberExplainState, type WebviewMessage, memberKeyOf } from "../shared/messages";
 import type { BranchView, CallDirection, Member, ViewData } from "../shared/viewData";
 import { branchDiff } from "../workspace/branchDiff";
 import { gitHistory } from "../workspace/gitFacts";
@@ -52,6 +52,8 @@ async function installedCloudClis(): Promise<CloudCli[]> {
   const logins = await Promise.all(CLOUD_CLIS.map((cli) => cliLoginState(cli, STATUS_TIMEOUT_MS)));
   return CLOUD_CLIS.filter((_cli, index) => logins[index] !== "missing");
 }
+
+const cardClick = (): CardClick => (vscode.workspace.getConfiguration("wayfinder").get("cardClick") === "open" ? "open" : "nothing");
 
 const callersOnTop = () => vscode.workspace.getConfiguration("wayfinder.callChain").get<boolean>("callersOnTop", true);
 
@@ -236,6 +238,7 @@ export class WayfinderPanel implements vscode.Disposable {
         if (event.affectsConfiguration("wayfinder.ai.instructions") || event.affectsConfiguration("wayfinder.ai.scope")) this.dropStoredScans();
         if (event.affectsConfiguration("wayfinder.ai")) void this.refreshAiStatus();
         if (event.affectsConfiguration("wayfinder.callChain") && this.callChain) this.sendChain(this.callChain);
+        if (event.affectsConfiguration("wayfinder.cardClick")) this.send({ type: "cardClick", cardClick: cardClick() });
       }),
       rulesWatcher,
       rulesWatcher.onDidChange(() => this.dropStoredScans()),
@@ -302,6 +305,7 @@ export class WayfinderPanel implements vscode.Disposable {
   private async onMessage(message: WebviewMessage): Promise<void> {
     switch (message.type) {
       case "ready":
+        this.send({ type: "cardClick", cardClick: cardClick() });
         this.post();
         if (this.focusOpenFileWhenReady) this.send({ type: "focusOpenFile" });
         this.focusOpenFileWhenReady = false;

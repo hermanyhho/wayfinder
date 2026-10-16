@@ -217,6 +217,22 @@
             "description": "Show callers above the selected function in the call chain. Turn off to show callees on top."
           }
         }
+      },
+      {
+        "title": "Map",
+        "order": 6,
+        "properties": {
+          "wayfinder.cardClick": {
+            "type": "string",
+            "enum": ["nothing", "open"],
+            "enumDescriptions": [
+              "A click on a member card or a Component tree row does nothing. Use the line link, the open icon or ⌘/Ctrl+click to go to the code.",
+              "A click on a member card or a Component tree row goes to its line, the same as the line link."
+            ],
+            "default": "nothing",
+            "description": "What a plain click on a member card or a Component tree row does. Impact analysis cards and file cards are not affected."
+          }
+        }
       }
     ]
   },

@@ -515,6 +515,21 @@ describe("when the open file is a React component", () => {
     expect([rows[0].open, rows[4].open]).toEqual([{ file: "src/ui/CommentItem.tsx", line: 6 }, { file: AVATAR }]);
   });
 
+  it("should link the line of a parent to the parent's file, and the line of a rendered component to the file that renders it", () => {
+    const avatar = laidOut().treeRows.find((row) => row.name === "Avatar")!;
+
+    const rows = laidOut({ [avatar.toggleKey!]: true }).treeRows;
+
+    expect(rows.map((row) => [row.name, row.lineLink])).toEqual([
+      ["CommentItem", { file: "src/ui/CommentItem.tsx", line: 6 }],
+      ["ProfileHeader", { file: "src/ui/ProfileHeader.tsx", line: 5 }],
+      ["TeamList", { file: "src/ui/TeamList.tsx", line: 8 }],
+      ["UserCard", null],
+      ["Avatar", { file: USER_CARD, line: 12 }],
+      ["Image", { file: AVATAR, line: 10 }],
+    ]);
+  });
+
   it("should nest the next level one indent deeper after its toggle is opened", () => {
     const closed = laidOut();
     const avatar = closed.treeRows.find((row) => row.name === "Avatar")!;
@@ -580,13 +595,13 @@ describe("when the open file defines an exported interface", () => {
     expect(inner.groupHeadings.filter((heading) => heading.key.startsWith("tests:")).map((heading) => heading.text)).toEqual(["Classes (2)", "Extended by (1)"]);
   });
 
-  it("should show each card with its name, its file and line, and open that file at the line", () => {
+  it("should show each card with its name and its file, and open that file at the line", () => {
     const cards = cardsIn(interfaceLaidOut(), "implementation:");
 
     expect(cards.map((card) => [card.name, card.path, card.opensFile, card.line, card.x])).toEqual([
-      ["GroupRepository", "GroupRepository.ts · line 5", "src/groups/GroupRepository.ts", 5, NODE_X[2]],
-      ["GroupService", "GroupService.ts · line 3", "src/groups/GroupService.ts", 3, NODE_X[2]],
-      ["IDepartment", "IDepartment.ts · line 2", "src/groups/IDepartment.ts", 2, NODE_X[2]],
+      ["GroupRepository", "GroupRepository.ts", "src/groups/GroupRepository.ts", 5, NODE_X[2]],
+      ["GroupService", "GroupService.ts", "src/groups/GroupService.ts", 3, NODE_X[2]],
+      ["IDepartment", "IDepartment.ts", "src/groups/IDepartment.ts", 2, NODE_X[2]],
     ]);
   });
 
