@@ -35,7 +35,7 @@ export type AiScanState = { state: "idle" } | { state: "loading" } | { state: "d
 export type ColumnFocusChange = "toggle" | "next" | "previous";
 
 /** what a plain click on a member card or a component tree row does */
-export type CardClick = "nothing" | "open";
+export type CardClick = "select" | "goToLine";
 
 export type HostMessage =
   | { type: "view"; data: ViewData }

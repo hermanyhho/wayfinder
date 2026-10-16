@@ -93,6 +93,7 @@ body.vscode-light .nd { box-shadow: 0 2px 8px rgba(20, 30, 50, .10); }
 .nd.here .nh { color: #0E1116; background: var(--green); height: 20px; letter-spacing: .14em; }
 .nd.here .nn { font-size: 15px; line-height: 18px; padding-top: 7px; color: var(--strong); }
 .nd.cur { border-color: var(--c); box-shadow: 0 0 0 2px color-mix(in oklab, var(--c) 45%, transparent); }
+.nd.cur.sel { box-shadow: 0 0 0 3px color-mix(in oklab, var(--c) 30%, transparent), 0 6px 16px rgba(0, 0, 0, .35); }
 .nd.here.sel { box-shadow: 0 0 0 5px rgba(93, 214, 138, .22), 0 6px 16px rgba(0, 0, 0, .35); }
 .nd.withusage { height: 72px; }
 .nu { position: absolute; display: flex; align-items: baseline; gap: 6px; height: 14px; font-family: var(--mono); font-size: 10px; line-height: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; pointer-events: none; animation: pop .35s ease-out both; }
@@ -159,6 +160,7 @@ div.nd { cursor: default; }
 .tr.opens:hover { color: var(--strong); background: var(--l1); }
 .trn { overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
 .trl { flex: none; margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--muted); }
+.tr.sel { color: var(--c); box-shadow: inset 0 0 0 1px var(--c); }
 .tr.here { color: var(--c); background: color-mix(in oklab, var(--c) 14%, transparent); box-shadow: inset 0 0 0 1px var(--c); }
 .trtog { position: absolute; width: 16px; height: 22px; display: flex; align-items: center; justify-content: center; padding: 0; background: none; border: 0; border-radius: 4px; color: var(--muted); cursor: pointer; }
 .trtog svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transform: rotate(-90deg); transition: transform .15s; }

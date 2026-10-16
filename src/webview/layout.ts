@@ -44,7 +44,11 @@ export interface UiState {
   cursorLine?: number;
   /** set while focus mode shows this column in the centre */
   focusedColumn?: ColumnKey;
+  /** id of the member card, or selection key of the Component tree row, the user clicked last */
+  selectedMember?: string;
 }
+
+export const treeRowSelectionKey = (open: { file: string; line?: number }) => `tree:${open.file}:${open.line ?? ""}`;
 
 export type ColumnKey = "deps" | "members" | "tests";
 export const COLUMN_ORDER: ColumnKey[] = ["deps", "members", "tests"];
@@ -305,10 +309,10 @@ function memberExplainView(member: Member, box: Box, ui: UiState, explanations: 
   return { memberKey, openKey: explainOpenKeyOf(memberKey), ...(explanation ? { explanation } : {}), box: explainBox ?? null };
 }
 
-function implementationView(implementation: Implementation, id: string, box: Box): MemberView {
+function implementationView(implementation: Implementation, id: string, box: Box, ui: UiState): MemberView {
   const fileName = implementation.file.slice(implementation.file.lastIndexOf("/") + 1);
   return {
-    id, x: box.x, y: box.y, w: box.w, column: "tests", cls: "blue", tag: implementation.kind === "class" ? "implements" : "extends", kind: implementation.kind, name: implementation.name,
+    id, x: box.x, y: box.y, w: box.w, column: "tests", cls: ui.selectedMember === id ? "blue sel" : "blue", tag: implementation.kind === "class" ? "implements" : "extends", kind: implementation.kind, name: implementation.name,
     line: implementation.line, tooltip: `${implementation.file}:${implementation.line}`, path: fileName, opensFile: implementation.file,
   };
 }
@@ -322,7 +326,7 @@ function memberView(member: Member, id: string, box: Box, atCursor: boolean, ui:
   const usage = memberUsageView(member, box, ui);
   const explain = memberExplainView(member, box, ui, explanations);
   return {
-    id, x: box.x, y: box.y, w: box.w, column: "members", cls: atCursor ? "green cur" : "green", tag: tagOf(member), kind: member.kind, name: member.name, line: member.line,
+    id, x: box.x, y: box.y, w: box.w, column: "members", cls: ["green", atCursor ? "cur" : "", ui.selectedMember === id ? "sel" : ""].filter(Boolean).join(" "), tag: tagOf(member), kind: member.kind, name: member.name, line: member.line,
     tooltip: [member.name, member.suiteTitle].filter(Boolean).join("\n"),
     path: member.className ?? "",
     ...(member.focus ? { focus: member.focus } : {}),
@@ -415,9 +419,10 @@ function layoutComponentTree(tree: ComponentTree, componentFile: string, compone
       const expanded = link.links.length > 0 && !!ui.open[toggleKey];
       const rowX = x + depth * TREE_INDENT;
       const rowY = cursor;
+      const open = opensAtLine ? { file: link.file, line: link.line } : { file: link.file };
       rows.push({
-        x: rowX, y: rowY, w: w - depth * TREE_INDENT, cls: color, name: link.name, lineText: `line ${link.line}`,
-        open: opensAtLine ? { file: link.file, line: link.line } : { file: link.file }, lineLink: { file: opensAtLine ? link.file : parentFile, line: link.line }, toggleKey: link.links.length ? toggleKey : null, expanded, column: "deps",
+        x: rowX, y: rowY, w: w - depth * TREE_INDENT, cls: ui.selectedMember === treeRowSelectionKey(open) ? `${color} sel` : color, name: link.name, lineText: `line ${link.line}`,
+        open, lineLink: { file: opensAtLine ? link.file : parentFile, line: link.line }, toggleKey: link.links.length ? toggleKey : null, expanded, column: "deps",
       });
       cursor += TREE_ROW_H;
       if (expanded) drawBranch(rowX, rowY, placeLinks(link.links, depth + 1, toggleKey, color, opensAtLine, link.file));
@@ -599,7 +604,7 @@ function layoutImmediate(view: ViewData, ui: UiState, floorWidth: number, search
   const cursorMemberId = cursorIndex === -1 ? undefined : memberIds[cursorIndex];
   const members = [
     ...groupsByColumn.members.flatMap((group) => group.ids).filter((id) => boxes[id]).map((id) => memberView(memberById.get(id)!, id, boxes[id], id === cursorMemberId, ui, explanations)),
-    ...groupsByColumn.tests.flatMap((group) => group.ids).filter((id) => implementationById.has(id) && boxes[id]).map((id) => implementationView(implementationById.get(id)!, id, boxes[id])),
+    ...groupsByColumn.tests.flatMap((group) => group.ids).filter((id) => implementationById.has(id) && boxes[id]).map((id) => implementationView(implementationById.get(id)!, id, boxes[id], ui)),
   ];
   const hiddenCursorGroup = cursorMemberId && !boxes[cursorMemberId] ? groupsByColumn.members.find((group) => group.ids.includes(cursorMemberId)) : undefined;
   const cursorHeadingKey = hiddenCursorGroup && `${hiddenCursorGroup.key}:collapsed`;

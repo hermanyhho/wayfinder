@@ -41,7 +41,7 @@ Open a TypeScript or JavaScript file and press **Cmd+Alt+M** (Ctrl+Alt+M), or cl
 
 To go to a member or test case, click **line N** on its card, press the open icon, or ⌘/Ctrl+click the card. Rows in the **Component tree** tab work the same way. On a tree row, **line N** opens the file that holds that line.
 
-A plain click on a member card or tree row does nothing. Set `wayfinder.cardClick` to `open` to make it go to the line, the same as **line N**. Impact analysis cards are not affected.
+A plain click on a member card or tree row selects it. Set `wayfinder.cardClick` to `goToLine` to make the click also go to the line, the same as **line N**. Impact analysis cards are not affected.
 
 Use Ctrl in place of Cmd on Windows and Linux. To change a key, search `Wayfinder` in Keyboard Shortcuts. The `wayfinder.shortcut.*` settings turn shortcuts off.
 

@@ -53,7 +53,7 @@ async function installedCloudClis(): Promise<CloudCli[]> {
   return CLOUD_CLIS.filter((_cli, index) => logins[index] !== "missing");
 }
 
-const cardClick = (): CardClick => (vscode.workspace.getConfiguration("wayfinder").get("cardClick") === "open" ? "open" : "nothing");
+const cardClick = (): CardClick => (vscode.workspace.getConfiguration("wayfinder").get("cardClick") === "goToLine" ? "goToLine" : "select");
 
 const callersOnTop = () => vscode.workspace.getConfiguration("wayfinder.callChain").get<boolean>("callersOnTop", true);
 

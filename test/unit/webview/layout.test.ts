@@ -254,6 +254,15 @@ describe("layout", () => {
     expect(inner.members.some((member) => member.cls.includes("cur"))).toBe(false);
   });
 
+  it("should mark only the clicked member card as selected when another card is at the cursor", () => {
+    const withMembers = { ...view(), members: documentServiceMembers };
+    const uploadId = layout(withMembers, ui(), 800).inner.members.find((member) => member.name === "upload")!.id;
+
+    const { inner } = layout(withMembers, ui({ selectedMember: uploadId, cursorLine: 9 }), 800);
+
+    expect(inner.members.filter((member) => member.cls.split(" ").includes("sel")).map((member) => member.name)).toEqual(["upload"]);
+  });
+
   it("marks the member card at the cursor without selecting it", () => {
     const { inner } = layout({ ...view(), members: documentServiceMembers }, ui({ cursorLine: 20 }), 800);
     expect(inner.members.filter((member) => member.cls.includes("cur")).map((member) => member.name)).toEqual(["upload"]);
