@@ -448,10 +448,11 @@ function renderImpactScan(status: AiStatus | null, scan: ImpactScanState): strin
   if (scan.state !== "done") return "";
   const cloudNotice = status?.ready && status.sendsCodeTo ? `<div class="based">Cloud: sends code to ${escapeHtml(status.sendsCodeTo)}.</div>` : "";
   const cutNote = scan.cutFiles.length ? `<div class="based">Cut or left out to fit the model: ${escapeHtml(scan.cutFiles.map(fileNameOf).join(", "))}.</div>` : "";
+  const rulesCutNote = scan.rulesCut ? `<div class="based">Rules were cut to fit the model.</div>` : "";
   const findings = scan.result.findings.length
     ? `<ul class="findings">${scan.result.findings.map(renderImpactFinding).join("")}</ul>`
     : `<div class="based">The model found nothing the changes could break.</div>`;
-  return `<section><div class="aiblock">${aiHead("Impact")}<p>${escapeHtml(scan.result.summary)}</p></div><div class="aiblock">${aiHead("What could break")}${findings}${cutNote}${cloudNotice}</div></section>`;
+  return `<section><div class="aiblock">${aiHead("Impact")}<p>${escapeHtml(scan.result.summary)}</p></div><div class="aiblock">${aiHead("What could break")}${findings}${cutNote}${rulesCutNote}${cloudNotice}</div></section>`;
 }
 
 export function renderBranchPanel(branch: BranchView | null, status: AiStatus | null, impactScan: ImpactScanState): string {

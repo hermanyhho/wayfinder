@@ -21,14 +21,15 @@ export const BUILT_IN_RULES = `- Flag missing error handling around file, networ
 
 export const STARTER_RULES_FILE = `# Wayfinder AI rules
 
-Wayfinder adds these rules to its built-in rules when it scans a file with AI.
+Wayfinder adds these rules to its built-in rules when it scans a file or the branch impact with AI.
 Write one rule per line. Keep them short: rules are cut at ${MAX_RULES_CHARS} characters.
 
 - Flag every function longer than 40 lines.
 `;
 
 export type NeighbourSource = { file: string; source: string };
-export type ScanPromptExtras = { repoRules?: string; userRules?: string; neighbourSources?: NeighbourSource[] };
+export type AiRules = { repoRules?: string; userRules?: string };
+export type ScanPromptExtras = AiRules & { neighbourSources?: NeighbourSource[] };
 
 const NEIGHBOUR_KIND_ORDER: NodeKind[] = ["dependency", "types", "subject", "cycle", "test", "caller"];
 
@@ -53,7 +54,7 @@ export function buildScanPrompt(source: string, view: ViewData, extras: ScanProm
     neighbourBlocks.push(header, cutNote(neighbour.file, neighbourLines), neighbourLines.text);
     remainingChars -= header.length + neighbourLines.text.length;
   }
-  const rules = rulesWithin(extras.repoRules ?? "", extras.userRules ?? "");
+  const rules = rulesWithin(extras);
   return {
     prompt: [
       `Open file: ${view.openFile}`,
@@ -73,7 +74,7 @@ export function buildScanPrompt(source: string, view: ViewData, extras: ScanProm
   };
 }
 
-function rulesWithin(repoRules: string, userRules: string): { text: string; cut: boolean } {
+export function rulesWithin({ repoRules = "", userRules = "" }: AiRules): { text: string; cut: boolean } {
   const text = [
     repoRules.trim() && `Team rules from ${RULES_FILE}:\n${repoRules.trim()}`,
     userRules.trim() && `Rules from the developer's settings:\n${userRules.trim()}`,

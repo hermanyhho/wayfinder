@@ -86,7 +86,7 @@ Optional. Adds a summary and things worth checking, under the facts from code.
 
 To explain one card in Members (a test group, test case, function, method or class), press the gold sparkle on the card. The answer opens under the card. Press the **AI** tag to hide or show it again without a new request.
 
-Add team rules in `.wayfinder/rules.md` (**Wayfinder: Create AI rules file**), or your own in `wayfinder.ai.instructions`.
+Add team rules in `.wayfinder/rules.md` (**Wayfinder: Create AI rules file**), or your own in `wayfinder.ai.instructions`. **Scan with AI** and **Scan impact with AI** both use them: the team rules first, then yours, cut at 2,000 characters. Explain does not use them.
 
 ![Wayfinder settings](media/settings.png)
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildImpactPrompt, type ImpactSources } from "../../../src/ai/impactScan";
-import { MAX_SOURCE_CHARS } from "../../../src/ai/scanFile";
+import { MAX_RULES_CHARS, MAX_SOURCE_CHARS } from "../../../src/ai/scanFile";
 import type { BranchView } from "../../../src/shared/viewData";
 
 const SERVICE = "src/services/DocumentService.ts";
@@ -203,5 +203,38 @@ describe("when numbering the lines of a diff", () => {
     const { prompt } = diffOnly("  \n");
 
     expect(prompt).not.toContain("Diff of the changed files");
+  });
+});
+
+describe("when the developer has AI rules", () => {
+  const TEAM_RULE = "Flag every removed export";
+  const USER_RULE = "Flag every changed return type";
+  const promptWithRules = (repoRules: string, userRules: string) => buildImpactPrompt(branch, sourcesWith(), { repoRules, userRules });
+  const promptWithoutRules = () => buildImpactPrompt(branch, sourcesWith()).prompt;
+
+  it("should add the team rules, then the user's rules, before the diff", () => {
+    const { prompt, rulesCut } = promptWithRules(TEAM_RULE, USER_RULE);
+
+    expect(prompt.indexOf(TEAM_RULE)).toBeGreaterThan(prompt.indexOf("Rules for what to check:"));
+    expect(prompt.indexOf(USER_RULE)).toBeGreaterThan(prompt.indexOf(TEAM_RULE));
+    expect(prompt.indexOf("Diff of the changed files")).toBeGreaterThan(prompt.indexOf(USER_RULE));
+    expect(rulesCut).toBe(false);
+  });
+
+  it("should cut the rules at the rules limit and report the cut", () => {
+    const longTeamRules = "- Flag this.\n".repeat(MAX_RULES_CHARS);
+
+    const { prompt, rulesCut } = promptWithRules(longTeamRules, USER_RULE);
+
+    expect(rulesCut).toBe(true);
+    expect(prompt).not.toContain(USER_RULE);
+    expect(prompt.length).toBeLessThanOrEqual(promptWithoutRules().length + "Rules for what to check:\n".length + MAX_RULES_CHARS + 1);
+  });
+
+  it("should send no rules section when the rules are only whitespace", () => {
+    const { prompt, rulesCut } = promptWithRules("  \n ", "\t");
+
+    expect(prompt).toBe(promptWithoutRules());
+    expect(rulesCut).toBe(false);
   });
 });
