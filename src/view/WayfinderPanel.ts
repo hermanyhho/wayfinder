@@ -8,6 +8,7 @@ import {
   RULES_FILE,
   SCAN_SYSTEM_PROMPT,
   STARTER_RULES_FILE,
+  type AiRules,
   type NeighbourSource,
   type ScanPromptExtras,
   aiStatusFor,
@@ -423,9 +424,9 @@ export class WayfinderPanel implements vscode.Disposable {
       const dependents = await this.sourcesOf(dependentPaths);
       const readPaths = new Set([...newFiles, ...dependents].map((source) => source.file));
       const unreadPaths = [...newFilePaths, ...dependentPaths].filter((path) => !readPaths.has(path));
-      const { prompt, lineCountByFile, cutFiles } = buildImpactPrompt(branch, { diff: diffText, newFiles, dependents });
+      const { prompt, lineCountByFile, cutFiles, rulesCut } = buildImpactPrompt(branch, { diff: diffText, newFiles, dependents }, await this.aiRules());
       const result = parseScanReply(await this.askModel(prompt, IMPACT_SYSTEM_PROMPT, baseUrl, model, cloudCli), lineCountByFile);
-      return result ? { state: "done", result, cutFiles: [...cutFiles, ...unreadPaths] } : { state: "error", message: "The model's reply could not be read. Try again." };
+      return result ? { state: "done", result, cutFiles: [...cutFiles, ...unreadPaths], rulesCut } : { state: "error", message: "The model's reply could not be read. Try again." };
     } catch (error) {
       return this.modelFailure(error, "The impact scan failed");
     }
@@ -590,8 +591,7 @@ export class WayfinderPanel implements vscode.Disposable {
     return true;
   }
 
-  private async scanExtras(view: ViewData): Promise<ScanPromptExtras> {
-    const settings = vscode.workspace.getConfiguration("wayfinder.ai");
+  private async aiRules(): Promise<AiRules> {
     const repoRules = await vscode.workspace.fs.readFile(vscode.Uri.joinPath(this.index.root, RULES_FILE)).then(
       (bytes) => new TextDecoder().decode(bytes),
       (error: unknown) => {
@@ -599,10 +599,14 @@ export class WayfinderPanel implements vscode.Disposable {
         throw error;
       },
     );
-    const userRules = settings.get<string>("instructions") ?? "";
-    if (settings.get<string>("scope") !== "neighbours") return { repoRules, userRules };
+    return { repoRules, userRules: vscode.workspace.getConfiguration("wayfinder.ai").get<string>("instructions") ?? "" };
+  }
+
+  private async scanExtras(view: ViewData): Promise<ScanPromptExtras> {
+    const rules = await this.aiRules();
+    if (vscode.workspace.getConfiguration("wayfinder.ai").get<string>("scope") !== "neighbours") return rules;
     const neighbourSources = await this.sourcesOf(neighbourFiles(view).filter((file) => this.index.graph.files.has(file)));
-    return { repoRules, userRules, neighbourSources };
+    return { ...rules, neighbourSources };
   }
 
   private async sourcesOf(files: string[]): Promise<NeighbourSource[]> {
@@ -612,6 +616,7 @@ export class WayfinderPanel implements vscode.Disposable {
 
   private dropStoredScans(): void {
     for (const [file, stored] of this.scans) if (stored.scan.state !== "loading") this.scans.delete(file);
+    if (this.impactScan.state !== "loading") this.storeImpactScan({ state: "idle" });
     if (this.openFile) this.sendScanState(this.openFile).catch(() => undefined);
   }
 

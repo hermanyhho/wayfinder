@@ -1,5 +1,5 @@
 import type { BranchView } from "../shared/viewData";
-import { MAX_SOURCE_CHARS, type NeighbourSource, numberedLinesWithin } from "./scanFile";
+import { type AiRules, MAX_SOURCE_CHARS, type NeighbourSource, numberedLinesWithin, rulesWithin } from "./scanFile";
 
 export const IMPACT_SYSTEM_PROMPT = `You review the changes on a git branch for a developer, before a review or a push.
 Reply with JSON only, in this form:
@@ -39,7 +39,11 @@ function numberedDiffLines(diff: string): DiffLine[] {
 
 const listed = (items: string[]) => (items.length ? items.map((item) => `- ${item}`) : ["- none"]);
 
-export function buildImpactPrompt(branch: BranchChanges, sources: ImpactSources): { prompt: string; lineCountByFile: Map<string, number>; cutFiles: string[] } {
+export function buildImpactPrompt(
+  branch: BranchChanges,
+  sources: ImpactSources,
+  aiRules: AiRules = {},
+): { prompt: string; lineCountByFile: Map<string, number>; cutFiles: string[]; rulesCut: boolean } {
   const lineCountByFile = new Map<string, number>();
   const cutFiles = new Set<string>();
   const diffLines = sources.diff.trim() ? numberedDiffLines(sources.diff.trimEnd()) : [];
@@ -70,6 +74,7 @@ export function buildImpactPrompt(branch: BranchChanges, sources: ImpactSources)
     remainingChars -= header.length + lines.text.length + 2;
   }
 
+  const rules = rulesWithin(aiRules);
   const prompt = [
     `Branch ${branch.branch}, compared with ${branch.base}.`,
     "Changed files:",
@@ -80,6 +85,7 @@ export function buildImpactPrompt(branch: BranchChanges, sources: ImpactSources)
     ...listed(branch.oneStepFurther.map((file) => file.path)),
     "Tests to run, names only:",
     ...listed(branch.testsToRun.map((test) => `${test.test} (${test.covers === test.test ? "changed on this branch" : `covers ${test.covers}`})`)),
+    rules.text && `Rules for what to check:\n${rules.text}`,
     cutFiles.size ? `Cut or left out to fit: ${[...cutFiles].join(", ")}.` : "",
     shownDiffCount ? "Diff of the changed files. Each line of the new version starts with its line number:" : "",
     diffLines
@@ -90,5 +96,5 @@ export function buildImpactPrompt(branch: BranchChanges, sources: ImpactSources)
   ]
     .filter(Boolean)
     .join("\n");
-  return { prompt, lineCountByFile, cutFiles: [...cutFiles] };
+  return { prompt, lineCountByFile, cutFiles: [...cutFiles], rulesCut: rules.cut };
 }

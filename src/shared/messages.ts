@@ -32,7 +32,7 @@ export type AiStatus = { ready: true; model: string; sendsCodeTo?: string } | { 
 
 export type AiScanState = { state: "idle" } | { state: "loading" } | { state: "done"; result: AiScan; rulesCut: boolean } | { state: "error"; message: string };
 
-export type ImpactScanState = { state: "idle" } | { state: "loading" } | { state: "done"; result: AiScan; cutFiles: string[] } | { state: "error"; message: string };
+export type ImpactScanState = { state: "idle" } | { state: "loading" } | { state: "done"; result: AiScan; cutFiles: string[]; rulesCut: boolean } | { state: "error"; message: string };
 
 export type ColumnFocusChange = "toggle" | "next" | "previous";
 
